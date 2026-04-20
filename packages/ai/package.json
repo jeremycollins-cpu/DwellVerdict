@@ -1,0 +1,11 @@
+{
+  "name": "@dwellverdict/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "echo \"(no-op) ai lint — Scout tasks land in a later phase\"",
+    "typecheck": "echo \"(no-op) ai typecheck\"",
+    "test": "echo \"(no-op) ai tests\""
+  }
+}

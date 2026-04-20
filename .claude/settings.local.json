@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --version)",
+      "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm lint *)",
+      "Bash(uv run *)",
+      "Bash(kill %1)",
+      "Bash(pkill -f \"uvicorn dwellverdict_modeling\")"
+    ]
+  }
+}

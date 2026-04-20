@@ -1,0 +1,20 @@
+{
+  "name": "@dwellverdict/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts"
+  },
+  "scripts": {
+    "lint": "echo \"(no-op) db lint — wired in M2\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"(no-op) db tests — wired in M2\""
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

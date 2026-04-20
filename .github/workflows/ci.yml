@@ -1,0 +1,16 @@
+# Full CI — lint, typecheck, test on both services — is wired in Milestone 5.
+# This placeholder exists so the file path is stable and PR previews can
+# reference a workflow name from day one.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Announce M5
+        run: echo "CI pipeline lands in Milestone 5 (lint, typecheck, pytest, pnpm test)."

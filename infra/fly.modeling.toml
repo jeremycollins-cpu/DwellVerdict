@@ -1,0 +1,22 @@
+# Fly.io config for apps/modeling — filled in during Milestone 4.
+# Intended shape (reference only; not read by Fly until we deploy):
+#
+# app = "dwellverdict-modeling"
+# primary_region = "iad"
+#
+# [build]
+#   dockerfile = "../apps/modeling/Dockerfile"
+#
+# [http_service]
+#   internal_port = 8000
+#   force_https = true
+#   auto_stop_machines = true
+#   auto_start_machines = true
+#   min_machines_running = 0
+#
+# [[http_service.checks]]
+#   method = "get"
+#   path = "/health"
+#   interval = "30s"
+#   timeout = "5s"
+#   grace_period = "10s"
