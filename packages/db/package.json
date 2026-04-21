@@ -12,7 +12,9 @@
   "scripts": {
     "lint": "echo \"(no-op) db lint — wired in M2\"",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"(no-op) db tests — wired in M2\""
+    "test": "echo \"(no-op) db tests — wired in M2\"",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",

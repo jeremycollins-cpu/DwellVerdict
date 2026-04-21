@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   date,
   index,
   integer,
@@ -166,6 +168,29 @@ export const properties = pgTable(
     propertyTypeIdx: index("properties_property_type_idx").on(table.propertyType),
     statusIdx: index("properties_status_idx").on(table.status),
     currentStageIdx: index("properties_current_stage_idx").on(table.currentStage),
+    statusCheck: check(
+      "properties_status_check",
+      sql`${table.status} IN (
+        'prospect',
+        'shortlisted',
+        'underwriting',
+        'under_contract',
+        'closing',
+        'owned_pre_launch',
+        'owned_operating',
+        'sold'
+      )`,
+    ),
+    currentStageCheck: check(
+      "properties_current_stage_check",
+      sql`${table.currentStage} IN (
+        'finding',
+        'evaluating',
+        'buying',
+        'renovating',
+        'managing'
+      )`,
+    ),
   }),
 );
 

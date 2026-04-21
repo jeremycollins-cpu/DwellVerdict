@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   pgTable,
   primaryKey,
@@ -46,6 +48,10 @@ export const organizations = pgTable(
       table.stripeCustomerId,
     ),
     planIdx: index("organizations_plan_idx").on(table.plan),
+    planCheck: check(
+      "organizations_plan_check",
+      sql`${table.plan} IN ('starter', 'pro', 'portfolio')`,
+    ),
   }),
 );
 
