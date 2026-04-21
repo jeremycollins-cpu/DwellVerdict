@@ -14,7 +14,8 @@ CREATE TABLE "organization_members" (
 	"role" text DEFAULT 'member' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "organization_members_org_id_user_id_pk" PRIMARY KEY("org_id","user_id")
+	CONSTRAINT "organization_members_org_id_user_id_pk" PRIMARY KEY("org_id","user_id"),
+	CONSTRAINT "organization_members_role_check" CHECK ("organization_members"."role" IN ('owner', 'member'))
 );
 --> statement-breakpoint
 CREATE TABLE "organizations" (

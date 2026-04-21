@@ -1,5 +1,5 @@
 {
-  "id": "a356920f-dc47-433b-9463-d0d7f42e0b9c",
+  "id": "c9f28559-fa93-4a67-b225-059c777b901c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -187,7 +187,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "organization_members_role_check": {
+          "name": "organization_members_role_check",
+          "value": "\"organization_members\".\"role\" IN ('owner', 'member')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.organizations": {

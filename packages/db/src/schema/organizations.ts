@@ -77,6 +77,7 @@ export const organizationMembers = pgTable(
   (table) => ({
     pk: primaryKey({ columns: [table.orgId, table.userId] }),
     userIdIdx: index("organization_members_user_id_idx").on(table.userId),
+    roleCheck: check("organization_members_role_check", sql`${table.role} IN ('owner', 'member')`),
   }),
 );
 
