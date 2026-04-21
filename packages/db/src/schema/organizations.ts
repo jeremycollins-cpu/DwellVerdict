@@ -45,6 +45,7 @@ export const organizations = pgTable(
     stripeCustomerIdUnique: uniqueIndex("organizations_stripe_customer_id_unique").on(
       table.stripeCustomerId,
     ),
+    planIdx: index("organizations_plan_idx").on(table.plan),
   }),
 );
 
