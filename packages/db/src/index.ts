@@ -1,2 +1,2 @@
-// Drizzle schema and client land here in Milestone 2.
-export {};
+export * from "./client";
+export * as schema from "./schema";
