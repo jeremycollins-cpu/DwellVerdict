@@ -8,6 +8,43 @@ until they're resolved or promoted to a full ADR.
 
 ---
 
+## Milestone status
+
+**Phase 0 — complete as of 2026-04-22.** (First M1 commit: 2026-04-20.)
+
+**Shipped:**
+- **M1** — Monorepo (pnpm + Turborepo), Next.js 15 + Tailwind + shadcn skeleton,
+  FastAPI `/health`, CI placeholder.
+- **M2** — Drizzle schema for users / organizations / organization_members /
+  properties / property_stages with CHECK constraints, Neon HTTPS migration
+  runner, typed DB client factory.
+- **M3a/b/c** — Clerk auth end-to-end: middleware-protected `/app` routes,
+  `<SignIn>`/`<SignUp>` catch-all pages, svix-verified `/api/webhooks/clerk`
+  with idempotent user+org+member sync, 3 Vitest integration tests,
+  production Clerk instance on `accounts.dwellverdict.com`, custom domain
+  with SSL at `https://dwellverdict.com`, first real user signed up and
+  landed on `/app/properties` cleanly.
+- **M4** — FastAPI modeling service on Fly.io (sjc, scale-to-zero), typed
+  `modeling-client.ts` in the web app, debug footer on `/app/properties`
+  rendering `Modeling: v0.0.0` live from Fly.
+
+**Deferred from Phase 0 plan (original brief):**
+- **M5** (CI + observability) — GitHub Actions lint/typecheck/test on PR,
+  Sentry on both services, PostHog client. Treated as pre-Phase-1 work.
+- **M6** (formal ADRs) — the five foundational stack-choice ADRs were meant
+  to be initialized in the `## Accepted ADRs` section below. Current state:
+  decisions are implicit in `CLAUDE.md` / `TECHNICAL_SPEC.md`, with
+  post-mortems captured in the Pending section as LESSON entries. Works
+  fine until the next engineer joins.
+
+**Outstanding infrastructure TODOs (details in Pending below):**
+- Dedicated Neon `test` branch before M5 CI
+- Clerk custom email sender upgrade when we move to a paid plan
+- pnpm 10 upgrade (its own milestone)
+- POSTGRES_* / NEON_* env var alias cleanup in Vercel's Neon integration
+
+---
+
 ## Pending
 
 ### TODO — dedicated Neon test branch before M5 CI
