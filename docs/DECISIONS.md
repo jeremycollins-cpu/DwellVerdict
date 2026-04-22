@@ -137,6 +137,27 @@ should always be a conscious choice, not an accident. This applies
 beyond Fly — Vercel's `vercel link`, `gh repo create`, `aws
 cloudformation deploy`, etc. all mutate config in ways worth diffing.
 
+### ADDENDUM — Fly creates 2 machines by default (observed in M4-3)
+
+Despite `min_machines_running = 0` in our `fly.toml`, `fly deploy`
+provisioned 2 machines on first deploy with the console message:
+`Creating a second machine for high availability and zero downtime
+deployments.`
+
+The `min_machines_running = 0` setting governs **idle** behavior
+(scale-to-zero), **not** initial provisioning count. Fly's current
+default for new apps is to create 2 machines for HA regardless.
+
+**Cost impact:** negligible. At ~50 MB rootfs per machine, stopped
+storage cost is ~$0.015/machine/month (~$0.18/year for the HA pair at
+full idle). For DwellVerdict Phase 0, keeping the HA pair is correct
+— zero-downtime deploys for free.
+
+**To run strictly 1 machine:** `fly scale count 1 --yes`
+
+If cost becomes a concern at higher machine counts (unlikely for the
+modeling service), this is the knob.
+
 ---
 
 ## Accepted ADRs
