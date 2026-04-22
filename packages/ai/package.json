@@ -3,9 +3,24 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tasks/verdict-generation": "./src/tasks/verdict-generation.ts"
+  },
   "scripts": {
-    "lint": "echo \"(no-op) ai lint — Scout tasks land in a later phase\"",
-    "typecheck": "echo \"(no-op) ai typecheck\"",
-    "test": "echo \"(no-op) ai tests\""
+    "lint": "echo \"(no-op) ai lint\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

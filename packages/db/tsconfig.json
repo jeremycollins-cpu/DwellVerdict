@@ -3,7 +3,11 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "noEmit": true
+    "noEmit": true,
+    // Pull DOM lib for WebSocket global — Node 20+ ships a WebSocket
+    // at runtime (which client.ts relies on via neon-serverless) but
+    // Node's @types/node doesn't expose it as a global type yet.
+    "lib": ["ES2022", "DOM"]
   },
   "include": ["src/**/*.ts"]
 }

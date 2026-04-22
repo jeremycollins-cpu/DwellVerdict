@@ -1,0 +1,144 @@
+import { auth, currentUser } from "@clerk/nextjs/server";
+
+import {
+  generateVerdict,
+  VERDICT_PROMPT_VERSION,
+} from "@dwellverdict/ai";
+
+import { resolveAppUser } from "@/lib/db/queries/users";
+import { getPropertyForOrg } from "@/lib/db/queries/properties";
+import {
+  getVerdictForOrg,
+  markVerdictFailed,
+  markVerdictReady,
+} from "@/lib/db/queries/verdicts";
+import { refundFreeVerdict } from "@/lib/db/queries/verdict-limits";
+
+/**
+ * POST /api/verdicts/[id]/generate — kick off (or complete) Anthropic
+ * verdict generation for a pending verdict row.
+ *
+ * Why a route handler and not a server action: the Anthropic call can
+ * take 20-40s with web search. Route handlers on Node runtime get
+ * their own `maxDuration` envelope (60s on default Vercel), and they
+ * compose more cleanly with client-side fetch() than server actions
+ * do for long-running work.
+ *
+ * Idempotency: the client may call this twice during a refresh or
+ * retry. We guard by reading the verdict's current status — if it's
+ * already 'ready', return the existing payload; if 'failed', allow a
+ * retry (which walks the row forward from failed → pending → ready).
+ *
+ * Refund: if generation fails, we refund the user's free-tier quota
+ * slot that the server action consumed. We swallow refund failures —
+ * under-charging once is better than ballooning error surfaces.
+ */
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+export async function POST(
+  _req: Request,
+  context: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const { id: verdictId } = await context.params;
+
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  const clerkUser = await currentUser();
+  const email =
+    clerkUser?.primaryEmailAddress?.emailAddress ??
+    clerkUser?.emailAddresses[0]?.emailAddress;
+  if (!email) {
+    return Response.json({ ok: false, error: "no_email" }, { status: 401 });
+  }
+  const name =
+    [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ").trim() || null;
+  const appUser = await resolveAppUser(clerkUserId, email, name);
+  if (!appUser) {
+    return Response.json({ ok: false, error: "user_deleted" }, { status: 401 });
+  }
+
+  const verdict = await getVerdictForOrg({
+    verdictId,
+    orgId: appUser.orgId,
+  });
+  if (!verdict) {
+    return Response.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  // Idempotency: already-ready short-circuits. pending / failed both
+  // fall through to generation — markVerdictReady / markVerdictFailed
+  // overwrite the final state regardless of prior status.
+  if (verdict.status === "ready") {
+    return Response.json({ ok: true, status: "ready", verdictId });
+  }
+
+  const property = await getPropertyForOrg({
+    propertyId: verdict.propertyId,
+    orgId: appUser.orgId,
+  });
+  if (!property) {
+    return Response.json({ ok: false, error: "property_not_found" }, { status: 404 });
+  }
+
+  const lat = property.lat ? Number(property.lat) : NaN;
+  const lng = property.lng ? Number(property.lng) : NaN;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    await markVerdictFailed({
+      verdictId,
+      error: "Property has no coordinates — cannot generate verdict",
+      promptVersion: VERDICT_PROMPT_VERSION,
+    });
+    return Response.json(
+      { ok: false, error: "no_coordinates" },
+      { status: 422 },
+    );
+  }
+
+  const addressFull =
+    property.addressFull ??
+    `${property.addressLine1}, ${property.city}, ${property.state} ${property.zip}`;
+
+  const result = await generateVerdict({ addressFull, lat, lng });
+
+  if (!result.ok) {
+    await markVerdictFailed({
+      verdictId,
+      error: result.error,
+      modelVersion: result.observability.modelVersion,
+      promptVersion: result.observability.promptVersion,
+      inputTokens: result.observability.inputTokens,
+      outputTokens: result.observability.outputTokens,
+      costCents: result.observability.costCents,
+    });
+    // Refund the free-tier slot the server action consumed — the
+    // user shouldn't be charged quota for our failure. Swallow refund
+    // errors (under-charging once is better than compounding errors).
+    await refundFreeVerdict(appUser.userId).catch(() => undefined);
+    return Response.json(
+      { ok: false, error: "generation_failed", message: result.error },
+      { status: 502 },
+    );
+  }
+
+  await markVerdictReady({
+    verdictId,
+    signal: result.output.verdict,
+    confidence: result.output.confidence,
+    summary: result.output.summary,
+    narrative: result.output.narrative,
+    dataPoints: result.output.data_points,
+    sources: result.output.sources,
+    modelVersion: result.observability.modelVersion,
+    promptVersion: result.observability.promptVersion,
+    inputTokens: result.observability.inputTokens,
+    outputTokens: result.observability.outputTokens,
+    costCents: result.observability.costCents,
+  });
+
+  return Response.json({ ok: true, status: "ready", verdictId });
+}
