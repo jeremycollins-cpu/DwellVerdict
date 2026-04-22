@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Tests — not needed in the runtime image
+tests/
+
+# Env files — secrets go through Fly.io secrets, never the image
+.env
+.env.local
+.env.*.local
+
+# Docker / Fly config — not needed in image itself
+Dockerfile
+.dockerignore
+fly.toml
+
+# Docs
+README.md

@@ -1,0 +1,85 @@
+# Fly.io config for the DwellVerdict modeling service.
+# Commit this file; runtime secrets go through `fly secrets set`, never here.
+
+app = "dwellverdict-modeling"
+
+# primary_region = "sjc" — flyctl silently remapped our original "sea" to
+# "sjc" during M4-3 fly launch because Seattle is not in Fly's current US
+# region list (verified via `fly platform regions`). sjc is co-located with
+# Neon us-west-2 at ~12ms latency (vs ~5ms for sea if it were available).
+# Acceptable for Phase 0. Revisit if Fly restores sea.
+primary_region = "sjc"
+
+# ─── Graceful shutdown ────────────────────────────────────────────────
+# When Fly decides to stop a machine (scale-to-zero, deploy rollover,
+# host maintenance), it first sends kill_signal, then hard-kills after
+# kill_timeout. SIGINT is what uvicorn handles as "drain and exit
+# cleanly" — finishes in-flight requests, closes the server, then exits.
+# 30s is far more than our sub-second requests need and is Fly's default
+# upper bound for this field.
+kill_signal = "SIGINT"
+kill_timeout = "30s"
+
+# ─── Swap ─────────────────────────────────────────────────────────────
+# Fly provisions a 512MB swap file at no extra cost (swap is file-backed
+# on rootfs, not dedicated RAM). Protects against OOM-kill during brief
+# memory spikes — e.g. a Pydantic validation over a large payload — when
+# we're at the 512MB RAM ceiling. Machine slows down instead of dying.
+#
+# IMPORTANT: swap_size_mb is a TOP-LEVEL key, not a [[vm]] subkey. Fly's
+# TOML writer silently drops misplaced keys on rewrite — we learned this
+# the hard way during M4-3. See docs/DECISIONS.md.
+swap_size_mb = 512
+
+# ─── Build ────────────────────────────────────────────────────────────
+# flyctl auto-detects the Dockerfile in this directory, but being
+# explicit keeps it discoverable and locks it against future surprises.
+[build]
+  dockerfile = "Dockerfile"
+
+# ─── HTTP service ─────────────────────────────────────────────────────
+# Fly's edge proxy terminates TLS on :443 publicly and forwards to our
+# container's internal_port. Scale-to-zero is configured here.
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+# Concurrency controls: when in-flight requests hit soft_limit, Fly's
+# load balancer prefers other machines (or starts one). hard_limit is
+# the overflow point where new requests get 429'd or queued.
+[http_service.concurrency]
+  type = "requests"
+  soft_limit = 25
+  hard_limit = 30
+
+# Health check: Fly hits /health periodically to decide whether a
+# machine is ready to serve traffic. grace_period gives the container
+# time to boot before the first check fires (FastAPI starts in ~400ms,
+# 10s is generous margin).
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/health"
+
+# ─── VM size ──────────────────────────────────────────────────────────
+# shared-cpu-1x / 512MB = Fly's smallest tier. At scale-to-zero we pay
+# ~$0 while idle; active minutes bill at ~$0.0000022/sec — roughly $2/mo
+# if the machine ran 24/7 (which it won't during Phase 0). Swap is
+# configured at top level above, not here.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# ─── Deploy (commented hook for future use) ───────────────────────────
+# release_command runs inside a temporary VM before the new image goes
+# live. For Phase 0 the modeling service is stateless — no migrations,
+# no schema changes — so we don't need this yet. Leaving commented as a
+# hook point for when we add forecast engine baselines or model loads.
+# [deploy]
+#   release_command = "python -m dwellverdict_modeling.release_tasks"

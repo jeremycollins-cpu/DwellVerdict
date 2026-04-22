@@ -88,6 +88,55 @@ is not always the only broken thing.
    once we have >1 environment (staging/prod split). Keep the checklist
    in ADR form until then.
 
+### LESSON — fly launch silently mutates fly.toml (M4-3 post-mortem)
+
+**Trigger:** M4-3 `fly launch --copy-config --no-deploy` against Fly's
+remote config writer. Two silent mutations we only caught because we
+diffed the file afterward — no warning from flyctl for either.
+
+**Mutation 1 — region substitution:** we passed `--region sea` on the
+command line. flyctl's output rendered `Region: San Jose, California
+(US) (specified on the command line)` — the `(specified on the command
+line)` annotation is technically true but misleading because the
+written value in fly.toml was `primary_region = 'sjc'`, not `sea`.
+`fly platform regions` confirms Seattle is not in Fly's current US
+region list (`iad / ord / dfw / lax / sjc / ewr / yyz`). flyctl
+accepted the invalid region, silently picked the nearest available
+(`sjc`), and rewrote the config without a single warning line.
+
+**Mutation 2 — schema-invalid key dropped:** our original config placed
+`swap_size_mb = 512` inside `[[vm]]`. Fly's docs list `swap_size_mb` as
+a top-level key (sibling to `kill_signal` / `kill_timeout`). Fly's TOML
+writer silently dropped the misplaced key when rewriting the file on
+`--copy-config`. No warning in flyctl output, no schema validation
+error, no diff summary — just gone. We only caught it by running
+`diff -u` against a pre-launch snapshot of the intended config.
+
+**Why this matters:** `fly launch --copy-config --yes` enables fully
+non-interactive app provisioning, which we like for reproducibility.
+But non-interactive + silent mutation = config drift we won't notice
+unless we diff explicitly. The two mutations above are harmless
+examples; next time it could be a dropped health check or a wrong
+port.
+
+**Action — mandatory for any future flyctl invocation that writes to
+fly.toml on disk:**
+
+1. Snapshot the intended `fly.toml` before running flyctl (`cp
+   fly.toml /tmp/fly.toml.pre-launch` at minimum, ideally committed to
+   git so it's in `HEAD`).
+2. After flyctl returns, `diff -u` against the snapshot.
+3. If diff shows any functional change (not just quote-style or
+   whitespace), pause and resolve consciously before `fly deploy`.
+4. Restore stripped comments from the snapshot — flyctl does not
+   preserve them.
+
+**General principle:** when any tool writes to a config file we own,
+treat the post-write state as untrusted until diffed. Config drift
+should always be a conscious choice, not an accident. This applies
+beyond Fly — Vercel's `vercel link`, `gh repo create`, `aws
+cloudformation deploy`, etc. all mutate config in ways worth diffing.
+
 ---
 
 ## Accepted ADRs
