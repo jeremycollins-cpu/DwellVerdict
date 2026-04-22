@@ -1,0 +1,61 @@
+DwellVerdict — build journal
+============================
+
+Terse work log. One dated entry per meaningful milestone. Full context
+lives in docs/DECISIONS.md (ADRs, lessons) and git history (diffs).
+
+
+2026-04-22 · Phase C Redux complete — Verdict Ledger direction live in production
+
+Shipped the design pivot end-to-end in one work session. Reference
+shifted from Linear-school cold minimalism to Lattice-school warm
+professional — better fit for real-estate-investor-and-agent audience
+than the original cold direction.
+
+What shipped:
+  - Warm palette tokens (paper, card-ink, ink, ink-muted, terracotta,
+    hairline, shadow-warm) replacing shadcn's cold neutrals
+  - Typography system locked — Instrument Serif (brand only),
+    Geist Sans (interface), Geist Mono (data)
+  - Wordmark — Approach A (Integrated) — "DwellVerdict" with a small
+    terracotta roof-peak above the V. Interim, designer workstream
+    deferred per ADR-2.
+  - Motion library installed (reverses Phase A CSS-only decision;
+    tight scope — hero stagger + dial scroll-into-view + hover lifts)
+  - VerdictDial signature component (engraved-style ring, em-scaled)
+  - VerdictCertificate on landing anatomy band (3 px terracotta left
+    stripe, layered warm shadow)
+  - Trust pills, CTA sub-copy, hero padding compression
+  - Authed layout + /app/properties empty state warmed to match
+
+Design bar pushed from "generic AI-built SaaS" to "considered
+Lattice-for-real-estate." Live at https://dwellverdict.com —
+verified production dpl_C9FoMpRAuH3CKfvM8smPABUYvT7N.
+
+ADRs recorded: ADR-1 (Verdict Ledger direction), ADR-2 (defer mark
+to designer workstream).
+
+Deferred to later:
+  - Favicon, app-icon, OG image (block on designer)
+  - Dark mode pass (tokens exist, no UI toggle)
+  - Custom Clerk email sender (block on Clerk paid plan)
+  - Dedicated Neon test branch (block on M5 CI workflow)
+
+Next: Sprint 2 product work — paste-an-address flow + property CRUD +
+first property report skeleton. Not started yet; awaiting go signal.
+
+
+2026-04-22 · Phase 0 complete — infrastructure foundation live
+
+20 commits over ~43 hours (M1 2026-04-20 15:28 → M3c/M4 close
+2026-04-22 11:25). Web app live at dwellverdict.com with Clerk auth,
+Neon Postgres user+org sync via svix-verified webhook, FastAPI
+modeling service on Fly.io (sjc region, scale-to-zero), and a debug
+footer on /app/properties reading the live version string from
+Fly — proving the web ↔ modeling path end-to-end.
+
+Infrastructure deferred from the original Phase 0 brief: M5
+(GitHub Actions CI, Sentry, PostHog) and M6 (five foundational ADRs).
+See docs/DECISIONS.md for the Pending TODOs and LESSON entries that
+captured hard-won hygiene from the deployment cycle (Clerk secret
+rotation, fly launch silent mutations, Fly HA machine defaults).

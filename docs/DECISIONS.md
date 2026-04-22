@@ -218,4 +218,97 @@ modeling service), this is the knob.
 
 ## Accepted ADRs
 
-_Initialized in M6._
+### ADR-1 · Verdict Ledger design direction
+
+**Date:** 2026-04-22
+**Status:** accepted
+
+**Context.** Early landing and authed layouts shipped in a Linear-school
+cold-minimalism aesthetic. User review: "reads as generic AI-built
+SaaS, not 'this founder has taste.'" DwellVerdict's audience is real
+estate investors + agents — professional but emotional (they're
+evaluating homes). The aesthetic reference that fits: Lattice, not
+Linear. Warm professional, not cold precision.
+
+**Decision.** Adopt the "Verdict Ledger" direction across the product:
+- **Palette** — cream/paper ground (`--paper`), warm-charcoal ink
+  (`--ink`), stone-muted secondary text (`--ink-muted`), terracotta
+  (`#c55a3f`) as the single saturated accent. Shadcn neutrals remapped
+  to the warm palette.
+- **Typography system** — Instrument Serif 400 (brand wordmark only),
+  Geist Sans 400/500/600/700 (interface), Geist Mono 400/500 (data).
+  Three fonts, three jobs. Zero overlap. Weight cap at 500 on body
+  sans to force hierarchy via tracking and size.
+- **Motion** — reverses the Phase A "CSS-only" decision. Installed
+  `motion` (successor to Framer Motion, ~1.3 kb tree-shaken). Scope
+  limited to: hero stagger-reveal, VerdictDial scroll-into-view, hover
+  states on cards. Not for decorative or scroll-parallax effects.
+- **Signature components** — `VerdictDial` (engraved-style ring with
+  em-scaled inner label) + `VerdictCertificate` (3 px terracotta left
+  stripe on cream card with layered warm shadow). Both reusable
+  across landing anatomy preview AND future property reports.
+
+**Consequences.**
+- +4-6 kb gzipped for Motion + ~8 kb for Instrument Serif in the
+  production bundle. Acceptable for Phase 1 at pre-revenue scale.
+- Creates visual system coherence: the dial, card stripe, and wordmark
+  peak all use terracotta — seeing one primes the viewer for the
+  others.
+- Commits us to this aesthetic direction. A future rebrand would
+  require touching the whole token system, not just swapping icons.
+- Unlocks a real design system for Phase 1+ features (property cards,
+  comp rows, forecast panels will all inherit these tokens).
+
+**Revisit when.** Product expands beyond property reports (Scout chat
+surfaces, tax strategy flows, operating dashboards) — may require
+palette extensions or a dark-mode pass. Also revisit if we acquire
+design headcount that wants to push further.
+
+---
+
+### ADR-2 · Defer dedicated logo mark to a designer workstream
+
+**Date:** 2026-04-22
+**Status:** accepted (with interim mark adopted)
+
+**Context.** Three rounds of logo exploration in Phase C Redux:
+1. Five seal directions (arc, monogram, stamped, circled-D, V-chevron)
+2. Five real-estate + verdict fusions (roofline, pin + verdict,
+   stamped deed, doorway, roof-and-ring)
+3. Four brand identity approaches (integrated wordmark, DV monogram,
+   folded deed, accent-V)
+
+None of the nine concrete proposals hit the "memorable brand identity
+that someone would describe to a friend" bar without significant
+hand-design work. A founder-built-by-Claude-Code sandbox can get to
+"legible SVG icons" but not to "mark a type designer would sign off on."
+
+**Decision.** Ship with Approach A (Integrated Wordmark) as the
+interim brand mark — "DwellVerdict" in Instrument Serif with a small
+terracotta roof-peak above the V in "Verdict." The wordmark IS the
+logo. Defer proper icon-mark exploration to a future designer
+engagement.
+
+**Consequences.**
+- No favicon in production — browser tabs show Vercel's default icon.
+- No app icon for future mobile or desktop wrappers.
+- No dedicated OG image — social shares render default metadata preview.
+- Brand works cleanly in wordmark-first contexts (landing, app header,
+  emails, PDFs) and weaker in icon-first contexts (favicons, Slack
+  avatars, partner badges, app-store tiles).
+- Saves 4-8 hours that would otherwise go into sandboxing a mark we
+  can't confidently say would survive a real design critique.
+
+**Revisit when.**
+- First designer engagement (contractor or hire) with brand chops.
+- OR: the product hits a context where icon-first placement is
+  strategically important (e.g., partnering with a marketplace that
+  requires a listed app icon, Chrome extension, iOS app submission).
+- OR: we reach a point where the wordmark cost becomes visible
+  (e.g., press coverage keeps cropping us down to 32×32 favicon
+  slots and we look worse than competitors).
+
+**Path forward.** When revisited, the designer brief should include:
+Lattice palette + Instrument Serif wordmark as the locked context;
+terracotta accent + roof-peak motif as the visual vocabulary already
+established; a favicon/app-icon/OG-image set as the deliverable.
