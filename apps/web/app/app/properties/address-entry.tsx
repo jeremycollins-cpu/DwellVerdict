@@ -98,7 +98,7 @@ export function AddressEntry() {
         {rateLimited ? (
           <div className="rounded-md border border-signal-watch/30 bg-signal-watch/5 px-3 py-2.5 text-sm text-ink">
             <p className="font-medium">
-              You've used your 3 free verdicts this month.
+              You&apos;ve used your 3 free verdicts this month.
             </p>
             <p className="mt-1 text-ink-muted">
               Quota resets {new Date(rateLimited.resetAt).toLocaleDateString()}.

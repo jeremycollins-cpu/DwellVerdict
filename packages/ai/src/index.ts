@@ -8,6 +8,10 @@ export {
   type VerdictOutput,
   type VerdictSuccess,
   type VerdictFailure,
-} from "./tasks/verdict-generation.js";
-export { getAnthropicClient, __setAnthropicClientForTesting, __resetAnthropicClientForTesting } from "./anthropic.js";
-export { computeCostCents, MODEL_PRICING, WEB_SEARCH_USD_PER_CALL } from "./pricing.js";
+} from "./tasks/verdict-generation";
+export {
+  getAnthropicClient,
+  __setAnthropicClientForTesting,
+  __resetAnthropicClientForTesting,
+} from "./anthropic";
+export { computeCostCents, MODEL_PRICING, WEB_SEARCH_USD_PER_CALL } from "./pricing";

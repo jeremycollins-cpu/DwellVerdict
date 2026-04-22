@@ -5,8 +5,8 @@ import { dirname, join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
-import { getAnthropicClient } from "../anthropic.js";
-import { computeCostCents } from "../pricing.js";
+import { getAnthropicClient } from "../anthropic";
+import { computeCostCents } from "../pricing";
 
 /**
  * verdict-generation — the core Scout task that renders a BUY/WATCH/

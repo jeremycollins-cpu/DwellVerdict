@@ -38,7 +38,7 @@ export async function resolveAppUser(
     .where(eq(users.clerkId, clerkUserId))
     .limit(1);
 
-  let userId = existing[0]?.userId;
+  const userId = existing[0]?.userId;
 
   if (existing[0]?.deletedAt) return null;
 
