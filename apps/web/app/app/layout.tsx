@@ -14,7 +14,7 @@ export default function AppLayout({
           <UserButton afterSignOutUrl="/" />
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      <main className="flex flex-1 flex-col">{children}</main>
     </div>
   );
 }
