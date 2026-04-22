@@ -84,7 +84,9 @@ async function postToWebhook(event: unknown) {
   return POST(req);
 }
 
-describe("clerk webhook → DB sync", () => {
+// Skip the entire integration suite when DATABASE_URL isn't set —
+// this lets unit tests run standalone without a Neon dev branch.
+describe.skipIf(!process.env.DATABASE_URL)("clerk webhook → DB sync", () => {
   test("user.created creates users row, personal org, and owner membership", async () => {
     const clerkId = `${prefix}alpha`;
     const res = await postToWebhook(buildEvent("user.created", clerkId));

@@ -18,8 +18,12 @@ loadEnv({ path: path.resolve(__dirname, "../../../packages/db/.env.local") });
 // to worry about.
 process.env.CLERK_WEBHOOK_SIGNING_SECRET = `whsec_${randomBytes(24).toString("base64")}`;
 
+// Integration tests import db modules; a missing DATABASE_URL will fail
+// on first use in those specs. Pure unit tests don't need one. Keeping
+// this as a warning-only check so unit specs can run without `.env.local`.
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set for integration tests. Copy packages/db/.env.local → apps/web/.env.local or export it inline.",
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[tests/setup] DATABASE_URL not set — integration tests will fail if they touch the DB.",
   );
 }
