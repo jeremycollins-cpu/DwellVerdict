@@ -3,7 +3,7 @@ import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { HeroReveal } from "@/components/hero-reveal";
-import { VerdictDial } from "@/components/verdict-dial";
+import { VerdictCertificate } from "@/components/verdict-certificate";
 import { Wordmark } from "@/components/wordmark";
 
 const STEPS = [
@@ -169,7 +169,7 @@ export default function HomePage() {
         {/* ─── Anatomy of a verdict — THE signature ──────────────── */}
         <section className="container pb-24 md:pb-32">
           <div className="mx-auto max-w-2xl">
-            <VerdictCertificate />
+            <VerdictCertificate mode="placeholder" />
             <p className="mt-5 text-center text-sm text-ink-muted">
               What every verdict looks like. Paste an address to see yours.
             </p>
@@ -222,79 +222,3 @@ export default function HomePage() {
   );
 }
 
-/**
- * The VerdictCertificate — the signature card that every property
- * report mirrors. Renders at placeholder/neutral state on the landing
- * page to teach readers the shape without claiming any specific
- * property.
- *
- * Design choices (per Verdict Ledger direction):
- *   - 3px terracotta left stripe — THE visual identifier for every
- *     verdict-class surface. Seeing this stripe means "this is a
- *     DwellVerdict document."
- *   - Layered warm shadow via `shadow-card` utility.
- *   - Hairline dividers between rows (not solid separators).
- *   - Uppercase mono labels in ink-muted, content below in
- *     appropriate family (mono for data placeholders, sans for
- *     narrative).
- *   - VerdictDial in top-right at neutral/50% — the engraved detail
- *     that fills from 0 when the card scrolls into view.
- */
-function VerdictCertificate() {
-  return (
-    <div className="relative overflow-hidden rounded-[14px] bg-card shadow-card">
-      {/* Left-edge terracotta stripe — the brand's visual identifier
-          for verdict-class surfaces. */}
-      <div
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-[3px] bg-terracotta"
-      />
-
-      <div className="flex flex-col gap-0 p-8 pl-10 md:flex-row md:gap-8">
-        <div className="flex-1 space-y-6">
-          {/* Address row */}
-          <div>
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink-muted">
-              Address
-            </p>
-            <p className="mt-2 font-mono text-sm text-ink/40">
-              [ property address ]
-            </p>
-          </div>
-
-          <div className="h-px w-full bg-hairline" />
-
-          {/* Data points row */}
-          <div>
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink-muted">
-              Data points
-            </p>
-            <p className="mt-2 font-mono text-sm text-ink/40">
-              [ comps · revenue · regulatory · location ]
-            </p>
-          </div>
-
-          <div className="h-px w-full bg-hairline" />
-
-          {/* Narrative row */}
-          <div>
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink-muted">
-              Narrative
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-ink/40">
-              [ AI-drafted thesis — why the verdict, what to watch, what moves
-              the number ]
-            </p>
-          </div>
-        </div>
-
-        {/* Dial — positioned to breathe inside margin, not punched on
-            top. On mobile it sits above the content; on md+ it's to
-            the right as the visual counterweight to the text. */}
-        <div className="mt-6 flex shrink-0 items-start justify-center md:mt-1">
-          <VerdictDial fill={50} state="neutral" size={84} />
-        </div>
-      </div>
-    </div>
-  );
-}
