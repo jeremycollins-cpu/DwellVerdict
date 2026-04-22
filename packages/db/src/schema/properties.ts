@@ -119,6 +119,18 @@ export const properties = pgTable(
     // paste the same property with inconsistent formatting.
     normalizedAddress: text("normalized_address").notNull(),
 
+    // Google Place ID — stable, globally unique identifier from Google
+    // Places API. When the user selects an address from the autocomplete
+    // dropdown we capture this and use it as the preferred dedupe key
+    // (more reliable than string normalization). Nullable because manual
+    // property creation without Google autocomplete is still supported.
+    googlePlaceId: text("google_place_id"),
+
+    // Full formatted address as returned by Google (e.g. "123 Main St,
+    // Nashville, TN 37201, USA"). Keeps the display string canonical
+    // even if our line1/city/state parsing drops nuance.
+    addressFull: text("address_full"),
+
     // Coordinates — numeric(10,7) gives ~11mm precision, matches spec.
     lat: numeric("lat", { precision: 10, scale: 7 }),
     lng: numeric("lng", { precision: 10, scale: 7 }),
@@ -165,6 +177,12 @@ export const properties = pgTable(
     latLngIdx: index("properties_lat_lng_idx").on(table.lat, table.lng),
     cityStateIdx: index("properties_city_state_idx").on(table.city, table.state),
     parcelIdIdx: index("properties_parcel_id_idx").on(table.parcelId),
+    // Per-org dedupe on Google Place ID (two orgs can independently
+    // research the same house). Partial index so manual rows without a
+    // Place ID don't collide with each other.
+    orgGooglePlaceIdUnique: uniqueIndex("properties_org_google_place_id_unique")
+      .on(table.orgId, table.googlePlaceId)
+      .where(sql`${table.googlePlaceId} IS NOT NULL`),
     propertyTypeIdx: index("properties_property_type_idx").on(table.propertyType),
     statusIdx: index("properties_status_idx").on(table.status),
     currentStageIdx: index("properties_current_stage_idx").on(table.currentStage),
