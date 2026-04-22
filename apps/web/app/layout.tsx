@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
-// Geist is loaded via next/font/google so Next optimizes it (self-hosts
-// the .woff2, strips unused weights, inlines font-face, and eliminates
-// the FOUT/FOIT chain). No runtime font fetches at request time.
+// Geist — interface sans + mono. Loaded at build time via next/font
+// so Next self-hosts the .woff2 and eliminates runtime font fetches.
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -20,6 +19,17 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+// Instrument Serif — brand wordmark only. Single weight/style to keep
+// the .woff2 payload small. Used exclusively by <Wordmark /> — see
+// docs/DESIGN.md for the "serif = brand / sans = interface / mono =
+// data" typography system.
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "DwellVerdict",
   description:
@@ -31,7 +41,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ClerkProvider>
-      <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <html
+        lang="en"
+        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
+      >
         <body className="min-h-screen font-sans antialiased">{children}</body>
       </html>
     </ClerkProvider>

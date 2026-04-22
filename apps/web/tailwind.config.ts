@@ -13,10 +13,6 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        // Resolved via next/font/google at build time. The CSS variable
-        // is set on <html> in apps/web/app/layout.tsx; the fallback stack
-        // covers the fraction of a second before the self-hosted woff2
-        // lands.
         sans: ["var(--font-geist-sans)", ...defaultTheme.fontFamily.sans],
         mono: ["var(--font-geist-mono)", ...defaultTheme.fontFamily.mono],
       },
@@ -50,18 +46,27 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // ─── DwellVerdict deal signals ─────────────────────────────
-        // Usage: text-signal-buy, bg-signal-watch, border-signal-pass.
-        // See docs/DESIGN.md for semantic meaning and usage rules.
+        // ─── DwellVerdict Verdict Ledger palette ───────────────────
+        // Semantic warm tokens used alongside shadcn's primitive set.
+        // See docs/DESIGN.md for usage rules.
+        paper: "hsl(var(--paper))",
+        "card-ink": "hsl(var(--card-ink))",
+        ink: {
+          DEFAULT: "hsl(var(--ink))",
+          muted: "hsl(var(--ink-muted))",
+        },
+        terracotta: {
+          DEFAULT: "hsl(var(--terracotta))",
+          // Use as bg-terracotta/10 etc. via Tailwind's slash-opacity.
+        },
+        hairline: "hsl(var(--hairline))",
+        // ─── Deal signals ──────────────────────────────────────────
         signal: {
           buy: "hsl(var(--signal-buy))",
           watch: "hsl(var(--signal-watch))",
           pass: "hsl(var(--signal-pass))",
         },
-        // ─── Verdict surface tokens ────────────────────────────────
-        // The property report verdict panel. Use as bg-verdict and
-        // border-verdict-border. Deliberately near-neutral so signal
-        // colors do the work.
+        // ─── Verdict surface tokens (kept for compat) ──────────────
         verdict: {
           DEFAULT: "hsl(var(--verdict-background))",
           border: "hsl(var(--verdict-border))",
@@ -71,6 +76,17 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        // ─── Layered warm shadows for the Verdict Ledger direction ─
+        // `shadow-card` is the baseline for elevated surfaces (verdict
+        // card, how-it-works cards). Two stacked shadows — a tight
+        // near-shadow for edge definition, a soft far-shadow for
+        // depth. Shadow color is warm charcoal, not pure black, so
+        // it sits naturally against the cream ground.
+        card: "0 1px 3px 0 hsl(var(--shadow-warm) / 0.06), 0 18px 40px -16px hsl(var(--shadow-warm) / 0.12)",
+        "card-hover":
+          "0 2px 4px 0 hsl(var(--shadow-warm) / 0.08), 0 28px 56px -18px hsl(var(--shadow-warm) / 0.18)",
       },
     },
   },

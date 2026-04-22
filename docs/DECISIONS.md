@@ -88,6 +88,25 @@ MAU ceiling, multi-factor policies, etc.):
 4. Send a test sign-up to confirm the From address is now on our domain.
 5. No code change required — purely config.
 
+### TODO — landing page copy iteration ("follows the deal")
+
+**Owner:** Sprint 2 copy pass.
+**Status:** deferred from Phase 1 Sprint 1 Phase C.
+**Context:** Landing page sub-hero currently reads "One report, from
+finding to managing. **The property record that follows the deal.**"
+The phrase "follows the deal" is slightly transactional — more
+real-estate-broker voice than investor-tool voice. Candidate revision:
+"The property record that follows the investment" — aligns with our
+investor audience without changing the structural meaning.
+
+**Action:** during Sprint 2 content pass, compare:
+- "follows the deal" (current, transactional)
+- "follows the investment" (investor-aligned)
+- any alternatives that surface during user conversations
+
+No code change until the decision is made. One-line edit in
+`apps/web/app/page.tsx` when the call is locked.
+
 ### LESSON — secret rotation hygiene (M3c post-mortem)
 
 **Trigger:** M3c-6 smoke test. Sign-up flow completed in Clerk and wrote

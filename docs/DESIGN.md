@@ -9,20 +9,63 @@ bindings.
 
 ## Typography
 
-- **Sans** — Geist (weights loaded: 400, 500, 600, 700)
-- **Mono** — Geist Mono (weights loaded: 400, 500)
-- Loaded via `next/font/google` in `apps/web/app/layout.tsx` — Next
-  self-hosts the `.woff2`, strips unused weights, and eliminates the
-  FOUT chain.
-- CSS variables: `--font-geist-sans`, `--font-geist-mono`
-- Tailwind classes: `font-sans` (default on `<body>`), `font-mono` for
-  numeric / data / address / verdict figures.
+Three fonts, three distinct jobs. Never overlap roles.
 
-**Why Geist over Inter:** Inter is SaaS default-mode; the
-`frontend-design` skill flagged it as overused. Geist is Vercel's
-modern geometric sans — keeps the Linear/Stripe school feel with
-cleaner numerals for financial figures. Geist Mono has the best
-tabular alignment for report data of any free mono in 2026.
+- **Serif (brand only)** — Instrument Serif 400. Used exclusively by
+  `<Wordmark />` in `apps/web/components/wordmark.tsx`. One weight,
+  one style. Never in body copy, never in interface, never in data.
+- **Sans (interface, headlines, body)** — Geist 400/500/600/700.
+  Default via `font-sans` on `<body>`. All UI copy, all headlines, all
+  button labels, all form fields.
+- **Mono (data, addresses, numbers)** — Geist Mono 400/500. Applied
+  via `font-mono` utility. Addresses, comp figures, verdict data,
+  report numerals, step numbers ("01", "02", "03"), tiny eyebrow
+  labels.
+
+All three loaded via `next/font/google` in `apps/web/app/layout.tsx`.
+Next self-hosts the `.woff2`, strips unused weights, and eliminates
+the FOUT chain.
+
+CSS variables available on `<html>`:
+- `--font-instrument-serif`
+- `--font-geist-sans`
+- `--font-geist-mono`
+
+**Why Geist + Instrument Serif (not Inter, not Fraunces):** Inter is
+SaaS default-mode — the `frontend-design` skill flagged it as
+overused. Fraunces has become the 2024-26 AI-startup serif —
+we want the serif to read "considered" not "on trend." Instrument
+Serif is less-used, high-contrast humanist character pairs cleanly
+with Geist's geometric sans, and gives the brand a mark that
+reads as authored rather than picked-from-Google-Fonts.
+
+## Brand wordmark — Approach A, Integrated Wordmark
+
+**Component:** `apps/web/components/wordmark.tsx` · `<Wordmark fontSize={18} />`
+
+"DwellVerdict" in Instrument Serif 400 title case, +0.005em tracking,
+ink color. A small terracotta roof-peak (SVG chevron) is positioned
+above the V in "Verdict" using em-based sizing so the detail scales
+with font size automatically.
+
+**Usage:**
+- Public landing top bar — 18px
+- Public landing footer — 14px
+- Authed dashboard top bar — 18px
+- Anywhere else the brand identifies itself (pages, emails, exports)
+
+**Never:**
+- Replace the terracotta peak color with anything else
+- Set the peak at a fixed pixel size (breaks em-based scaling)
+- Use the Wordmark component below 12px or above 96px without a
+  design review
+- Render "dwellverdict" or "DWELLVERDICT" in plain text as a logo
+  substitute
+
+**Favicon / OG image / app icon:** deferred to a later pass. Current
+production ships with the default Vercel favicon. When we revisit,
+the mark will be derived from the Wordmark's V-with-peak detail as
+the atomic visual asset.
 
 ---
 
