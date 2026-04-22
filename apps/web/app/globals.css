@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    /* ─── shadcn neutrals (unchanged from M1) ─────────────────────── */
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
@@ -24,9 +25,25 @@
     --input: 0 0% 89.8%;
     --ring: 0 0% 3.9%;
     --radius: 0.5rem;
+
+    /* ─── DwellVerdict deal signals (Phase 1 Sprint 1) ────────────── */
+    /* Status-bar style: subtle colored indicators, not consumer-badge loud.
+       Intended use: small dots, thin borders, accented text. Never full
+       backgrounds — those read as alarms, not signals. See docs/DESIGN.md. */
+    --signal-buy:   160 84% 39%;   /* emerald-500 #10b981 — strong thesis */
+    --signal-watch: 38 92% 50%;    /* amber-500 #f59e0b — mixed / review */
+    --signal-pass:  0 72% 51%;     /* red-600 #dc2626 — caution */
+
+    /* ─── Verdict surface (property report verdict panel) ─────────── */
+    /* Near-neutral background + subtle border so the colored signal
+       dot does all the color work. The verdict panel should read
+       restrained — the data carries the weight, not the container. */
+    --verdict-background: 0 0% 98%;  /* #fafafa */
+    --verdict-border:     0 0% 89%;  /* #e3e3e3 */
   }
 
   .dark {
+    /* ─── shadcn neutrals (unchanged from M1) ─────────────────────── */
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
     --card: 0 0% 3.9%;
@@ -46,6 +63,15 @@
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
     --ring: 0 0% 83.1%;
+
+    /* ─── Deal signals (dark counterparts, slightly brighter for contrast) */
+    --signal-buy:   158 64% 52%;   /* emerald-400 #34d399 */
+    --signal-watch: 43 96% 56%;    /* amber-400 #fbbf24 */
+    --signal-pass:  0 84% 60%;     /* red-500 #ef4444 */
+
+    /* ─── Verdict surface (dark) ──────────────────────────────────── */
+    --verdict-background: 0 0% 8%;   /* #141414 */
+    --verdict-border:     0 0% 18%;  /* #2e2e2e */
   }
 
   * {

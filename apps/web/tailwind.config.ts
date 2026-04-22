@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import defaultTheme from "tailwindcss/defaultTheme";
 import animate from "tailwindcss-animate";
 
 const config: Config = {
@@ -11,6 +12,14 @@ const config: Config = {
       screens: { "2xl": "1400px" },
     },
     extend: {
+      fontFamily: {
+        // Resolved via next/font/google at build time. The CSS variable
+        // is set on <html> in apps/web/app/layout.tsx; the fallback stack
+        // covers the fraction of a second before the self-hosted woff2
+        // lands.
+        sans: ["var(--font-geist-sans)", ...defaultTheme.fontFamily.sans],
+        mono: ["var(--font-geist-mono)", ...defaultTheme.fontFamily.mono],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -40,6 +49,22 @@ const config: Config = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        // ─── DwellVerdict deal signals ─────────────────────────────
+        // Usage: text-signal-buy, bg-signal-watch, border-signal-pass.
+        // See docs/DESIGN.md for semantic meaning and usage rules.
+        signal: {
+          buy: "hsl(var(--signal-buy))",
+          watch: "hsl(var(--signal-watch))",
+          pass: "hsl(var(--signal-pass))",
+        },
+        // ─── Verdict surface tokens ────────────────────────────────
+        // The property report verdict panel. Use as bg-verdict and
+        // border-verdict-border. Deliberately near-neutral so signal
+        // colors do the work.
+        verdict: {
+          DEFAULT: "hsl(var(--verdict-background))",
+          border: "hsl(var(--verdict-border))",
         },
       },
       borderRadius: {
