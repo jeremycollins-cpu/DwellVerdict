@@ -312,3 +312,76 @@ engagement.
 Lattice palette + Instrument Serif wordmark as the locked context;
 terracotta accent + roof-peak motif as the visual vocabulary already
 established; a favicon/app-icon/OG-image set as the deliverable.
+
+---
+
+### ADR-3 · Verdict generation via a POST route handler, not a server action
+
+**Date:** 2026-04-22
+**Status:** accepted
+
+**Context.** `CLAUDE.md` → Coding Conventions says *"Server actions for
+mutations. No REST endpoints for internal app traffic."* Sprint 2's
+verdict-generation flow deviates: the address-paste mutation is a
+server action (`createPropertyAction`) but the long-running Anthropic
+call lives in a route handler (`POST /api/verdicts/[id]/generate`).
+
+A single server action can't cleanly host the whole flow:
+- Anthropic with web_search runs 20–40 s; occasionally 55 s.
+- Server actions on Vercel Node runtime inherit the page's max
+  duration (60 s on Pro) and block the action result, which blocks
+  the client-side navigation that's already in flight.
+- Breaking the flow into create-then-generate also lets the client
+  show a loading state bound to a real DB row while the long work
+  runs — without that seam, the UX is "30 seconds of nothing."
+
+**Decision.** Split the flow:
+- **Server action** (`createPropertyAction`) creates the property +
+  pending verdict row and resolves in <1s. Client redirects.
+- **Route handler** (`POST /api/verdicts/[id]/generate`) owns the
+  Anthropic call with its own `maxDuration = 60`. Called by a client
+  component on the detail page.
+
+**Consequences.**
+- One-time deviation from the no-REST rule, bounded to long-running
+  AI work. Not a general precedent.
+- Client now owns the "fire this off after navigation" responsibility
+  — adds a small amount of code but keeps the server action fast.
+- Route handler is idempotent (already-ready short-circuits, failed
+  retries overwrite). Required because the client may retry on
+  refresh.
+
+**Revisit when.** Anthropic's streaming support reaches a place where
+server actions with `useActionState` can stream the entire 30+ s
+response cleanly, OR we adopt a job queue (Inngest, already in the
+stack) and move verdict generation to background workers. Either
+change would let us fold the REST endpoint back into the server
+action.
+
+---
+
+### ADR-4 · Observability (PostHog / Sentry) deferred to Sprint 3
+
+**Date:** 2026-04-22
+**Status:** accepted (pending implementation)
+
+**Context.** `CLAUDE.md` → Observability requires a PostHog event per
+AI call, a Sentry transaction per server action, and Axiom logs for
+every scrape. Sprint 2 ships verdict generation without any of the
+three wired in.
+
+**Decision.** Log observability fields (`model_version`,
+`prompt_version`, `input_tokens`, `output_tokens`, `cost_cents`) to
+the `verdicts` table in Sprint 2 so data accumulates correctly from
+day one. Wire PostHog / Sentry / Axiom in Sprint 3 (M13 per roadmap).
+
+**Consequences.**
+- We can't see AI cost in a PostHog dashboard today. Ad-hoc SQL
+  against the `verdicts` table covers the same ground for launch.
+- Sentry transactions aren't wrapping the server action or route
+  handler — unhandled errors surface only via Vercel runtime logs.
+- The data we need for Sprint 3 dashboards is being collected now,
+  so the Sprint 3 work is pure wiring, not backfill.
+
+**Revisit when.** Sprint 3 kicks off. M13 has a concrete scope and
+acceptance criteria in the roadmap doc.
