@@ -191,7 +191,12 @@ export type VerdictInput = {
   addressFull: string;
   lat: number;
   lng: number;
-  /** Maximum web_search calls the model is allowed. Default 8. */
+  /**
+   * Maximum web_search calls the model is allowed. Default 5 — lower
+   * than the original 8 so the total wallclock fits inside the
+   * route's 300s maxDuration with comfortable headroom. Callers can
+   * raise it for offline / batch use where latency doesn't matter.
+   */
   maxWebSearches?: number;
 };
 
@@ -233,7 +238,7 @@ export type VerdictFailure = {
 export async function generateVerdict(
   input: VerdictInput,
 ): Promise<VerdictSuccess | VerdictFailure> {
-  const maxSearches = input.maxWebSearches ?? 8;
+  const maxSearches = input.maxWebSearches ?? 5;
 
   // Resolve the client + render the prompt inside the try/catch so
   // deployment-level issues (missing API key, prompt file not bundled)

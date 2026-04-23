@@ -19,10 +19,16 @@ import { refundFreeVerdict } from "@/lib/db/queries/verdict-limits";
  * verdict generation for a pending verdict row.
  *
  * Why a route handler and not a server action: the Anthropic call can
- * take 20-40s with web search. Route handlers on Node runtime get
- * their own `maxDuration` envelope (60s on default Vercel), and they
- * compose more cleanly with client-side fetch() than server actions
- * do for long-running work.
+ * take 60-180s with adaptive thinking + web search, well past the
+ * default server-action envelope. Route handlers on Node runtime let
+ * us raise `maxDuration` (300s is the Vercel Pro ceiling) and compose
+ * more cleanly with client-side fetch() for long-running work.
+ *
+ * If a verdict still hits the 300s envelope consistently, the right
+ * next step is to move generation behind Inngest (already in stack
+ * per CLAUDE.md): return 202 here, fire a background job, let the
+ * existing pending → ready transition drive the UI. We haven't yet
+ * because the p95 Anthropic turnaround fits inside this envelope.
  *
  * Idempotency: the client may call this twice during a refresh or
  * retry. We guard by reading the verdict's current status — if it's
@@ -35,7 +41,7 @@ import { refundFreeVerdict } from "@/lib/db/queries/verdict-limits";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(
   _req: Request,

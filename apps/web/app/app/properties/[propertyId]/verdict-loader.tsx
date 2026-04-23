@@ -42,9 +42,10 @@ export function VerdictLoader({
     try {
       const res = await fetch(`/api/verdicts/${verdictId}/generate`, {
         method: "POST",
-        // Give the route handler headroom — the default 30s fetch
-        // timeout some browsers apply would cut us off early.
-        signal: AbortSignal.timeout(70_000),
+        // Match the route handler's 300s maxDuration with a small
+        // cushion so the browser doesn't abort before the server
+        // has a chance to write the final row + respond.
+        signal: AbortSignal.timeout(310_000),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
