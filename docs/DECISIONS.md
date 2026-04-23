@@ -659,3 +659,210 @@ ADR-5's economics.
   Consider adding Reddit/forum data to the place-sentiment sources
   at that point.
 
+---
+
+### ADR-7 · v0 scope ladder, small-operator persona, and dogfooding commitment
+
+**Date:** 2026-04-23
+**Status:** accepted
+
+**Context.** Several threads converged into one scoping decision:
+- ADR-5 simplified pricing but left "what actually ships in v0"
+  undefined.
+- ADR-6 laid out the data architecture but not which product
+  surfaces it serves.
+- A competitive scan (HouseCanary, AirDNA, BNBCalc, Guesty,
+  Hostaway, Lodgify, Turnify, Buildium) showed a clean gap: no
+  competitor serves solo-to-small operators (1-5 properties)
+  across the full lifecycle at a flat low price. Everyone is
+  either evaluate-only or manage-only, and every PMS prices
+  per-listing.
+- The founder is personally closing on an Airbnb property with
+  a renovation in flight — **dogfooding opportunity on Buying
+  and Renovating stages** that will drive real scope decisions.
+
+This ADR pins down the v0 scope, the persona, and the guardrails
+that prevent scope creep back into enterprise-grade or paid-
+aggregator directions.
+
+**Decision.**
+
+**Persona (explicit):** Solo-to-small STR/LTR operator with 1-5
+properties. Both entry points supported:
+- "Evaluator" — considering a purchase, starts at Finding
+- "Manager" — already owns, starts at Managing ("I already own
+  this property" flow)
+
+We are explicitly **not**:
+- HouseCanary (enterprise AVM for institutions)
+- AirDNA (proprietary STR market data for analysts)
+- Guesty / Hostaway / Lodgify (multi-channel-distribution PMS
+  for portfolio operators)
+- Propstream / Propwire (wholesaler prospecting with
+  owner/mortgage/distress data)
+
+**Positioning (explicit):** The easy, affordable, full-lifecycle
+tool for the 1-5-property host. Flat pricing (not per-listing).
+No fluff — features that work and make life easier.
+
+**v0 scope ladder — all five stages are real features:**
+
+| Stage | v0 reality | Free-services stack |
+|---|---|---|
+| **Finding** | Paste address → verdict certificate with BUY/WATCH/PASS, scoring, signals, narrative | FEMA, USGS, FBI, Census, Overpass, Yelp, Google Places, Zillow/Redfin scrape, Airbnb scrape |
+| **Evaluating** | Save property, scenario sliders (occupancy, ADR, expenses), LTR vs STR comparison, notes | Same signals + Neon persistence |
+| **Buying** | Key deadlines checklist, document vault, contacts (agent/lender/inspector/title/attorney), notes timeline, closing costs budget | Neon + R2 |
+| **Renovating** | Scope list, budget tracker (budgeted → committed → spent), task checklist, contractor contacts + quotes, receipt/photo upload, timeline view | Neon + R2 |
+| **Managing** | "I already own this" entry, CSV import (Airbnb/Hospitable/Guesty/Hostaway formats), actuals-vs-forecast dashboard, expense tracking categorized by Schedule E, tax-ready annual summary | CSV parser + Neon |
+
+Nothing in v0 is a "coming soon" waitlist surface. Every stage is
+usable from launch. Fidelity is "basic but complete" — not
+demo-ware, not enterprise-grade.
+
+**Dogfooding commitment.** The Buying and Renovating features will
+be used by the founder on a live purchase during v0 development.
+Every usability friction, missing feature, and unclear UI hit in
+dogfood becomes a v0 fix, not a v1 defer. Dogfooding ends when
+the founder closes on the property; features added mid-dogfood
+are committed scope.
+
+**No-paid-data guardrail.** The following data sources are
+explicitly out until a specific user-demand trigger is logged:
+- HouseCanary, ATTOM, CoreLogic, DataTree, Estated (property,
+  owner, mortgage data)
+- AirDNA, Rabbu (proprietary STR market data)
+- GreatSchools, Walk Score, FirstStreet, AreaVibes (neighborhood
+  quality scores)
+- Host Compliance, STRGuard (regulatory aggregators)
+- Paid MLS / RETS feeds
+
+**Revisit threshold:** 100 paying subscribers AND a specific
+user-logged request tied to a concrete deal or decision we
+cannot support on the free-services stack. Any paid data source
+needs its own cost-justification ADR.
+
+**Explicitly excluded signals** (per fair housing discipline +
+persona relevance):
+- School ratings in any form (legally radioactive — Redfin/HUD
+  settlement precedent, irrelevant for STR)
+- Subjective resident demographic characterizations
+- Propwire-class wholesaler data (owner info, mortgage, absentee
+  flag, distress indicators) — different product, different
+  persona. Not "deferred" — actively out.
+
+**Consequences.**
+- All five stages get real UI in v0. No "coming soon" surfaces
+  for the core five.
+- Managing gets more scope weight than a typical MVP would assign
+  it — it's the feature where $20/mo flat most clearly beats
+  Lodgify/Hostaway/Guesty at the 3-property scale, and it's the
+  only entry point for the "manager" persona.
+- Buying + Renovating fidelity is set by founder dogfooding,
+  not a theoretical spec. Real use drives scope.
+- No-paid-data guardrail means some features competitors have
+  (ATTOM owner data, GreatSchools ratings, AirDNA market
+  forecasts, Propwire prospecting) do not exist in our product.
+  Marketing and UI must be honest about this rather than
+  implying parity.
+- Decision velocity: future feature requests get a yes/no in
+  30 seconds via the persona + no-paid-data rules, not 30
+  minutes of re-litigation.
+
+**Revisit when.**
+- Paid user count crosses 100 AND a specific paid-data-source
+  request lines up with a lost-deal story.
+- Persona shifts in practice (we find real users are 10+-property
+  operators, requiring per-listing pricing + enterprise features).
+- A competitor launches a flat-priced full-lifecycle product,
+  changing the positioning calculus.
+- Founder's own dogfooding reveals a category of feature we
+  missed (e.g., inspection-contingency workflow patterns,
+  specific renovation phase tracking).
+
+---
+
+### ADR-8 · Add DwellVerdict Pro tier at $40/mo with Scout chat exclusivity
+
+**Date:** 2026-04-23
+**Status:** accepted (supersedes ADR-5's single-plan decision)
+
+**Context.** ADR-5 established one $20/mo plan + 1 lifetime free
+report. As we scoped Scout (the CLAUDE.md AI assistant) into v0,
+cost-variance analysis showed chat is the only feature whose
+COGS scales with *user engagement* rather than user count:
+
+- Verdicts, place sentiment, regulatory lookups, Managing
+  dashboards — all cached or bounded per-verdict. Costs scale
+  with subscriber count.
+- Chat at 30 messages/day × 30 days × ~$0.02/msg = ~$18/user/mo
+  worst case on Haiku 4.5.
+
+A single-tier $20/mo plan with unlimited Scout chat has negative
+margin in the abuse case. Two options: tight chat rate limits
+on the $20 plan (5/day ≈ ~$3/mo worst case), or gate chat behind
+a higher tier. The higher tier doubles as a conversion upsell.
+
+**Decision.** Add a second paid tier. Scout chat is the only
+feature exclusively gated behind it; everything else remains in
+the base tier so the $20 subscriber still gets the full
+five-stage product.
+
+**Final structure:**
+
+|                    | **Free trial** | **DwellVerdict** | **DwellVerdict Pro** |
+|---|---|---|---|
+| Price              | $0             | $20/mo           | $40/mo               |
+| Reports            | 1 lifetime     | 50/mo            | 200/mo               |
+| Properties saved   | 1              | unlimited        | unlimited            |
+| All five stages    | Finding only   | ✓                | ✓                    |
+| Managing dashboard | —              | ✓                | ✓                    |
+| Buying + Renovating PM | —          | ✓                | ✓                    |
+| PDF export of verdicts | —          | ✓                | ✓                    |
+| Scout AI chat      | —              | —                | **✓** (30/day, 300/mo cap) |
+| Priority verdict queue | —          | —                | ✓                    |
+
+**Rationale for these knobs:**
+- **Scout on Pro only** — matches the cost profile (the single
+  engagement-scaled COGS).
+- **50 vs 200 reports** — gives Pro a substantive differentiator
+  beyond chat. 200/mo (~7/day) is serious-scout territory.
+- **Priority verdict queue at Pro** — effectively free for us
+  (one job-queue re-ordering) but a real user benefit.
+- **PDF export in both tiers** — not COGS-sensitive, would be
+  cruel to withhold.
+- **All five stages in both tiers** — the $20 subscriber gets the
+  full lifecycle product, not a crippled version. Key to
+  positioning.
+
+**Worst-case COGS:**
+- DwellVerdict ($20): 50 reports × $0.007 = $0.35/sub/mo → 98%
+  gross margin
+- DwellVerdict Pro ($40): 200 × $0.007 + 300 chats × $0.02 =
+  $7.40/sub/mo → 81% gross margin
+
+**Consequences.**
+- Two Stripe products (recurring). Upgrade/downgrade flow via
+  Stripe Billing Portal.
+- `organizations.plan` enum: `free | starter | pro | canceled`.
+- `consumeReport` is plan-aware: 50/mo cap for starter, 200/mo
+  cap for pro, 1-lifetime for free.
+- New `canUseScout(plan)` gate on both chat UI and chat route.
+- Pricing page has two cards + a comparison matrix.
+- ADR-5's "single plan" decision is superseded by this ADR;
+  ADR-8 is the current source of truth for pricing shape.
+- ADR-5 stays in the log as the record of "we simplified from
+  four tiers to one," which is still true — we then added a
+  narrow second tier for chat-cost safety + upsell, not a
+  return to the original ladder.
+
+**Revisit when.**
+- A pattern shows $20 users are heavy chat-requesters but don't
+  upgrade — we're losing conversion, maybe chat belongs in the
+  base tier with a metered cap.
+- Haiku pricing shifts materially (price change, model routing
+  update).
+- Competitor pricing shifts enough that $20/$40 is no longer
+  well-placed.
+- A third tier becomes obvious (team/portfolio features at
+  $80-150/mo for users running 5+ properties as a side business).
+
