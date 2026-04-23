@@ -385,3 +385,199 @@ day one. Wire PostHog / Sentry / Axiom in Sprint 3 (M13 per roadmap).
 
 **Revisit when.** Sprint 3 kicks off. M13 has a concrete scope and
 acceptance criteria in the roadmap doc.
+
+---
+
+### ADR-5 · Pricing simplification to one $20/mo plan + 1 lifetime free report
+
+**Date:** 2026-04-23
+**Status:** accepted
+
+**Context.** `CLAUDE.md` → Pricing and billing specifies four tiers:
+Free (3 basic reports / mo), Full Report ($29 one-time or 5/12 packs),
+Pro ($79/mo), Portfolio ($199/mo). The founder's instinct after
+reviewing cost exposure: **$29 is too high for per-property
+evaluation at scale** — investors routinely screen dozens of
+properties per week, and $29/each is friction-level expensive enough
+to keep them out of the product entirely.
+
+Simultaneously, the current AI-heavy verdict path (Sonnet 4.6 +
+adaptive thinking + web_search) lands at ~$0.10–$0.60 per call.
+Supporting a $29 price point at that cost is mechanically fine, but
+supporting a $1 price point (the original counter-proposal) would
+require $0.33 Stripe minimum fees + AI COGS to not exceed margin.
+The only version where unit economics hold up is either (a) a
+subscription with high gross margin, or (b) a dramatically cheaper
+per-report cost. ADR-6 commits to (b). This ADR commits to (a).
+
+**Decision.** Replace the four-tier pricing with a single plan:
+
+- **Free trial:** 1 full report per user, ever. No account-level
+  monthly refresh. Intended as a conversion trial, not an ongoing
+  tier. The CTA after consumption is "subscribe to run more."
+- **DwellVerdict Pro:** $20/month, up to **50 reports per calendar
+  month** (reset on the 1st, aligned to Stripe invoice date).
+  Unlimited saved properties, full verdict certificates, all
+  features except the Portfolio-stage surfaces.
+
+Dropped for now: the $29 one-time Full Report, the 5-pack ($99) and
+12-pack ($199) bundles, the $79/mo and $199/mo subscription tiers.
+Dropped-but-deferred (not archived): the Portfolio tier concept
+($199/mo with PMS integration, actuals, operating copilot) will come
+back as a separate ADR when we have a design partner asking for it.
+
+**Monthly cap is hard.** 50/month is a real ceiling with a clear
+upgrade-coming-next-month message, not a soft cap with overage
+billing. Rationale: overages create support load and explanation
+work disproportionate to their revenue contribution at this stage.
+If a single whale actually hits the cap, we'll handle that case
+manually and consider a power-user tier then.
+
+**Consequences.**
+- The `organizations.plan` enum simplifies to `free | pro | canceled`.
+  Existing `portfolio` references removed (schema migration).
+- `user_verdict_limits` is repurposed: tracks lifetime free-report
+  consumption + monthly count + period reset for paid users.
+  Renamed to `user_report_usage` to match its new role.
+- Unit economics at current per-report COGS: 50 reports × $0.60 =
+  $30 COGS vs $20 revenue → negative margin if a paid user actually
+  hits the cap. **This only works after ADR-6 lands** — per-report
+  COGS must drop to under $0.20 for the economics to hold. The two
+  ADRs are intentionally paired in the same branch.
+- The `reports` / credit-pack / bundle tables (if any were started)
+  are dropped. One-time purchases disappear from the checkout flow.
+- The pricing page collapses to one card + one CTA. Simpler marketing,
+  less explanation work, easier to A/B.
+
+**Revisit when.**
+- A real user hits the 50/mo cap and asks for more. Add a power tier
+  ($49/mo, 200 reports) or overage billing.
+- Portfolio-stage features (PMS integration, operating copilot) reach
+  a point where a design partner wants to pay for them. Reintroduce
+  the Portfolio tier as a separate product, not as a pricing ladder
+  on top of Pro.
+- Per-report COGS regresses above $0.30 (Haiku price change, search
+  fee change, regulatory licensing shift). At that point the $20
+  price point may need to move.
+
+---
+
+### ADR-6 · Rules-first verdict architecture, AI reserved for narrative
+
+**Date:** 2026-04-23
+**Status:** accepted
+
+**Context.** `CLAUDE.md` core principle #4 — *"Rules first, AI second,
+proprietary data third. Do not add AI where rules work."* — was
+violated by Sprint 2's verdict pipeline, which puts Sonnet 4.6 at
+the centre of every verdict: the model issues web_search queries,
+reads the results, reasons about comps / regulatory / location, and
+renders the final output in one end-to-end call. The architecture
+worked as a prototype but produced three compounding problems:
+
+1. **Cost.** Sonnet 4.6 + adaptive thinking + 5 web searches +
+   16K max_tokens ran $0.10–$0.60 per attempt. Failed attempts
+   (timeouts, Vercel `maxDuration` kills) billed nearly as much as
+   successful ones because Anthropic bills inference regardless of
+   whether we receive the response. Today's dashboard: $7.32 spent
+   across ~12 Anthropic calls with zero successful verdicts rendered.
+2. **Latency.** Web-search tool-use with adaptive thinking ran 4+
+   minutes on some addresses — unworkable inside Vercel's 300s route
+   envelope even with streaming + aggressive envelope shrinking.
+3. **Defensibility.** The product was a thin wrapper around Sonnet
+   calling web_search. Anyone could replicate it. The moat was
+   supposed to be our scoring rubric, curated regulatory DB, and
+   comp-scraping pipeline — none of which existed yet.
+
+The free-data stack listed in `CLAUDE.md` → Location Signals
+(FEMA NFHL, Census ACS, FBI Crime, OpenStreetMap Overpass, USGS
+wildfire) was supposed to power location signals from day one.
+In practice Sprint 2 skipped all of it and let Sonnet "research"
+each address live — expensive, variable, and legally thin (no
+source-backed citations for anything).
+
+**Decision.** Invert the architecture. AI becomes the last, cheapest
+step; everything upstream is rules + free data.
+
+**New pipeline (per verdict):**
+
+1. **Parallel signal fetch** (all free, no AI):
+   - FEMA NFHL → flood zone
+   - USGS fire history → wildfire risk
+   - FBI Crime Data API → crime rate vs metro
+   - Census ACS → neutral demographic numbers (income, vacancy;
+     never race/ethnicity, per fair housing rules)
+   - OpenStreetMap Overpass → amenity counts within 0.5mi / 1mi,
+     used to synthesize a walk-score proxy
+   - Direct Airbnb StaysSearch (Apify fallback) → comp listings
+
+2. **Deterministic computation:**
+   - Revenue formula: `median(ADR) × median(occupancy) × 365 ×
+     (1 − expense_ratio)` on returned comps
+   - Walk score: weighted amenity sum (grocery 0.25, restaurant
+     0.15, transit 0.20, etc.)
+   - Location risk composite: flood + wildfire + regulatory flag
+
+3. **Regulatory lookup** from a curated JSON file (`packages/data-
+   sources/regulatory/cities.json`). Launch coverage: Nashville,
+   Scottsdale, Austin. Schema per entry: `str_legal`,
+   `permit_required`, `owner_occupied_only`, `cap_on_non_oo`,
+   `source_url`, `last_reviewed`. Stale entries (>90 days since
+   `last_reviewed`) surface a warning in the UI.
+
+4. **Scoring rubric** (TypeScript function, not AI): weighted sum of
+   the above → numeric score → BUY / WATCH / PASS + confidence.
+
+5. **Haiku 4.5 narrative** (the only AI call): takes the structured
+   signals + score as input, writes a 2-3 paragraph narrative
+   explaining *why* this verdict, citing the specific data points.
+   ~1.5K input / 500 output tokens → ~$0.004 per call.
+
+**Per-report COGS (projected):**
+
+| Component | Cost |
+|---|---|
+| FEMA / USGS / FBI / Census / Overpass / regulatory | $0 |
+| Airbnb scrape (direct) or Apify fallback ($50/mo ÷ volume) | $0 – $0.05 |
+| Haiku narrative | ~$0.005 |
+| **Total** | **$0.005 – $0.06** |
+
+vs the Sonnet-first architecture at $0.10–$0.60. **10–100× cheaper.**
+
+**Consequences.**
+- `packages/ai/src/tasks/verdict-generation.ts` rewrites from "one
+  big Anthropic call" to "orchestrator that fetches signals,
+  computes a score, then asks Haiku for a narrative."
+- New package: `packages/data-sources/` (FEMA, USGS, FBI, Census,
+  Overpass clients, per-address cache in Postgres with 7-day TTL).
+- New prompt: `prompts/verdict-narrative.v1.md` — Haiku-targeted,
+  receives structured signals as input, outputs just the narrative
+  string. Fair-housing golden-file tests on this prompt are
+  deploy-blocking per `CLAUDE.md`.
+- Regulatory JSON is hand-curated for launch (3 cities). This is
+  the biggest ongoing eng debt — cities change STR rules
+  periodically and we will go stale. We accept this for v0 and
+  will revisit with automated scrapers once demand for specific
+  markets is proven.
+- Verdict quality on cities outside the curated regulatory list
+  degrades gracefully: the regulatory signal is flagged "not
+  verified, check local ordinance" rather than invented.
+- `CLAUDE.md` → Model routing says Sonnet 4 for "location verdict
+  synthesis." This ADR narrows that: Sonnet 4 is reserved for
+  future task types (offer analysis, tax strategy); the verdict
+  narrative runs on Haiku 4.5 because the structured signals do
+  the heavy lifting and the narrative is pure synthesis.
+
+**Revisit when.**
+- A curated market's regulatory rules shift materially enough to
+  make our `last_reviewed` entry wrong, and a user pays for a
+  verdict that reflects the stale rule. Add automated scrapers for
+  that city's municipal code and/or STR permit registry.
+- Haiku-quality narrative regresses (a benchmark address's output
+  reads generic). Upgrade that specific task to Sonnet 4.6 via the
+  task registry — the routing is per-task, not global.
+- A paid data source becomes undeniably better than our free-stack
+  equivalent (e.g., Walk Score API beats our Overpass-derived walk
+  score by a measurable margin on a design partner's portfolio).
+  At that point license it with a standalone cost-justification ADR.
+
