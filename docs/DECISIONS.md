@@ -497,7 +497,8 @@ each address live — expensive, variable, and legally thin (no
 source-backed citations for anything).
 
 **Decision.** Invert the architecture. AI becomes the last, cheapest
-step; everything upstream is rules + free data.
+step; everything upstream is rules + free data. **No hand-curated
+data** — every signal refreshes automatically.
 
 **New pipeline (per verdict):**
 
@@ -518,66 +519,143 @@ step; everything upstream is rules + free data.
      0.15, transit 0.20, etc.)
    - Location risk composite: flood + wildfire + regulatory flag
 
-3. **Regulatory lookup** from a curated JSON file (`packages/data-
-   sources/regulatory/cities.json`). Launch coverage: Nashville,
-   Scottsdale, Austin. Schema per entry: `str_legal`,
-   `permit_required`, `owner_occupied_only`, `cap_on_non_oo`,
-   `source_url`, `last_reviewed`. Stale entries (>90 days since
-   `last_reviewed`) surface a warning in the UI.
+3. **Regulatory lookup — LLM + web_search + per-city cache.**
+   No hand-curated JSON; there is no free "STR rules per US city"
+   API and paid aggregators (Host Compliance, AirDNA regulatory)
+   are all competitors whose data we'd rather not fund. Instead:
+   - Keyed by `(city, state)` in a new `regulatory_cache` table.
+   - On cache miss: Haiku 4.5 + web_search queries "`{city} {state}`
+     short-term rental regulations", extracts a structured record
+     (`str_legal`, `permit_required`, `owner_occupied_only`,
+     `cap_on_non_oo`, `renewal_frequency`), and stores 2-4 source
+     URLs it actually cited. Each source page is snapshotted to R2
+     at cache-write time to satisfy `CLAUDE.md` core principle #7
+     ("every regulatory claim has a source"). ~$0.03-0.05 per miss.
+   - TTL: **30 days.** Cache hits are free. Stale-but-extant entries
+     during the refresh window return immediately; the refresh runs
+     via Inngest after the response so the user never waits.
+   - Every user-facing regulatory assertion surfaces its source URL
+     + `last_verified` date, and flags "informational — verify with
+     city before committing."
+   - Amortized cost: ~$2/mo for a portfolio covering ~50 cities
+     (vs $500-5K/mo for Host Compliance equivalents).
 
-4. **Scoring rubric** (TypeScript function, not AI): weighted sum of
-   the above → numeric score → BUY / WATCH / PASS + confidence.
+4. **Place sentiment — LLM synthesis over review data, per-bucket
+   cache.** What do real reviewers say about the *businesses,
+   attractions, and physical environment* around this address?
+   Scoped deliberately narrow per fair housing rules: signals are
+   about **places and guest experience**, never about residents.
+   - Keyed by `(lat_bucket, lng_bucket)` at ~100m × 100m
+     resolution in a new `place_sentiment_cache` table.
+   - Source mix per lookup:
+     - **Yelp Fusion API** (free tier): businesses within 0.5mi
+       radius, review snippets, aggregate star ratings by category
+     - **Google Places Details**: up to 5 recent reviews per
+       nearby business (free tier covers v0 volume)
+     - **Airbnb listing reviews**: scraped alongside the comp
+       listings we already fetch, filtered for neighborhood/area
+       commentary (not property-specific)
+   - Haiku 4.5 synthesizes 2-3 factual bullets per property with
+     prompt-level fair-housing guardrails matching the Location
+     Verdict rules in `CLAUDE.md`. Explicit allow-list of what
+     the prompt may output (amenity mentions, noise/parking
+     observations, tourist-draw proximity, construction activity)
+     and explicit deny-list (anything about people, schools as
+     quality, "family-friendly", subjective safety claims).
+   - TTL: **30 days.** ~$0.02 per miss, effectively $0 at steady
+     state because 100m buckets hit cached entries from prior
+     verdicts in the same area.
+   - Deploy-blocking golden-file tests under
+     `packages/ai/tests/place-sentiment-fair-housing.test.ts`.
 
-5. **Haiku 4.5 narrative** (the only AI call): takes the structured
-   signals + score as input, writes a 2-3 paragraph narrative
-   explaining *why* this verdict, citing the specific data points.
-   ~1.5K input / 500 output tokens → ~$0.004 per call.
+5. **Scoring rubric** (TypeScript function, not AI): weighted sum
+   over the fetched signals → numeric score → BUY / WATCH / PASS +
+   confidence.
+
+6. **Haiku 4.5 narrative** (the final AI call): takes the
+   structured signals + place-sentiment bullets + score as input,
+   writes a 2-3 paragraph narrative explaining *why* this verdict,
+   citing the specific data points. ~1.5K input / 500 output tokens
+   → ~$0.005 per call.
 
 **Per-report COGS (projected):**
 
-| Component | Cost |
+| Component | Cost per verdict |
 |---|---|
-| FEMA / USGS / FBI / Census / Overpass / regulatory | $0 |
+| FEMA / USGS / FBI / Census / Overpass | **$0** |
 | Airbnb scrape (direct) or Apify fallback ($50/mo ÷ volume) | $0 – $0.05 |
+| Yelp Fusion (free tier), Google Places (free tier) | $0 at v0 volume |
+| Regulatory LLM+web_search (amortized, 30-day cache, ~50 cities) | **~$0.001** |
+| Place sentiment LLM synthesis (amortized, 30-day cache, 100m buckets) | **~$0.001** |
 | Haiku narrative | ~$0.005 |
-| **Total** | **$0.005 – $0.06** |
+| **Steady-state total** | **~$0.007 – $0.06** |
 
-vs the Sonnet-first architecture at $0.10–$0.60. **10–100× cheaper.**
+vs the Sonnet-first architecture at $0.10–$0.60. **15–100× cheaper.**
+At $20/mo × 50 reports/mo cap = $1 max/sub/mo COGS. Healthy under
+ADR-5's economics.
 
 **Consequences.**
 - `packages/ai/src/tasks/verdict-generation.ts` rewrites from "one
   big Anthropic call" to "orchestrator that fetches signals,
   computes a score, then asks Haiku for a narrative."
 - New package: `packages/data-sources/` (FEMA, USGS, FBI, Census,
-  Overpass clients, per-address cache in Postgres with 7-day TTL).
-- New prompt: `prompts/verdict-narrative.v1.md` — Haiku-targeted,
-  receives structured signals as input, outputs just the narrative
-  string. Fair-housing golden-file tests on this prompt are
-  deploy-blocking per `CLAUDE.md`.
-- Regulatory JSON is hand-curated for launch (3 cities). This is
-  the biggest ongoing eng debt — cities change STR rules
-  periodically and we will go stale. We accept this for v0 and
-  will revisit with automated scrapers once demand for specific
-  markets is proven.
-- Verdict quality on cities outside the curated regulatory list
-  degrades gracefully: the regulatory signal is flagged "not
-  verified, check local ordinance" rather than invented.
+  Overpass, Yelp, Google Places clients, per-address cache in
+  Postgres with 7-day TTL on raw data).
+- New tables: `regulatory_cache` (keyed by city+state) and
+  `place_sentiment_cache` (keyed by lat/lng bucket). Both with
+  `last_verified_at` + `source_urls` + `r2_snapshot_keys`.
+- New prompts:
+  - `prompts/verdict-narrative.v1.md` (Haiku, structured-signals
+    → narrative)
+  - `prompts/regulatory-lookup.v1.md` (Haiku + web_search, city
+    → structured regulatory record)
+  - `prompts/place-sentiment.v1.md` (Haiku, review data →
+    factual bullets with strict allow/deny lists)
+  - All three have deploy-blocking golden-file tests.
+- Inngest jobs for background cache refresh (regulatory and place
+  sentiment): when a cache row's TTL expires, enqueue a refresh
+  rather than blocking the user's verdict on the LLM call.
+- Regulatory honesty: we're outsourcing regulatory interpretation
+  to an LLM. **Hallucination risk is real** and the mitigation is
+  (a) always surface the source URL, (b) always show `last_verified`
+  date, (c) golden-file tests against known-correct rules for
+  high-volume markets (Nashville, Scottsdale, Austin, Denver,
+  Phoenix, etc.), (d) never phrase output as legal advice, always
+  as "check with city before committing." We accept this tradeoff
+  over licensing a competitor's data.
+- Verdict quality on cities outside the golden-file set degrades
+  gracefully: LLM regulatory lookup returns a best-effort record
+  with source citations; UI flags the `last_verified` age and
+  encourages user verification.
 - `CLAUDE.md` → Model routing says Sonnet 4 for "location verdict
-  synthesis." This ADR narrows that: Sonnet 4 is reserved for
-  future task types (offer analysis, tax strategy); the verdict
-  narrative runs on Haiku 4.5 because the structured signals do
-  the heavy lifting and the narrative is pure synthesis.
+  synthesis" and "regulatory interpretation." This ADR narrows
+  that: Sonnet 4 stays reserved for task types we haven't built
+  yet (offer analysis, tax strategy); verdict narrative,
+  regulatory lookup, and place sentiment all run on Haiku 4.5
+  because the structured signals and strict prompt scoping do the
+  heavy lifting and synthesis is cheap.
+- `CLAUDE.md` → Pricing section needs a rewrite to match ADR-5.
+  Done in the same branch.
 
 **Revisit when.**
-- A curated market's regulatory rules shift materially enough to
-  make our `last_reviewed` entry wrong, and a user pays for a
-  verdict that reflects the stale rule. Add automated scrapers for
-  that city's municipal code and/or STR permit registry.
-- Haiku-quality narrative regresses (a benchmark address's output
-  reads generic). Upgrade that specific task to Sonnet 4.6 via the
-  task registry — the routing is per-task, not global.
+- Regulatory golden-file tests start failing for a city we care
+  about (LLM output drifts from known-correct rules). Either tune
+  the prompt, upgrade that city's lookup to Sonnet 4.6, or build
+  a dedicated scraper for that city's STR permit portal. Per-city
+  scrapers are still on the table — we just don't start with them.
+- A paid regulatory aggregator becomes cheap enough that the
+  LLM-hallucination risk isn't worth the savings. Write a
+  cost-vs-risk ADR at that point.
+- Haiku-quality narrative regresses on a benchmark address (the
+  output reads generic or loses citations). Upgrade that specific
+  task to Sonnet 4.6 via the task registry — the routing is
+  per-task, not global.
 - A paid data source becomes undeniably better than our free-stack
   equivalent (e.g., Walk Score API beats our Overpass-derived walk
   score by a measurable margin on a design partner's portfolio).
   At that point license it with a standalone cost-justification ADR.
+- Reddit loosens commercial API terms or an open-data alternative
+  emerges (e.g., a Common Crawl-style neighborhood corpus).
+  Consider adding Reddit/forum data to the place-sentiment sources
+  at that point.
 
