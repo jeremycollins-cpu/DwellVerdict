@@ -24,8 +24,10 @@ export type {
   NewVerdict,
   VerdictSignal,
   VerdictStatus,
-  UserVerdictLimit,
-  NewUserVerdictLimit,
+  UserReportUsage,
+  NewUserReportUsage,
+  DataSourceCacheRow,
+  NewDataSourceCacheRow,
 } from "./schema";
 
 export {
