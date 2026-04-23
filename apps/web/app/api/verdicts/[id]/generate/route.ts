@@ -12,7 +12,7 @@ import {
   markVerdictFailed,
   markVerdictReady,
 } from "@/lib/db/queries/verdicts";
-import { refundFreeVerdict } from "@/lib/db/queries/verdict-limits";
+import { refundReport, getPlanForUser } from "@/lib/db/queries/report-usage";
 
 /**
  * POST /api/verdicts/[id]/generate — kick off (or complete) Anthropic
@@ -175,7 +175,10 @@ export async function POST(
       // user shouldn't be charged quota for our failure. Swallow
       // refund errors (under-charging once is better than compounding
       // errors).
-      await refundFreeVerdict(appUser.userId).catch(() => undefined);
+      await refundReport({
+        userId: appUser.userId,
+        plan: await getPlanForUser(appUser.userId),
+      }).catch(() => undefined);
       return Response.json(
         { ok: false, error: "generation_failed", message: result.error },
         { status: 502 },
@@ -209,7 +212,10 @@ export async function POST(
       error: `unexpected: ${message}`,
       promptVersion: VERDICT_PROMPT_VERSION,
     }).catch(() => undefined);
-    await refundFreeVerdict(appUser.userId).catch(() => undefined);
+    await refundReport({
+      userId: appUser.userId,
+      plan: await getPlanForUser(appUser.userId),
+    }).catch(() => undefined);
     return Response.json(
       { ok: false, error: "generation_failed", message },
       { status: 502 },

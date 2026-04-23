@@ -15,6 +15,13 @@
       "when": 1776894987986,
       "tag": "0001_late_thaddeus_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777017600000,
+      "tag": "0002_pricing_pivot",
+      "breakpoints": true
     }
   ]
 }

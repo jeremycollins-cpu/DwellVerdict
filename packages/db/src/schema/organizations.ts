@@ -13,12 +13,21 @@ import {
 import { users } from "./users";
 
 /**
- * Plan tiers — must match pricing in CLAUDE.md.
+ * Plan tiers — must match pricing in ADR-8 (supersedes ADR-5).
+ *
+ *   free      — signed up, no subscription. Gets 1 lifetime free report.
+ *   starter   — $20/mo DwellVerdict subscriber. 50 reports / calendar month.
+ *   pro       — $40/mo DwellVerdict Pro subscriber. 200 reports / calendar
+ *               month + Scout AI chat (30/day, 300/mo) + priority verdict
+ *               queue.
+ *   canceled  — previously paid, current billing period ended. Read-only
+ *               access to historical rows; cannot consume new reports. The
+ *               Stripe webhook sets this on subscription.deleted.
  *
  * Stored as text (not a pg enum) so we can evolve tiers without a migration
  * every time. Validation lives in the application layer via Zod.
  */
-export const ORGANIZATION_PLANS = ["starter", "pro", "portfolio"] as const;
+export const ORGANIZATION_PLANS = ["free", "starter", "pro", "canceled"] as const;
 export type OrganizationPlan = (typeof ORGANIZATION_PLANS)[number];
 
 export const ORGANIZATION_MEMBER_ROLES = ["owner", "member"] as const;
@@ -37,7 +46,16 @@ export const organizations = pgTable(
     clerkOrgId: text("clerk_org_id").notNull(),
     name: text("name").notNull(),
     stripeCustomerId: text("stripe_customer_id"),
-    plan: text("plan").notNull().default("starter"),
+    // Stripe subscription id for the org's active subscription. Null
+    // when plan is 'free' or 'canceled' (no active sub). The Stripe
+    // webhook keeps this in sync with the subscription lifecycle.
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    // Start/end of the current Stripe billing period. Used by the
+    // consumeReport query to know when to roll over the monthly
+    // report counter. Null when plan is 'free' (no billing period).
+    stripePeriodStart: timestamp("stripe_period_start", { withTimezone: true }),
+    stripePeriodEnd: timestamp("stripe_period_end", { withTimezone: true }),
+    plan: text("plan").notNull().default("free"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -47,10 +65,13 @@ export const organizations = pgTable(
     stripeCustomerIdUnique: uniqueIndex("organizations_stripe_customer_id_unique").on(
       table.stripeCustomerId,
     ),
+    stripeSubscriptionIdUnique: uniqueIndex(
+      "organizations_stripe_subscription_id_unique",
+    ).on(table.stripeSubscriptionId),
     planIdx: index("organizations_plan_idx").on(table.plan),
     planCheck: check(
       "organizations_plan_check",
-      sql`${table.plan} IN ('starter', 'pro', 'portfolio')`,
+      sql`${table.plan} IN ('free', 'starter', 'pro', 'canceled')`,
     ),
   }),
 );
