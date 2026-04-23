@@ -261,25 +261,39 @@ export async function generateVerdict(
   }
 
   let response: Anthropic.Messages.Message;
+  const startedAt = Date.now();
   try {
-    response = await client.messages.create({
-      model: VERDICT_MODEL,
-      max_tokens: 16000,
-      system: prompt.system,
-      messages: [{ role: "user", content: prompt.user }],
-      thinking: { type: "adaptive" },
-      output_config: { effort: "medium" },
-      tools: [
-        {
-          type: "web_search_20260209",
-          name: "web_search",
-          max_uses: maxSearches,
-        } as Anthropic.Messages.ToolUnion,
-        RENDER_VERDICT_TOOL,
-      ],
-      // Don't force tool_choice — the model needs to interleave
-      // web_search calls with reasoning before the final render.
-    });
+    response = await client.messages.create(
+      {
+        model: VERDICT_MODEL,
+        max_tokens: 16000,
+        system: prompt.system,
+        messages: [{ role: "user", content: prompt.user }],
+        thinking: { type: "adaptive" },
+        output_config: { effort: "medium" },
+        tools: [
+          {
+            type: "web_search_20260209",
+            name: "web_search",
+            max_uses: maxSearches,
+          } as Anthropic.Messages.ToolUnion,
+          RENDER_VERDICT_TOOL,
+        ],
+        // Don't force tool_choice — the model needs to interleave
+        // web_search calls with reasoning before the final render.
+      },
+      {
+        // Fail fast at 240s so we beat the 300s route maxDuration by
+        // ~60s and can write a real error to the DB + respond to the
+        // client instead of Vercel killing us mid-flight. The SDK's
+        // default timeout is ~10 minutes which is way too long here.
+        timeout: 240_000,
+        // Don't retry on failure — we're running inside a tight
+        // request envelope and a retry would push us past 240s. The
+        // client can retry via the "Retry verdict" button.
+        maxRetries: 0,
+      },
+    );
   } catch (err) {
     const message =
       err instanceof Anthropic.APIError
@@ -287,6 +301,11 @@ export async function generateVerdict(
         : err instanceof Error
           ? err.message
           : String(err);
+    console.error("[verdict] Anthropic call failed", {
+      message,
+      elapsedMs: Date.now() - startedAt,
+      addressFull: input.addressFull,
+    });
     return {
       ok: false,
       error: message,
@@ -296,6 +315,12 @@ export async function generateVerdict(
       },
     };
   }
+  console.log("[verdict] Anthropic call complete", {
+    elapsedMs: Date.now() - startedAt,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    stopReason: response.stop_reason,
+  });
 
   const inputTokens = response.usage.input_tokens;
   const outputTokens = response.usage.output_tokens;
