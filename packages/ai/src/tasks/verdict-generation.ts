@@ -192,10 +192,10 @@ export type VerdictInput = {
   lat: number;
   lng: number;
   /**
-   * Maximum web_search calls the model is allowed. Default 5 — lower
-   * than the original 8 so the total wallclock fits inside the
-   * route's 300s maxDuration with comfortable headroom. Callers can
-   * raise it for offline / batch use where latency doesn't matter.
+   * Maximum web_search calls the model is allowed. Default 3 for the
+   * serverless path — every extra search adds ~15-30s and we have a
+   * hard 300s envelope from Vercel. Callers running on Inngest (or
+   * any background queue) can raise this without the latency worry.
    */
   maxWebSearches?: number;
 };
@@ -238,7 +238,7 @@ export type VerdictFailure = {
 export async function generateVerdict(
   input: VerdictInput,
 ): Promise<VerdictSuccess | VerdictFailure> {
-  const maxSearches = input.maxWebSearches ?? 5;
+  const maxSearches = input.maxWebSearches ?? 3;
 
   // Resolve the client + render the prompt inside the try/catch so
   // deployment-level issues (missing API key, prompt file not bundled)
@@ -271,14 +271,20 @@ export async function generateVerdict(
     // events for the full run (model reasoning + tool rounds + final
     // render). `.finalMessage()` returns the same `Message` shape as
     // a non-streaming response, so downstream code is unchanged.
+    //
+    // WORK ENVELOPE (temporary — restore once Inngest migration lands):
+    // `max_tokens: 4000` and 3 web searches keep the p95 comfortably
+    // inside the route's 300s maxDuration. Full-quality verdicts use
+    // 16k tokens + up to 8 searches + adaptive thinking, which runs
+    // 4+ minutes for some addresses — unworkable on a serverless
+    // request. Once generation moves to a background Inngest job we
+    // can restore the higher budgets here.
     const stream = client.messages.stream(
       {
         model: VERDICT_MODEL,
-        max_tokens: 16000,
+        max_tokens: 4000,
         system: prompt.system,
         messages: [{ role: "user", content: prompt.user }],
-        thinking: { type: "adaptive" },
-        output_config: { effort: "medium" },
         tools: [
           {
             type: "web_search_20260209",
