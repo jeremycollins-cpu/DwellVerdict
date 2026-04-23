@@ -125,13 +125,38 @@ const RENDER_VERDICT_TOOL: Anthropic.Messages.Tool = {
  * module-level const) so tests can reassign the module path via
  * mocking if needed, and so bundlers don't attempt to inline the
  * file at build time.
+ *
+ * We try several candidate paths because runtime layout differs
+ * between environments:
+ *   - local dev / vitest: `import.meta.url` resolves to the source
+ *     file; walking four levels up hits the repo root.
+ *   - Next.js on Vercel: the route handler bundle lands in a
+ *     different location, and `import.meta.url` may point inside
+ *     `.next/` outputs. `process.cwd()` points at the traced root
+ *     (the monorepo root, per `outputFileTracingRoot`), so a
+ *     `<cwd>/prompts/...` lookup works as long as the file is
+ *     included in the deployment (see `outputFileTracingIncludes`
+ *     in `apps/web/next.config.ts`).
  */
 function loadPromptTemplate(): string {
   const here = dirname(fileURLToPath(import.meta.url));
-  // packages/ai/src/tasks/ → ../../prompts isn't right since we
-  // store at repo-root /prompts/. Walk up from src/tasks.
-  const promptPath = join(here, "..", "..", "..", "..", "prompts", "verdict-generation.v1.md");
-  return readFileSync(promptPath, "utf8");
+  const candidates = [
+    join(process.cwd(), "prompts", "verdict-generation.v1.md"),
+    join(here, "..", "..", "..", "..", "prompts", "verdict-generation.v1.md"),
+    join(process.cwd(), "..", "..", "prompts", "verdict-generation.v1.md"),
+  ];
+  let lastErr: unknown;
+  for (const p of candidates) {
+    try {
+      return readFileSync(p, "utf8");
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw new Error(
+    `verdict prompt template not found. Tried: ${candidates.join(", ")}. ` +
+      `Last error: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
+  );
 }
 
 /**
@@ -208,9 +233,27 @@ export type VerdictFailure = {
 export async function generateVerdict(
   input: VerdictInput,
 ): Promise<VerdictSuccess | VerdictFailure> {
-  const client = getAnthropicClient();
-  const prompt = renderPrompt(input);
   const maxSearches = input.maxWebSearches ?? 8;
+
+  // Resolve the client + render the prompt inside the try/catch so
+  // deployment-level issues (missing API key, prompt file not bundled)
+  // surface as structured failures instead of bubbling up as 500s.
+  let client: Anthropic;
+  let prompt: { system: string; user: string };
+  try {
+    client = getAnthropicClient();
+    prompt = renderPrompt(input);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: `verdict_setup_failed: ${message}`,
+      observability: {
+        modelVersion: VERDICT_MODEL,
+        promptVersion: VERDICT_PROMPT_VERSION,
+      },
+    };
+  }
 
   let response: Anthropic.Messages.Message;
   try {

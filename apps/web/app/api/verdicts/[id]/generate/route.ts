@@ -103,42 +103,67 @@ export async function POST(
     property.addressFull ??
     `${property.addressLine1}, ${property.city}, ${property.state} ${property.zip}`;
 
-  const result = await generateVerdict({ addressFull, lat, lng });
+  // Outer guard: generateVerdict already catches Anthropic errors and
+  // returns a VerdictFailure, but DB writes (markVerdictFailed /
+  // markVerdictReady) or other unexpected errors could still throw.
+  // If anything slips through, mark the verdict failed with a
+  // sanitised message and return a 502 the UI knows how to render as
+  // a retry state — never bubble a bare 500 to the browser.
+  try {
+    const result = await generateVerdict({ addressFull, lat, lng });
 
-  if (!result.ok) {
-    await markVerdictFailed({
+    if (!result.ok) {
+      await markVerdictFailed({
+        verdictId,
+        error: result.error,
+        modelVersion: result.observability.modelVersion,
+        promptVersion: result.observability.promptVersion,
+        inputTokens: result.observability.inputTokens,
+        outputTokens: result.observability.outputTokens,
+        costCents: result.observability.costCents,
+      });
+      // Refund the free-tier slot the server action consumed — the
+      // user shouldn't be charged quota for our failure. Swallow
+      // refund errors (under-charging once is better than compounding
+      // errors).
+      await refundFreeVerdict(appUser.userId).catch(() => undefined);
+      return Response.json(
+        { ok: false, error: "generation_failed", message: result.error },
+        { status: 502 },
+      );
+    }
+
+    await markVerdictReady({
       verdictId,
-      error: result.error,
+      signal: result.output.verdict,
+      confidence: result.output.confidence,
+      summary: result.output.summary,
+      narrative: result.output.narrative,
+      dataPoints: result.output.data_points,
+      sources: result.output.sources,
       modelVersion: result.observability.modelVersion,
       promptVersion: result.observability.promptVersion,
       inputTokens: result.observability.inputTokens,
       outputTokens: result.observability.outputTokens,
       costCents: result.observability.costCents,
     });
-    // Refund the free-tier slot the server action consumed — the
-    // user shouldn't be charged quota for our failure. Swallow refund
-    // errors (under-charging once is better than compounding errors).
+
+    return Response.json({ ok: true, status: "ready", verdictId });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[verdicts/generate] unexpected error", {
+      verdictId,
+      message,
+    });
+    await markVerdictFailed({
+      verdictId,
+      error: `unexpected: ${message}`,
+      promptVersion: VERDICT_PROMPT_VERSION,
+    }).catch(() => undefined);
     await refundFreeVerdict(appUser.userId).catch(() => undefined);
     return Response.json(
-      { ok: false, error: "generation_failed", message: result.error },
+      { ok: false, error: "generation_failed", message },
       { status: 502 },
     );
   }
-
-  await markVerdictReady({
-    verdictId,
-    signal: result.output.verdict,
-    confidence: result.output.confidence,
-    summary: result.output.summary,
-    narrative: result.output.narrative,
-    dataPoints: result.output.data_points,
-    sources: result.output.sources,
-    modelVersion: result.observability.modelVersion,
-    promptVersion: result.observability.promptVersion,
-    inputTokens: result.observability.inputTokens,
-    outputTokens: result.observability.outputTokens,
-    costCents: result.observability.costCents,
-  });
-
-  return Response.json({ ok: true, status: "ready", verdictId });
 }
