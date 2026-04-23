@@ -130,7 +130,7 @@ export default async function PricingPage() {
           </p>
           <p className="mt-1 text-sm text-ink">
             Your first full report is free. No card required. Sign up, paste
-            an address, see whether the product's worth $20 to you.
+            an address, see whether the product&apos;s worth $20 to you.
           </p>
         </div>
       </section>
