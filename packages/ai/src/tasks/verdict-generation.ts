@@ -263,7 +263,15 @@ export async function generateVerdict(
   let response: Anthropic.Messages.Message;
   const startedAt = Date.now();
   try {
-    response = await client.messages.create(
+    // Use streaming (messages.stream) rather than non-streaming
+    // create(). Vercel observability showed non-streaming tool-use
+    // calls dying at ~51-59s — Anthropic (or an intermediate proxy)
+    // closes idle connections when the model is mid-web_search with
+    // no bytes flowing. Streaming keeps the connection alive via SSE
+    // events for the full run (model reasoning + tool rounds + final
+    // render). `.finalMessage()` returns the same `Message` shape as
+    // a non-streaming response, so downstream code is unchanged.
+    const stream = client.messages.stream(
       {
         model: VERDICT_MODEL,
         max_tokens: 16000,
@@ -283,17 +291,18 @@ export async function generateVerdict(
         // web_search calls with reasoning before the final render.
       },
       {
-        // Fail fast at 240s so we beat the 300s route maxDuration by
-        // ~60s and can write a real error to the DB + respond to the
-        // client instead of Vercel killing us mid-flight. The SDK's
-        // default timeout is ~10 minutes which is way too long here.
+        // 4-minute ceiling — leaves ~60s buffer before the 300s route
+        // maxDuration fires. The stream keepalive means we shouldn't
+        // need anywhere near this long, but it's a defence against a
+        // pathologically slow model / search path.
         timeout: 240_000,
-        // Don't retry on failure — we're running inside a tight
-        // request envelope and a retry would push us past 240s. The
-        // client can retry via the "Retry verdict" button.
+        // Don't retry — we're running inside a tight request envelope
+        // and a retry would push us past the route's maxDuration. The
+        // client has a manual "Retry verdict" affordance.
         maxRetries: 0,
       },
     );
+    response = await stream.finalMessage();
   } catch (err) {
     const message =
       err instanceof Anthropic.APIError
