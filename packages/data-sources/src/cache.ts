@@ -1,6 +1,5 @@
-import { and, eq, sql } from "drizzle-orm";
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
+import { and, eq } from "drizzle-orm";
+import type { NeonDatabase } from "drizzle-orm/neon-serverless";
 
 import { schema } from "@dwellverdict/db";
 
@@ -16,9 +15,9 @@ const { dataSourceCache } = schema;
  * functions without circular deps.
  */
 
-/** Drizzle db shape we accept — matches both node-pg and Neon HTTP. */
+/** Drizzle client shape — matches @dwellverdict/db's createDb() output. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type DbClient = NodePgDatabase<any> | NeonHttpDatabase<any>;
+export type DbClient = NeonDatabase<any>;
 
 export type SourceName =
   | "fema"
