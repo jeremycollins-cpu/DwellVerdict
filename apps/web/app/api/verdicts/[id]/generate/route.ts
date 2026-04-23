@@ -109,6 +109,41 @@ export async function POST(
     property.addressFull ??
     `${property.addressLine1}, ${property.city}, ${property.state} ${property.zip}`;
 
+  // VERDICT_TEST_MODE=mock short-circuits the Anthropic call entirely
+  // and writes a synthetic ready verdict. Intended for UI / DB /
+  // routing / deploy verification without spending on inference.
+  // Leave unset (or set to "off") for real generation.
+  if (process.env.VERDICT_TEST_MODE === "mock") {
+    await markVerdictReady({
+      verdictId,
+      signal: "watch",
+      confidence: 55,
+      summary: `[TEST MODE] Mock verdict for ${addressFull}. No Anthropic call was made.`,
+      narrative:
+        "[TEST MODE] This is a synthetic verdict generated without calling " +
+        "Anthropic. It exists to let you verify the pending → ready UI " +
+        "transition, the certificate render, and the DB write path " +
+        "without spending on inference. Unset VERDICT_TEST_MODE in Vercel " +
+        "env vars to restore real generation.",
+      dataPoints: {
+        comps: "[TEST MODE] No comps fetched.",
+        revenue: "[TEST MODE] No revenue estimate.",
+        regulatory: "[TEST MODE] No regulatory lookup.",
+        location: "[TEST MODE] No location signals.",
+      },
+      sources: [
+        "https://dwellverdict.com/docs/test-mode",
+        "https://dwellverdict.com/docs/test-mode-2",
+      ],
+      modelVersion: "mock",
+      promptVersion: VERDICT_PROMPT_VERSION,
+      inputTokens: 0,
+      outputTokens: 0,
+      costCents: 0,
+    });
+    return Response.json({ ok: true, status: "ready", verdictId, mode: "mock" });
+  }
+
   // Outer guard: generateVerdict already catches Anthropic errors and
   // returns a VerdictFailure, but DB writes (markVerdictFailed /
   // markVerdictReady) or other unexpected errors could still throw.

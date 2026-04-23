@@ -153,7 +153,7 @@ function VerdictFailedCard({
           </p>
         </div>
       </div>
-      <VerdictLoader verdictId={verdictId} autoStart={false} />
+      <VerdictLoader verdictId={verdictId} label="Retry verdict" />
     </>
   );
 }

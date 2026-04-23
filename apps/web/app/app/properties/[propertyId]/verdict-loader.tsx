@@ -10,17 +10,17 @@ import { Button } from "@/components/ui/button";
  * VerdictLoader — client component that drives verdict generation for
  * a pending or failed verdict row.
  *
- * Behaviour:
- *   - autoStart=true (default): POST /api/verdicts/[id]/generate on
- *     mount. If it succeeds, refresh the page so the server component
- *     re-renders the 'ready' state.
- *   - autoStart=false: wait for the user to click "Retry". Used by
- *     the failed state so we don't silently re-spend on page load.
+ * COST CONTROL (important — do not re-enable without thinking):
+ * `autoStart` now defaults to FALSE. Previously the component fired
+ * a POST on every mount, which meant every page visit to a pending
+ * verdict kicked off a fresh ~$0.30 Anthropic call — reloads, tab
+ * duplicates, and the post-failure refresh all silently re-spent.
+ * Generation must be user-initiated via the "Generate verdict"
+ * button until we have (a) server-side dedupe, (b) a daily spend
+ * cap, and (c) Inngest-backed background generation.
  *
- * The retry button is always visible — disabled with a spinner while
- * a fetch is in-flight, clickable otherwise. Previously we returned
- * null during in-flight which left stale pending rows with no manual
- * escape hatch if a user navigated back to the page.
+ * The button is always visible — disabled with a spinner while a
+ * fetch is in-flight, clickable otherwise.
  *
  * We don't poll — the POST blocks until Anthropic returns (60-180s
  * typical) or the 300s route maxDuration fires. Either way, the
@@ -28,10 +28,12 @@ import { Button } from "@/components/ui/button";
  */
 export function VerdictLoader({
   verdictId,
-  autoStart = true,
+  autoStart = false,
+  label = "Generate verdict",
 }: {
   verdictId: string;
   autoStart?: boolean;
+  label?: string;
 }) {
   const router = useRouter();
   const [inFlight, setInFlight] = useState(autoStart);
@@ -98,7 +100,7 @@ export function VerdictLoader({
         ) : (
           <RefreshCw className="h-4 w-4" />
         )}
-        {inFlight ? "Working…" : "Retry verdict"}
+        {inFlight ? "Working…" : label}
       </Button>
       {error ? (
         <span className="font-mono text-xs text-ink-muted">{error}</span>

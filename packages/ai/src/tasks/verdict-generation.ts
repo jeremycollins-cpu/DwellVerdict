@@ -235,10 +235,26 @@ export type VerdictFailure = {
  * The caller (route handler) is responsible for flipping the verdict
  * row to ready / failed using this return value.
  */
+/**
+ * VERDICT_TEST_MODE=cheap — swaps the caller's config to Haiku 4.5
+ * + no web_search + tighter max_tokens. Per-call cost drops from
+ * ~$0.10 (Sonnet + searches) to ~$0.005-0.01 (Haiku, prompt-only).
+ * Useful when you want a real Anthropic round-trip to exercise the
+ * full pipeline cheaply during testing. Unset (or set to "off") for
+ * production-quality verdicts.
+ *
+ * See also VERDICT_TEST_MODE=mock in apps/web/app/api/verdicts/[id]/
+ * generate/route.ts which short-circuits before calling this module.
+ */
+const isCheapMode = () => process.env.VERDICT_TEST_MODE === "cheap";
+
 export async function generateVerdict(
   input: VerdictInput,
 ): Promise<VerdictSuccess | VerdictFailure> {
-  const maxSearches = input.maxWebSearches ?? 3;
+  const cheap = isCheapMode();
+  const model = cheap ? "claude-haiku-4-5" : VERDICT_MODEL;
+  const maxTokens = cheap ? 1500 : 2000;
+  const maxSearches = cheap ? 0 : input.maxWebSearches ?? 3;
 
   // Resolve the client + render the prompt inside the try/catch so
   // deployment-level issues (missing API key, prompt file not bundled)
@@ -254,7 +270,7 @@ export async function generateVerdict(
       ok: false,
       error: `verdict_setup_failed: ${message}`,
       observability: {
-        modelVersion: VERDICT_MODEL,
+        modelVersion: model,
         promptVersion: VERDICT_PROMPT_VERSION,
       },
     };
@@ -286,10 +302,20 @@ export async function generateVerdict(
     // ~0.1x the input cost for the cached tokens. Only the user
     // message (the varying address) falls outside the cache. Watch
     // response.usage.cache_read_input_tokens to verify hit rate.
+    const tools: Anthropic.Messages.ToolUnion[] = cheap
+      ? [RENDER_VERDICT_TOOL]
+      : [
+          {
+            type: "web_search_20260209",
+            name: "web_search",
+            max_uses: maxSearches,
+          } as Anthropic.Messages.ToolUnion,
+          RENDER_VERDICT_TOOL,
+        ];
     const stream = client.messages.stream(
       {
-        model: VERDICT_MODEL,
-        max_tokens: 2000,
+        model,
+        max_tokens: maxTokens,
         system: [
           {
             type: "text",
@@ -298,14 +324,7 @@ export async function generateVerdict(
           },
         ],
         messages: [{ role: "user", content: prompt.user }],
-        tools: [
-          {
-            type: "web_search_20260209",
-            name: "web_search",
-            max_uses: maxSearches,
-          } as Anthropic.Messages.ToolUnion,
-          RENDER_VERDICT_TOOL,
-        ],
+        tools,
         // Don't force tool_choice — the model needs to interleave
         // web_search calls with reasoning before the final render.
       },
@@ -338,7 +357,7 @@ export async function generateVerdict(
       ok: false,
       error: message,
       observability: {
-        modelVersion: VERDICT_MODEL,
+        modelVersion: model,
         promptVersion: VERDICT_PROMPT_VERSION,
       },
     };
@@ -366,12 +385,12 @@ export async function generateVerdict(
   ).length;
 
   const observability = {
-    modelVersion: VERDICT_MODEL,
+    modelVersion: model,
     promptVersion: VERDICT_PROMPT_VERSION,
     inputTokens,
     outputTokens,
     costCents: computeCostCents({
-      model: VERDICT_MODEL,
+      model,
       inputTokens,
       outputTokens,
       webSearchCount,
