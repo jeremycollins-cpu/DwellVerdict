@@ -79,6 +79,14 @@ export async function POST(
   // Idempotency: already-ready short-circuits. pending / failed both
   // fall through to generation — markVerdictReady / markVerdictFailed
   // overwrite the final state regardless of prior status.
+  //
+  // TODO(inngest): proper in-flight dedupe so concurrent POSTs can't
+  // kick off duplicate Anthropic calls against the same row. Needs
+  // either a new `generation_started_at` column + atomic claim, or
+  // Inngest's event-key dedup (preferred — it'll arrive with the
+  // background-job migration). Until then, autoStart=false on the
+  // client plus the always-visible disabled "Working…" state handle
+  // the common case.
   if (verdict.status === "ready") {
     return Response.json({ ok: true, status: "ready", verdictId });
   }
