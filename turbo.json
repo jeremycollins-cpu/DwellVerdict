@@ -34,7 +34,9 @@
         "FBI_API_KEY",
         "CENSUS_API_KEY",
         "YELP_API_KEY",
-        "GOOGLE_PLACES_API_KEY"
+        "GOOGLE_PLACES_API_KEY",
+        "APIFY_API_TOKEN",
+        "USE_APIFY_FALLBACK"
       ]
     },
     "dev": {

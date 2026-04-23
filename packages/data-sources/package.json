@@ -14,6 +14,11 @@
     "./overpass": "./src/overpass.ts",
     "./yelp": "./src/yelp.ts",
     "./google-places": "./src/google-places.ts",
+    "./airbnb": "./src/airbnb.ts",
+    "./zillow": "./src/zillow.ts",
+    "./redfin": "./src/redfin.ts",
+    "./revenue": "./src/revenue.ts",
+    "./apify": "./src/apify.ts",
     "./cache": "./src/cache.ts"
   },
   "scripts": {

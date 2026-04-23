@@ -151,3 +151,85 @@ export const GooglePlacesSignalSchema = z.object({
   sourceUrl: z.string().url(),
 });
 export type GooglePlacesSignal = z.infer<typeof GooglePlacesSignalSchema>;
+
+// ----------------------------------------------------------------
+// Airbnb / STR comps
+// ----------------------------------------------------------------
+
+export const AirbnbCompSchema = z.object({
+  listingId: z.string(),
+  title: z.string(),
+  url: z.string().url(),
+  bedrooms: z.number().int().nullable(),
+  bathrooms: z.number().nullable(),
+  nightlyRate: z.number().nullable(), // ADR in USD
+  reviewsCount: z.number().int().nullable(),
+  rating: z.number().nullable(),
+  lat: z.number().nullable(),
+  lng: z.number().nullable(),
+  /** Miles from the subject property. Computed client-side. */
+  distanceMiles: z.number().nullable(),
+});
+export type AirbnbComp = z.infer<typeof AirbnbCompSchema>;
+
+export const AirbnbCompsSignalSchema = z.object({
+  comps: z.array(AirbnbCompSchema),
+  medianNightlyRate: z.number().nullable(),
+  medianReviewCount: z.number().nullable(),
+  /** Which path produced this data — informs debugging + cost attribution. */
+  fetchedVia: z.enum(["direct", "apify"]),
+  summary: z.string(),
+  sourceUrl: z.string().url(),
+});
+export type AirbnbCompsSignal = z.infer<typeof AirbnbCompsSignalSchema>;
+
+// ----------------------------------------------------------------
+// Zillow / Redfin property valuation
+// ----------------------------------------------------------------
+
+export const PropertyValuationSchema = z.object({
+  source: z.enum(["zillow", "redfin"]),
+  url: z.string().url(),
+  zpid: z.string().nullable(), // Zillow-only; null for Redfin
+  // Core details
+  bedrooms: z.number().int().nullable(),
+  bathrooms: z.number().nullable(),
+  sqft: z.number().int().nullable(),
+  yearBuilt: z.number().int().nullable(),
+  // Valuations
+  currentEstimate: z.number().nullable(), // Zestimate or Redfin Estimate
+  currentEstimateHigh: z.number().nullable(),
+  currentEstimateLow: z.number().nullable(),
+  listPrice: z.number().nullable(), // null if not currently listed
+  listStatus: z.string().nullable(), // "FOR_SALE" | "SOLD" | "OFF_MARKET" | ...
+  // History
+  lastSoldPrice: z.number().nullable(),
+  lastSoldDate: z.string().nullable(), // ISO date
+  summary: z.string(),
+});
+export type PropertyValuation = z.infer<typeof PropertyValuationSchema>;
+
+// ----------------------------------------------------------------
+// Revenue estimate — deterministic formula output
+// ----------------------------------------------------------------
+
+export const RevenueEstimateSchema = z.object({
+  /** Gross annual STR revenue low/median/high in USD. */
+  annualLow: z.number(),
+  annualMedian: z.number(),
+  annualHigh: z.number(),
+  /** Inputs the formula used — surfaced to the user for transparency. */
+  inputs: z.object({
+    adrLow: z.number(),
+    adrMedian: z.number(),
+    adrHigh: z.number(),
+    occupancyAssumed: z.number(), // 0..1
+    daysAssumed: z.number(), // usually 365
+    expenseRatioAssumed: z.number(), // 0..1, e.g. 0.3 for 30%
+    compsUsed: z.number().int(),
+  }),
+  /** Net income after applied expense ratio — what hits the owner. */
+  netAnnualMedian: z.number(),
+  summary: z.string(),
+});
+export type RevenueEstimate = z.infer<typeof RevenueEstimateSchema>;

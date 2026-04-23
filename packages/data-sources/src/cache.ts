@@ -26,7 +26,10 @@ export type SourceName =
   | "census"
   | "overpass"
   | "yelp"
-  | "google_places";
+  | "google_places"
+  | "airbnb"
+  | "zillow"
+  | "redfin";
 
 export type WithCacheParams<T> = {
   db: DbClient;
@@ -127,6 +130,9 @@ export const TTL = {
   OVERPASS: 7 * 24 * 60 * 60 * 1000, // 7 days
   YELP: 30 * 24 * 60 * 60 * 1000, // 30 days
   GOOGLE_PLACES: 30 * 24 * 60 * 60 * 1000, // 30 days
+  AIRBNB: 7 * 24 * 60 * 60 * 1000, // 7 days — STR nightly rates drift seasonally
+  ZILLOW: 7 * 24 * 60 * 60 * 1000, // 7 days — Zestimates recompute weekly-ish
+  REDFIN: 7 * 24 * 60 * 60 * 1000, // 7 days
 } as const;
 
 /**
