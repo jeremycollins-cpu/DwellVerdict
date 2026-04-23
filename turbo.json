@@ -13,6 +13,7 @@
       "outputs": [".next/**", "!.next/cache/**", "dist/**"],
       "env": [
         "NEXT_PUBLIC_APP_URL",
+        "APP_URL",
         "MODELING_SERVICE_URL",
         "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
         "CLERK_SECRET_KEY",
@@ -24,7 +25,12 @@
         "DATABASE_URL",
         "DATABASE_URL_UNPOOLED",
         "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
-        "ANTHROPIC_API_KEY"
+        "ANTHROPIC_API_KEY",
+        "VERDICT_TEST_MODE",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_PRICE_ID_STARTER",
+        "STRIPE_PRICE_ID_PRO"
       ]
     },
     "dev": {

@@ -1,0 +1,124 @@
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { z } from "zod";
+
+import { getStripe, requireStripeConfig } from "@/lib/stripe/client";
+import { resolveAppUser } from "@/lib/db/queries/users";
+import {
+  getOrgById,
+  setOrgStripeCustomerId,
+} from "@/lib/db/queries/organizations";
+
+/**
+ * POST /api/stripe/checkout — creates a Stripe Checkout Session
+ * for a new subscription (starter or pro) per ADR-8.
+ *
+ * Flow:
+ *   1. Authenticate via Clerk.
+ *   2. Resolve the user → app user + org.
+ *   3. Ensure the org has a Stripe customer id (create on first
+ *      checkout).
+ *   4. Create a subscription Checkout Session for the requested
+ *      price id + redirect the client to the Stripe-hosted page.
+ *
+ * Upgrade / downgrade between plans goes through the Billing
+ * Portal (see /api/stripe/portal) — not this endpoint. This is
+ * only for net-new subs.
+ */
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const BodySchema = z.object({
+  plan: z.enum(["starter", "pro"]),
+});
+
+export async function POST(req: Request): Promise<Response> {
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const parsed = BodySchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json(
+      { ok: false, error: "invalid_body", message: parsed.error.issues[0]?.message },
+      { status: 400 },
+    );
+  }
+
+  const clerkUser = await currentUser();
+  const email =
+    clerkUser?.primaryEmailAddress?.emailAddress ??
+    clerkUser?.emailAddresses[0]?.emailAddress;
+  if (!email) {
+    return Response.json({ ok: false, error: "no_email" }, { status: 401 });
+  }
+  const name =
+    [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ").trim() || null;
+
+  const appUser = await resolveAppUser(clerkUserId, email, name);
+  if (!appUser) {
+    return Response.json({ ok: false, error: "user_deleted" }, { status: 401 });
+  }
+
+  const org = await getOrgById(appUser.orgId);
+  if (!org) {
+    return Response.json({ ok: false, error: "org_not_found" }, { status: 404 });
+  }
+
+  const stripe = getStripe();
+  const { starterPriceId, proPriceId } = requireStripeConfig();
+  const priceId = parsed.data.plan === "starter" ? starterPriceId : proPriceId;
+
+  // Create or reuse the Stripe customer for this org. We don't
+  // want to create a new customer every checkout — that duplicates
+  // billing history.
+  let stripeCustomerId = org.stripeCustomerId;
+  if (!stripeCustomerId) {
+    const customer = await stripe.customers.create({
+      email,
+      name: name ?? org.name,
+      metadata: {
+        org_id: org.id,
+        clerk_user_id: clerkUserId,
+      },
+    });
+    stripeCustomerId = customer.id;
+    await setOrgStripeCustomerId({
+      orgId: org.id,
+      stripeCustomerId,
+    });
+  }
+
+  const appUrl = process.env.APP_URL ?? "https://dwellverdict.com";
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer: stripeCustomerId,
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: `${appUrl}/app/properties?checkout=success`,
+    cancel_url: `${appUrl}/pricing?checkout=canceled`,
+    // Tie the session back to our org so the webhook can correlate
+    // even if the customer metadata lookup ever gets lossy.
+    metadata: {
+      org_id: org.id,
+      plan: parsed.data.plan,
+    },
+    subscription_data: {
+      metadata: {
+        org_id: org.id,
+        plan: parsed.data.plan,
+      },
+    },
+  });
+
+  if (!session.url) {
+    return Response.json(
+      { ok: false, error: "stripe_session_missing_url" },
+      { status: 502 },
+    );
+  }
+
+  return Response.json({ ok: true, url: session.url });
+}
