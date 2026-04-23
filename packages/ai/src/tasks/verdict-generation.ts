@@ -273,17 +273,30 @@ export async function generateVerdict(
     // a non-streaming response, so downstream code is unchanged.
     //
     // WORK ENVELOPE (temporary — restore once Inngest migration lands):
-    // `max_tokens: 4000` and 3 web searches keep the p95 comfortably
+    // `max_tokens: 2000` and 3 web searches keep the p95 comfortably
     // inside the route's 300s maxDuration. Full-quality verdicts use
     // 16k tokens + up to 8 searches + adaptive thinking, which runs
     // 4+ minutes for some addresses — unworkable on a serverless
     // request. Once generation moves to a background Inngest job we
     // can restore the higher budgets here.
+    //
+    // PROMPT CACHING: the system block carries cache_control so the
+    // ~3.5K-token prefix (tools + system) is cached for 5 min after
+    // the first request. Subsequent calls within that window pay
+    // ~0.1x the input cost for the cached tokens. Only the user
+    // message (the varying address) falls outside the cache. Watch
+    // response.usage.cache_read_input_tokens to verify hit rate.
     const stream = client.messages.stream(
       {
         model: VERDICT_MODEL,
-        max_tokens: 4000,
-        system: prompt.system,
+        max_tokens: 2000,
+        system: [
+          {
+            type: "text",
+            text: prompt.system,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
         messages: [{ role: "user", content: prompt.user }],
         tools: [
           {
@@ -330,10 +343,19 @@ export async function generateVerdict(
       },
     };
   }
+  // Cache stats on the response tell us whether the prompt-caching
+  // strategy on the system block is actually hitting. If
+  // cacheReadInputTokens stays at 0 across repeated requests inside
+  // the 5-minute TTL window, a silent invalidator is at play (e.g.
+  // a timestamp or request ID making the prefix vary).
+  const cacheRead = response.usage.cache_read_input_tokens ?? 0;
+  const cacheWrite = response.usage.cache_creation_input_tokens ?? 0;
   console.log("[verdict] Anthropic call complete", {
     elapsedMs: Date.now() - startedAt,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
+    cacheReadInputTokens: cacheRead,
+    cacheCreationInputTokens: cacheWrite,
     stopReason: response.stop_reason,
   });
 
