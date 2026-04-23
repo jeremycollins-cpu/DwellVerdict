@@ -70,8 +70,7 @@ export type ConsumeReportResult =
       reason:
         | "free_trial_used"
         | "monthly_cap_reached"
-        | "subscription_canceled"
-        | "unknown_plan";
+        | "subscription_canceled";
       plan: OrganizationPlan;
       limit: number;
       resetAt: Date | null;
