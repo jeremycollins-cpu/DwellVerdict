@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { VerdictCertificate } from "@/components/verdict-certificate";
 import { VerdictLoader } from "@/app/app/properties/[propertyId]/verdict-loader";
+import { PropertyStageNav } from "@/components/property-stage-nav";
 import { getPropertyForOrg } from "@/lib/db/queries/properties";
 import { getLatestVerdictForProperty } from "@/lib/db/queries/verdicts";
 import { resolveAppUser } from "@/lib/db/queries/users";
@@ -75,6 +76,8 @@ export default async function PropertyDetailPage({
           </p>
           <h1 className="font-mono text-xl text-ink">{addressFull}</h1>
         </div>
+
+        <PropertyStageNav propertyId={propertyId} active="finding" />
 
         {verdict && verdict.status === "ready" ? (
           <VerdictCertificate
