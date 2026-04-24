@@ -57,6 +57,13 @@
       "when": 1777018100000,
       "tag": "0007_renovating_stage",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777018200000,
+      "tag": "0008_managing_stage",
+      "breakpoints": true
     }
   ]
 }

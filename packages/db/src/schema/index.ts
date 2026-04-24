@@ -9,3 +9,4 @@ export * from "./regulatory_cache";
 export * from "./place_sentiment_cache";
 export * from "./buying";
 export * from "./renovating";
+export * from "./managing";

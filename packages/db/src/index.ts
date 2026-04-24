@@ -56,6 +56,13 @@ export type {
   RenovationQuote,
   NewRenovationQuote,
   RenovationQuoteStatus,
+  PropertyReservation,
+  NewPropertyReservation,
+  ReservationSource,
+  ReservationStatus,
+  PropertyExpense,
+  NewPropertyExpense,
+  ExpenseCategory,
 } from "./schema";
 
 export {
@@ -74,4 +81,7 @@ export {
   RENOVATION_SCOPE_STATUSES,
   RENOVATION_TRADES,
   RENOVATION_QUOTE_STATUSES,
+  RESERVATION_SOURCES,
+  RESERVATION_STATUSES,
+  EXPENSE_CATEGORIES,
 } from "./schema";
