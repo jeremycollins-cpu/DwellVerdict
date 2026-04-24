@@ -28,6 +28,8 @@ export type {
   NewUserReportUsage,
   DataSourceCacheRow,
   NewDataSourceCacheRow,
+  RegulatoryCacheRow,
+  NewRegulatoryCacheRow,
 } from "./schema";
 
 export {

@@ -5,3 +5,4 @@ export * from "./property_stages";
 export * from "./verdicts";
 export * from "./user_report_usage";
 export * from "./data_source_cache";
+export * from "./regulatory_cache";
