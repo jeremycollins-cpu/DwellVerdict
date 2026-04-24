@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { Check, Minus } from "lucide-react";
 
-import { Wordmark } from "@/components/wordmark";
+import { PublicNav } from "@/components/public-nav";
 import { CheckoutButton } from "./checkout-button";
 
 /**
@@ -20,39 +20,7 @@ export default async function PricingPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-      {/* Top bar */}
-      <header className="border-b border-hairline">
-        <div className="container flex h-14 items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Wordmark />
-          </Link>
-          <div className="flex items-center gap-4">
-            {isSignedIn ? (
-              <Link
-                href="/app/properties"
-                className="text-sm text-ink transition-colors hover:text-ink-muted"
-              >
-                Open app →
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/sign-in"
-                  className="text-sm text-ink-muted transition-colors hover:text-ink"
-                >
-                  Sign in
-                </Link>
-                <Link
-                  href="/sign-up"
-                  className="text-sm font-medium text-ink transition-colors hover:text-ink-muted"
-                >
-                  Sign up
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <PublicNav />
 
       {/* Hero */}
       <section className="container flex flex-col items-center gap-3 py-16 text-center">

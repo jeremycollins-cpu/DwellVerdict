@@ -384,6 +384,36 @@ export async function consumeScoutMessage(
 }
 
 /**
+ * Read-only snapshot of a user's current usage row. Used by the
+ * billing page to show "X of Y reports used this period" without
+ * mutating anything. Returns null before the user has ever
+ * consumed a report or Scout message (no row exists yet).
+ */
+export async function getUsageForUser(userId: string): Promise<{
+  freeReportUsedAt: Date | null;
+  reportsThisPeriod: number;
+  periodResetAt: Date | null;
+  scoutMessagesToday: number;
+  scoutDayResetAt: Date | null;
+  scoutMessagesThisPeriod: number;
+} | null> {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      freeReportUsedAt: userReportUsage.freeReportUsedAt,
+      reportsThisPeriod: userReportUsage.reportsThisPeriod,
+      periodResetAt: userReportUsage.periodResetAt,
+      scoutMessagesToday: userReportUsage.scoutMessagesToday,
+      scoutDayResetAt: userReportUsage.scoutDayResetAt,
+      scoutMessagesThisPeriod: userReportUsage.scoutMessagesThisPeriod,
+    })
+    .from(userReportUsage)
+    .where(eq(userReportUsage.userId, userId))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
  * Look up the authoritative org plan for a user. Used by the route
  * handler + server action before calling consumeReport.
  */
