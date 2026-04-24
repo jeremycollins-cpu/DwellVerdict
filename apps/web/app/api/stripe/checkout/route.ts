@@ -67,64 +67,101 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ ok: false, error: "org_not_found" }, { status: 404 });
   }
 
-  const stripe = getStripe();
-  const { starterPriceId, proPriceId } = requireStripeConfig();
-  const priceId = parsed.data.plan === "starter" ? starterPriceId : proPriceId;
+  let stripe: ReturnType<typeof getStripe>;
+  let priceId: string;
+  try {
+    stripe = getStripe();
+    const { starterPriceId, proPriceId } = requireStripeConfig();
+    priceId = parsed.data.plan === "starter" ? starterPriceId : proPriceId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[stripe/checkout] config error", { message });
+    return Response.json(
+      { ok: false, error: "stripe_config", message },
+      { status: 500 },
+    );
+  }
 
   // Create or reuse the Stripe customer for this org. We don't
   // want to create a new customer every checkout — that duplicates
   // billing history.
   let stripeCustomerId = org.stripeCustomerId;
-  if (!stripeCustomerId) {
-    const customer = await stripe.customers.create({
-      email,
-      name: name ?? org.name,
-      metadata: {
-        org_id: org.id,
-        clerk_user_id: clerkUserId,
-      },
-    });
-    stripeCustomerId = customer.id;
-    await setOrgStripeCustomerId({
-      orgId: org.id,
-      stripeCustomerId,
-    });
-  }
+  try {
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email,
+        name: name ?? org.name,
+        metadata: {
+          org_id: org.id,
+          clerk_user_id: clerkUserId,
+        },
+      });
+      stripeCustomerId = customer.id;
+      await setOrgStripeCustomerId({
+        orgId: org.id,
+        stripeCustomerId,
+      });
+    }
 
-  const appUrl = process.env.APP_URL ?? "https://dwellverdict.com";
+    const appUrl = process.env.APP_URL ?? "https://dwellverdict.com";
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: stripeCustomerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    // Show a "promo code" field on the Stripe-hosted Checkout
-    // page. Codes are created + managed in Stripe dashboard →
-    // Products → Coupons → Promotion Codes. Founder path: create
-    // a 100%-off forever coupon, generate a promo code under it,
-    // enter at checkout to bypass paying yourself.
-    allow_promotion_codes: true,
-    success_url: `${appUrl}/app/properties?checkout=success`,
-    cancel_url: `${appUrl}/pricing?checkout=canceled`,
-    // Tie the session back to our org so the webhook can correlate
-    // even if the customer metadata lookup ever gets lossy.
-    metadata: {
-      org_id: org.id,
-      plan: parsed.data.plan,
-    },
-    subscription_data: {
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: stripeCustomerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      // Show a "promo code" field on the Stripe-hosted Checkout
+      // page. Codes are created + managed in Stripe dashboard →
+      // Products → Coupons → Promotion Codes. Founder path: create
+      // a 100%-off forever coupon, generate a promo code under it,
+      // enter at checkout to bypass paying yourself.
+      allow_promotion_codes: true,
+      success_url: `${appUrl}/app/properties?checkout=success`,
+      cancel_url: `${appUrl}/pricing?checkout=canceled`,
+      // Tie the session back to our org so the webhook can correlate
+      // even if the customer metadata lookup ever gets lossy.
       metadata: {
         org_id: org.id,
         plan: parsed.data.plan,
       },
-    },
-  });
+      subscription_data: {
+        metadata: {
+          org_id: org.id,
+          plan: parsed.data.plan,
+        },
+      },
+    });
 
-  if (!session.url) {
+    if (!session.url) {
+      return Response.json(
+        { ok: false, error: "stripe_session_missing_url" },
+        { status: 502 },
+      );
+    }
+
+    return Response.json({ ok: true, url: session.url });
+  } catch (err) {
+    // Surface Stripe's actual error code + message to the client
+    // instead of bubbling a bare 500. Common causes:
+    //   - STRIPE_PRICE_ID_{STARTER,PRO} missing or pointing at a
+    //     price from the other mode (test vs live)
+    //   - STRIPE_SECRET_KEY in the wrong mode
+    //   - Coupon / promo constraints
+    const message = err instanceof Error ? err.message : String(err);
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code: unknown }).code)
+        : null;
+    console.error("[stripe/checkout] failed", {
+      orgId: org.id,
+      plan: parsed.data.plan,
+      priceId,
+      stripeCustomerId,
+      code,
+      message,
+    });
     return Response.json(
-      { ok: false, error: "stripe_session_missing_url" },
+      { ok: false, error: "checkout_failed", code, message },
       { status: 502 },
     );
   }
-
-  return Response.json({ ok: true, url: session.url });
 }
