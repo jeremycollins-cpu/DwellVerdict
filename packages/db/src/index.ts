@@ -32,6 +32,18 @@ export type {
   NewRegulatoryCacheRow,
   PlaceSentimentCacheRow,
   NewPlaceSentimentCacheRow,
+  DealMilestone,
+  NewDealMilestone,
+  DealMilestoneType,
+  DealContact,
+  NewDealContact,
+  DealContactRole,
+  DealNote,
+  NewDealNote,
+  DealBudgetItem,
+  NewDealBudgetItem,
+  DealBudgetCategory,
+  DealBudgetStatus,
 } from "./schema";
 
 export {
@@ -42,4 +54,8 @@ export {
   ORGANIZATION_MEMBER_ROLES,
   VERDICT_SIGNALS,
   VERDICT_STATUSES,
+  DEAL_MILESTONE_TYPES,
+  DEAL_CONTACT_ROLES,
+  DEAL_BUDGET_CATEGORIES,
+  DEAL_BUDGET_STATUSES,
 } from "./schema";

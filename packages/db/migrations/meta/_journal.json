@@ -43,6 +43,13 @@
       "when": 1777017900000,
       "tag": "0005_place_sentiment_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777018000000,
+      "tag": "0006_buying_stage",
+      "breakpoints": true
     }
   ]
 }
