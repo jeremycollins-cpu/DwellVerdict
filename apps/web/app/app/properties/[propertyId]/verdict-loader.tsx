@@ -30,10 +30,18 @@ export function VerdictLoader({
   verdictId,
   autoStart = false,
   label = "Generate verdict",
+  force = false,
 }: {
   verdictId: string;
   autoStart?: boolean;
   label?: string;
+  /**
+   * When true, send `{ force: true }` in the body so the server
+   * bypasses the ready short-circuit and re-runs the orchestrator.
+   * Used by the "Retry verdict" button on an already-ready row so
+   * the user can refresh the narrative after a data-source fix.
+   */
+  force?: boolean;
 }) {
   const router = useRouter();
   const [inFlight, setInFlight] = useState(autoStart);
@@ -49,6 +57,8 @@ export function VerdictLoader({
     try {
       const res = await fetch(`/api/verdicts/${verdictId}/generate`, {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ force }),
         // Match the route handler's 300s maxDuration with a small
         // cushion so the browser doesn't abort before the server
         // has a chance to write the final row + respond.
@@ -76,7 +86,7 @@ export function VerdictLoader({
       setInFlight(false);
       startedRef.current = false;
     }
-  }, [verdictId, inFlight, router]);
+  }, [verdictId, inFlight, router, force]);
 
   useEffect(() => {
     if (!autoStart) return;

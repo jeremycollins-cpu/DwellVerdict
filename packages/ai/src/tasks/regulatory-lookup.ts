@@ -225,6 +225,12 @@ export async function lookupRegulatory(
             type: "web_search_20260209",
             name: "web_search",
             max_uses: maxSearches,
+            // Haiku 4.5 can't nest tool calls, so web_search must be
+            // invoked directly by the model turn rather than from
+            // inside another tool's execution. Anthropic requires
+            // allowed_callers=["direct"] on Haiku models to reflect
+            // that — without it the API returns 400 invalid_request.
+            allowed_callers: ["direct"],
           } as Anthropic.Messages.ToolUnion,
           RENDER_REGULATORY_TOOL,
         ],

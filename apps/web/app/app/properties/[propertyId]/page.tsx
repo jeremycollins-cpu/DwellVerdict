@@ -89,30 +89,37 @@ export default async function PropertyDetailPage({
         </div>
 
         {verdict && verdict.status === "ready" ? (
-          <VerdictCertificate
-            mode="ready"
-            data={{
-              addressFull,
-              signal: verdict.signal as "buy" | "watch" | "pass",
-              confidence: verdict.confidence ?? 0,
-              summary: verdict.summary ?? "",
-              narrative: verdict.narrative ?? "",
-              dataPoints: (verdict.dataPoints as {
-                comps: string;
-                revenue: string;
-                regulatory: string;
-                location: string;
-              }) ?? {
-                comps: "",
-                revenue: "",
-                regulatory: "",
-                location: "",
-              },
-              sources: Array.isArray(verdict.sources)
-                ? (verdict.sources as string[])
-                : [],
-            }}
-          />
+          <>
+            <VerdictCertificate
+              mode="ready"
+              data={{
+                addressFull,
+                signal: verdict.signal as "buy" | "watch" | "pass",
+                confidence: verdict.confidence ?? 0,
+                summary: verdict.summary ?? "",
+                narrative: verdict.narrative ?? "",
+                dataPoints: (verdict.dataPoints as {
+                  comps: string;
+                  revenue: string;
+                  regulatory: string;
+                  location: string;
+                }) ?? {
+                  comps: "",
+                  revenue: "",
+                  regulatory: "",
+                  location: "",
+                },
+                sources: Array.isArray(verdict.sources)
+                  ? (verdict.sources as string[])
+                  : [],
+              }}
+            />
+            <VerdictLoader
+              verdictId={verdict.id}
+              label="Regenerate verdict"
+              force
+            />
+          </>
         ) : verdict && verdict.status === "pending" ? (
           <>
             <VerdictCertificate mode="pending" addressFull={addressFull} />

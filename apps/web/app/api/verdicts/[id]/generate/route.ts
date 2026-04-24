@@ -44,10 +44,20 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id: verdictId } = await context.params;
+
+  // Optional { force: true } body to bypass the ready short-circuit
+  // and re-run the whole orchestrator. Useful while we're still
+  // tuning data-source scrapers and the regulatory prompt — lets us
+  // refresh a previously-generated verdict without deleting the row
+  // or creating a second property. No quota charge on force: caller
+  // is an authenticated owner re-running their own row.
+  const body = await req.json().catch(() => ({}));
+  const force =
+    body && typeof body === "object" && "force" in body && body.force === true;
 
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId) {
@@ -87,7 +97,7 @@ export async function POST(
   // background-job migration). Until then, autoStart=false on the
   // client plus the always-visible disabled "Working…" state handle
   // the common case.
-  if (verdict.status === "ready") {
+  if (verdict.status === "ready" && !force) {
     return Response.json({ ok: true, status: "ready", verdictId });
   }
 
