@@ -385,3 +385,484 @@ day one. Wire PostHog / Sentry / Axiom in Sprint 3 (M13 per roadmap).
 
 **Revisit when.** Sprint 3 kicks off. M13 has a concrete scope and
 acceptance criteria in the roadmap doc.
+
+---
+
+### ADR-5 · Pricing simplification to one $20/mo plan + 1 lifetime free report
+
+**Date:** 2026-04-23
+**Status:** accepted
+
+**Context.** `CLAUDE.md` → Pricing and billing specifies four tiers:
+Free (3 basic reports / mo), Full Report ($29 one-time or 5/12 packs),
+Pro ($79/mo), Portfolio ($199/mo). The founder's instinct after
+reviewing cost exposure: **$29 is too high for per-property
+evaluation at scale** — investors routinely screen dozens of
+properties per week, and $29/each is friction-level expensive enough
+to keep them out of the product entirely.
+
+Simultaneously, the current AI-heavy verdict path (Sonnet 4.6 +
+adaptive thinking + web_search) lands at ~$0.10–$0.60 per call.
+Supporting a $29 price point at that cost is mechanically fine, but
+supporting a $1 price point (the original counter-proposal) would
+require $0.33 Stripe minimum fees + AI COGS to not exceed margin.
+The only version where unit economics hold up is either (a) a
+subscription with high gross margin, or (b) a dramatically cheaper
+per-report cost. ADR-6 commits to (b). This ADR commits to (a).
+
+**Decision.** Replace the four-tier pricing with a single plan:
+
+- **Free trial:** 1 full report per user, ever. No account-level
+  monthly refresh. Intended as a conversion trial, not an ongoing
+  tier. The CTA after consumption is "subscribe to run more."
+- **DwellVerdict Pro:** $20/month, up to **50 reports per calendar
+  month** (reset on the 1st, aligned to Stripe invoice date).
+  Unlimited saved properties, full verdict certificates, all
+  features except the Portfolio-stage surfaces.
+
+Dropped for now: the $29 one-time Full Report, the 5-pack ($99) and
+12-pack ($199) bundles, the $79/mo and $199/mo subscription tiers.
+Dropped-but-deferred (not archived): the Portfolio tier concept
+($199/mo with PMS integration, actuals, operating copilot) will come
+back as a separate ADR when we have a design partner asking for it.
+
+**Monthly cap is hard.** 50/month is a real ceiling with a clear
+upgrade-coming-next-month message, not a soft cap with overage
+billing. Rationale: overages create support load and explanation
+work disproportionate to their revenue contribution at this stage.
+If a single whale actually hits the cap, we'll handle that case
+manually and consider a power-user tier then.
+
+**Consequences.**
+- The `organizations.plan` enum simplifies to `free | pro | canceled`.
+  Existing `portfolio` references removed (schema migration).
+- `user_verdict_limits` is repurposed: tracks lifetime free-report
+  consumption + monthly count + period reset for paid users.
+  Renamed to `user_report_usage` to match its new role.
+- Unit economics at current per-report COGS: 50 reports × $0.60 =
+  $30 COGS vs $20 revenue → negative margin if a paid user actually
+  hits the cap. **This only works after ADR-6 lands** — per-report
+  COGS must drop to under $0.20 for the economics to hold. The two
+  ADRs are intentionally paired in the same branch.
+- The `reports` / credit-pack / bundle tables (if any were started)
+  are dropped. One-time purchases disappear from the checkout flow.
+- The pricing page collapses to one card + one CTA. Simpler marketing,
+  less explanation work, easier to A/B.
+
+**Revisit when.**
+- A real user hits the 50/mo cap and asks for more. Add a power tier
+  ($49/mo, 200 reports) or overage billing.
+- Portfolio-stage features (PMS integration, operating copilot) reach
+  a point where a design partner wants to pay for them. Reintroduce
+  the Portfolio tier as a separate product, not as a pricing ladder
+  on top of Pro.
+- Per-report COGS regresses above $0.30 (Haiku price change, search
+  fee change, regulatory licensing shift). At that point the $20
+  price point may need to move.
+
+---
+
+### ADR-6 · Rules-first verdict architecture, AI reserved for narrative
+
+**Date:** 2026-04-23
+**Status:** accepted
+
+**Context.** `CLAUDE.md` core principle #4 — *"Rules first, AI second,
+proprietary data third. Do not add AI where rules work."* — was
+violated by Sprint 2's verdict pipeline, which puts Sonnet 4.6 at
+the centre of every verdict: the model issues web_search queries,
+reads the results, reasons about comps / regulatory / location, and
+renders the final output in one end-to-end call. The architecture
+worked as a prototype but produced three compounding problems:
+
+1. **Cost.** Sonnet 4.6 + adaptive thinking + 5 web searches +
+   16K max_tokens ran $0.10–$0.60 per attempt. Failed attempts
+   (timeouts, Vercel `maxDuration` kills) billed nearly as much as
+   successful ones because Anthropic bills inference regardless of
+   whether we receive the response. Today's dashboard: $7.32 spent
+   across ~12 Anthropic calls with zero successful verdicts rendered.
+2. **Latency.** Web-search tool-use with adaptive thinking ran 4+
+   minutes on some addresses — unworkable inside Vercel's 300s route
+   envelope even with streaming + aggressive envelope shrinking.
+3. **Defensibility.** The product was a thin wrapper around Sonnet
+   calling web_search. Anyone could replicate it. The moat was
+   supposed to be our scoring rubric, curated regulatory DB, and
+   comp-scraping pipeline — none of which existed yet.
+
+The free-data stack listed in `CLAUDE.md` → Location Signals
+(FEMA NFHL, Census ACS, FBI Crime, OpenStreetMap Overpass, USGS
+wildfire) was supposed to power location signals from day one.
+In practice Sprint 2 skipped all of it and let Sonnet "research"
+each address live — expensive, variable, and legally thin (no
+source-backed citations for anything).
+
+**Decision.** Invert the architecture. AI becomes the last, cheapest
+step; everything upstream is rules + free data. **No hand-curated
+data** — every signal refreshes automatically.
+
+**New pipeline (per verdict):**
+
+1. **Parallel signal fetch** (all free, no AI):
+   - FEMA NFHL → flood zone
+   - USGS fire history → wildfire risk
+   - FBI Crime Data API → crime rate vs metro
+   - Census ACS → neutral demographic numbers (income, vacancy;
+     never race/ethnicity, per fair housing rules)
+   - OpenStreetMap Overpass → amenity counts within 0.5mi / 1mi,
+     used to synthesize a walk-score proxy
+   - Direct Airbnb StaysSearch (Apify fallback) → comp listings
+
+2. **Deterministic computation:**
+   - Revenue formula: `median(ADR) × median(occupancy) × 365 ×
+     (1 − expense_ratio)` on returned comps
+   - Walk score: weighted amenity sum (grocery 0.25, restaurant
+     0.15, transit 0.20, etc.)
+   - Location risk composite: flood + wildfire + regulatory flag
+
+3. **Regulatory lookup — LLM + web_search + per-city cache.**
+   No hand-curated JSON; there is no free "STR rules per US city"
+   API and paid aggregators (Host Compliance, AirDNA regulatory)
+   are all competitors whose data we'd rather not fund. Instead:
+   - Keyed by `(city, state)` in a new `regulatory_cache` table.
+   - On cache miss: Haiku 4.5 + web_search queries "`{city} {state}`
+     short-term rental regulations", extracts a structured record
+     (`str_legal`, `permit_required`, `owner_occupied_only`,
+     `cap_on_non_oo`, `renewal_frequency`), and stores 2-4 source
+     URLs it actually cited. Each source page is snapshotted to R2
+     at cache-write time to satisfy `CLAUDE.md` core principle #7
+     ("every regulatory claim has a source"). ~$0.03-0.05 per miss.
+   - TTL: **30 days.** Cache hits are free. Stale-but-extant entries
+     during the refresh window return immediately; the refresh runs
+     via Inngest after the response so the user never waits.
+   - Every user-facing regulatory assertion surfaces its source URL
+     + `last_verified` date, and flags "informational — verify with
+     city before committing."
+   - Amortized cost: ~$2/mo for a portfolio covering ~50 cities
+     (vs $500-5K/mo for Host Compliance equivalents).
+
+4. **Place sentiment — LLM synthesis over review data, per-bucket
+   cache.** What do real reviewers say about the *businesses,
+   attractions, and physical environment* around this address?
+   Scoped deliberately narrow per fair housing rules: signals are
+   about **places and guest experience**, never about residents.
+   - Keyed by `(lat_bucket, lng_bucket)` at ~100m × 100m
+     resolution in a new `place_sentiment_cache` table.
+   - Source mix per lookup:
+     - **Yelp Fusion API** (free tier): businesses within 0.5mi
+       radius, review snippets, aggregate star ratings by category
+     - **Google Places Details**: up to 5 recent reviews per
+       nearby business (free tier covers v0 volume)
+     - **Airbnb listing reviews**: scraped alongside the comp
+       listings we already fetch, filtered for neighborhood/area
+       commentary (not property-specific)
+   - Haiku 4.5 synthesizes 2-3 factual bullets per property with
+     prompt-level fair-housing guardrails matching the Location
+     Verdict rules in `CLAUDE.md`. Explicit allow-list of what
+     the prompt may output (amenity mentions, noise/parking
+     observations, tourist-draw proximity, construction activity)
+     and explicit deny-list (anything about people, schools as
+     quality, "family-friendly", subjective safety claims).
+   - TTL: **30 days.** ~$0.02 per miss, effectively $0 at steady
+     state because 100m buckets hit cached entries from prior
+     verdicts in the same area.
+   - Deploy-blocking golden-file tests under
+     `packages/ai/tests/place-sentiment-fair-housing.test.ts`.
+
+5. **Scoring rubric** (TypeScript function, not AI): weighted sum
+   over the fetched signals → numeric score → BUY / WATCH / PASS +
+   confidence.
+
+6. **Haiku 4.5 narrative** (the final AI call): takes the
+   structured signals + place-sentiment bullets + score as input,
+   writes a 2-3 paragraph narrative explaining *why* this verdict,
+   citing the specific data points. ~1.5K input / 500 output tokens
+   → ~$0.005 per call.
+
+**Per-report COGS (projected):**
+
+| Component | Cost per verdict |
+|---|---|
+| FEMA / USGS / FBI / Census / Overpass | **$0** |
+| Airbnb scrape (direct) or Apify fallback ($50/mo ÷ volume) | $0 – $0.05 |
+| Yelp Fusion (free tier), Google Places (free tier) | $0 at v0 volume |
+| Regulatory LLM+web_search (amortized, 30-day cache, ~50 cities) | **~$0.001** |
+| Place sentiment LLM synthesis (amortized, 30-day cache, 100m buckets) | **~$0.001** |
+| Haiku narrative | ~$0.005 |
+| **Steady-state total** | **~$0.007 – $0.06** |
+
+vs the Sonnet-first architecture at $0.10–$0.60. **15–100× cheaper.**
+At $20/mo × 50 reports/mo cap = $1 max/sub/mo COGS. Healthy under
+ADR-5's economics.
+
+**Consequences.**
+- `packages/ai/src/tasks/verdict-generation.ts` rewrites from "one
+  big Anthropic call" to "orchestrator that fetches signals,
+  computes a score, then asks Haiku for a narrative."
+- New package: `packages/data-sources/` (FEMA, USGS, FBI, Census,
+  Overpass, Yelp, Google Places clients, per-address cache in
+  Postgres with 7-day TTL on raw data).
+- New tables: `regulatory_cache` (keyed by city+state) and
+  `place_sentiment_cache` (keyed by lat/lng bucket). Both with
+  `last_verified_at` + `source_urls` + `r2_snapshot_keys`.
+- New prompts:
+  - `prompts/verdict-narrative.v1.md` (Haiku, structured-signals
+    → narrative)
+  - `prompts/regulatory-lookup.v1.md` (Haiku + web_search, city
+    → structured regulatory record)
+  - `prompts/place-sentiment.v1.md` (Haiku, review data →
+    factual bullets with strict allow/deny lists)
+  - All three have deploy-blocking golden-file tests.
+- Inngest jobs for background cache refresh (regulatory and place
+  sentiment): when a cache row's TTL expires, enqueue a refresh
+  rather than blocking the user's verdict on the LLM call.
+- Regulatory honesty: we're outsourcing regulatory interpretation
+  to an LLM. **Hallucination risk is real** and the mitigation is
+  (a) always surface the source URL, (b) always show `last_verified`
+  date, (c) golden-file tests against known-correct rules for
+  high-volume markets (Nashville, Scottsdale, Austin, Denver,
+  Phoenix, etc.), (d) never phrase output as legal advice, always
+  as "check with city before committing." We accept this tradeoff
+  over licensing a competitor's data.
+- Verdict quality on cities outside the golden-file set degrades
+  gracefully: LLM regulatory lookup returns a best-effort record
+  with source citations; UI flags the `last_verified` age and
+  encourages user verification.
+- `CLAUDE.md` → Model routing says Sonnet 4 for "location verdict
+  synthesis" and "regulatory interpretation." This ADR narrows
+  that: Sonnet 4 stays reserved for task types we haven't built
+  yet (offer analysis, tax strategy); verdict narrative,
+  regulatory lookup, and place sentiment all run on Haiku 4.5
+  because the structured signals and strict prompt scoping do the
+  heavy lifting and synthesis is cheap.
+- `CLAUDE.md` → Pricing section needs a rewrite to match ADR-5.
+  Done in the same branch.
+
+**Revisit when.**
+- Regulatory golden-file tests start failing for a city we care
+  about (LLM output drifts from known-correct rules). Either tune
+  the prompt, upgrade that city's lookup to Sonnet 4.6, or build
+  a dedicated scraper for that city's STR permit portal. Per-city
+  scrapers are still on the table — we just don't start with them.
+- A paid regulatory aggregator becomes cheap enough that the
+  LLM-hallucination risk isn't worth the savings. Write a
+  cost-vs-risk ADR at that point.
+- Haiku-quality narrative regresses on a benchmark address (the
+  output reads generic or loses citations). Upgrade that specific
+  task to Sonnet 4.6 via the task registry — the routing is
+  per-task, not global.
+- A paid data source becomes undeniably better than our free-stack
+  equivalent (e.g., Walk Score API beats our Overpass-derived walk
+  score by a measurable margin on a design partner's portfolio).
+  At that point license it with a standalone cost-justification ADR.
+- Reddit loosens commercial API terms or an open-data alternative
+  emerges (e.g., a Common Crawl-style neighborhood corpus).
+  Consider adding Reddit/forum data to the place-sentiment sources
+  at that point.
+
+---
+
+### ADR-7 · v0 scope ladder, small-operator persona, and dogfooding commitment
+
+**Date:** 2026-04-23
+**Status:** accepted
+
+**Context.** Several threads converged into one scoping decision:
+- ADR-5 simplified pricing but left "what actually ships in v0"
+  undefined.
+- ADR-6 laid out the data architecture but not which product
+  surfaces it serves.
+- A competitive scan (HouseCanary, AirDNA, BNBCalc, Guesty,
+  Hostaway, Lodgify, Turnify, Buildium) showed a clean gap: no
+  competitor serves solo-to-small operators (1-5 properties)
+  across the full lifecycle at a flat low price. Everyone is
+  either evaluate-only or manage-only, and every PMS prices
+  per-listing.
+- The founder is personally closing on an Airbnb property with
+  a renovation in flight — **dogfooding opportunity on Buying
+  and Renovating stages** that will drive real scope decisions.
+
+This ADR pins down the v0 scope, the persona, and the guardrails
+that prevent scope creep back into enterprise-grade or paid-
+aggregator directions.
+
+**Decision.**
+
+**Persona (explicit):** Solo-to-small STR/LTR operator with 1-5
+properties. Both entry points supported:
+- "Evaluator" — considering a purchase, starts at Finding
+- "Manager" — already owns, starts at Managing ("I already own
+  this property" flow)
+
+We are explicitly **not**:
+- HouseCanary (enterprise AVM for institutions)
+- AirDNA (proprietary STR market data for analysts)
+- Guesty / Hostaway / Lodgify (multi-channel-distribution PMS
+  for portfolio operators)
+- Propstream / Propwire (wholesaler prospecting with
+  owner/mortgage/distress data)
+
+**Positioning (explicit):** The easy, affordable, full-lifecycle
+tool for the 1-5-property host. Flat pricing (not per-listing).
+No fluff — features that work and make life easier.
+
+**v0 scope ladder — all five stages are real features:**
+
+| Stage | v0 reality | Free-services stack |
+|---|---|---|
+| **Finding** | Paste address → verdict certificate with BUY/WATCH/PASS, scoring, signals, narrative | FEMA, USGS, FBI, Census, Overpass, Yelp, Google Places, Zillow/Redfin scrape, Airbnb scrape |
+| **Evaluating** | Save property, scenario sliders (occupancy, ADR, expenses), LTR vs STR comparison, notes | Same signals + Neon persistence |
+| **Buying** | Key deadlines checklist, document vault, contacts (agent/lender/inspector/title/attorney), notes timeline, closing costs budget | Neon + R2 |
+| **Renovating** | Scope list, budget tracker (budgeted → committed → spent), task checklist, contractor contacts + quotes, receipt/photo upload, timeline view | Neon + R2 |
+| **Managing** | "I already own this" entry, CSV import (Airbnb/Hospitable/Guesty/Hostaway formats), actuals-vs-forecast dashboard, expense tracking categorized by Schedule E, tax-ready annual summary | CSV parser + Neon |
+
+Nothing in v0 is a "coming soon" waitlist surface. Every stage is
+usable from launch. Fidelity is "basic but complete" — not
+demo-ware, not enterprise-grade.
+
+**Dogfooding commitment.** The Buying and Renovating features will
+be used by the founder on a live purchase during v0 development.
+Every usability friction, missing feature, and unclear UI hit in
+dogfood becomes a v0 fix, not a v1 defer. Dogfooding ends when
+the founder closes on the property; features added mid-dogfood
+are committed scope.
+
+**No-paid-data guardrail.** The following data sources are
+explicitly out until a specific user-demand trigger is logged:
+- HouseCanary, ATTOM, CoreLogic, DataTree, Estated (property,
+  owner, mortgage data)
+- AirDNA, Rabbu (proprietary STR market data)
+- GreatSchools, Walk Score, FirstStreet, AreaVibes (neighborhood
+  quality scores)
+- Host Compliance, STRGuard (regulatory aggregators)
+- Paid MLS / RETS feeds
+
+**Revisit threshold:** 100 paying subscribers AND a specific
+user-logged request tied to a concrete deal or decision we
+cannot support on the free-services stack. Any paid data source
+needs its own cost-justification ADR.
+
+**Explicitly excluded signals** (per fair housing discipline +
+persona relevance):
+- School ratings in any form (legally radioactive — Redfin/HUD
+  settlement precedent, irrelevant for STR)
+- Subjective resident demographic characterizations
+- Propwire-class wholesaler data (owner info, mortgage, absentee
+  flag, distress indicators) — different product, different
+  persona. Not "deferred" — actively out.
+
+**Consequences.**
+- All five stages get real UI in v0. No "coming soon" surfaces
+  for the core five.
+- Managing gets more scope weight than a typical MVP would assign
+  it — it's the feature where $20/mo flat most clearly beats
+  Lodgify/Hostaway/Guesty at the 3-property scale, and it's the
+  only entry point for the "manager" persona.
+- Buying + Renovating fidelity is set by founder dogfooding,
+  not a theoretical spec. Real use drives scope.
+- No-paid-data guardrail means some features competitors have
+  (ATTOM owner data, GreatSchools ratings, AirDNA market
+  forecasts, Propwire prospecting) do not exist in our product.
+  Marketing and UI must be honest about this rather than
+  implying parity.
+- Decision velocity: future feature requests get a yes/no in
+  30 seconds via the persona + no-paid-data rules, not 30
+  minutes of re-litigation.
+
+**Revisit when.**
+- Paid user count crosses 100 AND a specific paid-data-source
+  request lines up with a lost-deal story.
+- Persona shifts in practice (we find real users are 10+-property
+  operators, requiring per-listing pricing + enterprise features).
+- A competitor launches a flat-priced full-lifecycle product,
+  changing the positioning calculus.
+- Founder's own dogfooding reveals a category of feature we
+  missed (e.g., inspection-contingency workflow patterns,
+  specific renovation phase tracking).
+
+---
+
+### ADR-8 · Add DwellVerdict Pro tier at $40/mo with Scout chat exclusivity
+
+**Date:** 2026-04-23
+**Status:** accepted (supersedes ADR-5's single-plan decision)
+
+**Context.** ADR-5 established one $20/mo plan + 1 lifetime free
+report. As we scoped Scout (the CLAUDE.md AI assistant) into v0,
+cost-variance analysis showed chat is the only feature whose
+COGS scales with *user engagement* rather than user count:
+
+- Verdicts, place sentiment, regulatory lookups, Managing
+  dashboards — all cached or bounded per-verdict. Costs scale
+  with subscriber count.
+- Chat at 30 messages/day × 30 days × ~$0.02/msg = ~$18/user/mo
+  worst case on Haiku 4.5.
+
+A single-tier $20/mo plan with unlimited Scout chat has negative
+margin in the abuse case. Two options: tight chat rate limits
+on the $20 plan (5/day ≈ ~$3/mo worst case), or gate chat behind
+a higher tier. The higher tier doubles as a conversion upsell.
+
+**Decision.** Add a second paid tier. Scout chat is the only
+feature exclusively gated behind it; everything else remains in
+the base tier so the $20 subscriber still gets the full
+five-stage product.
+
+**Final structure:**
+
+|                    | **Free trial** | **DwellVerdict** | **DwellVerdict Pro** |
+|---|---|---|---|
+| Price              | $0             | $20/mo           | $40/mo               |
+| Reports            | 1 lifetime     | 50/mo            | 200/mo               |
+| Properties saved   | 1              | unlimited        | unlimited            |
+| All five stages    | Finding only   | ✓                | ✓                    |
+| Managing dashboard | —              | ✓                | ✓                    |
+| Buying + Renovating PM | —          | ✓                | ✓                    |
+| PDF export of verdicts | —          | ✓                | ✓                    |
+| Scout AI chat      | —              | —                | **✓** (30/day, 300/mo cap) |
+| Priority verdict queue | —          | —                | ✓                    |
+
+**Rationale for these knobs:**
+- **Scout on Pro only** — matches the cost profile (the single
+  engagement-scaled COGS).
+- **50 vs 200 reports** — gives Pro a substantive differentiator
+  beyond chat. 200/mo (~7/day) is serious-scout territory.
+- **Priority verdict queue at Pro** — effectively free for us
+  (one job-queue re-ordering) but a real user benefit.
+- **PDF export in both tiers** — not COGS-sensitive, would be
+  cruel to withhold.
+- **All five stages in both tiers** — the $20 subscriber gets the
+  full lifecycle product, not a crippled version. Key to
+  positioning.
+
+**Worst-case COGS:**
+- DwellVerdict ($20): 50 reports × $0.007 = $0.35/sub/mo → 98%
+  gross margin
+- DwellVerdict Pro ($40): 200 × $0.007 + 300 chats × $0.02 =
+  $7.40/sub/mo → 81% gross margin
+
+**Consequences.**
+- Two Stripe products (recurring). Upgrade/downgrade flow via
+  Stripe Billing Portal.
+- `organizations.plan` enum: `free | starter | pro | canceled`.
+- `consumeReport` is plan-aware: 50/mo cap for starter, 200/mo
+  cap for pro, 1-lifetime for free.
+- New `canUseScout(plan)` gate on both chat UI and chat route.
+- Pricing page has two cards + a comparison matrix.
+- ADR-5's "single plan" decision is superseded by this ADR;
+  ADR-8 is the current source of truth for pricing shape.
+- ADR-5 stays in the log as the record of "we simplified from
+  four tiers to one," which is still true — we then added a
+  narrow second tier for chat-cost safety + upsell, not a
+  return to the original ladder.
+
+**Revisit when.**
+- A pattern shows $20 users are heavy chat-requesters but don't
+  upgrade — we're losing conversion, maybe chat belongs in the
+  base tier with a metered cap.
+- Haiku pricing shifts materially (price change, model routing
+  update).
+- Competitor pricing shifts enough that $20/$40 is no longer
+  well-placed.
+- A third tier becomes obvious (team/portfolio features at
+  $80-150/mo for users running 5+ properties as a side business).
+

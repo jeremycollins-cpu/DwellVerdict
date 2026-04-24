@@ -1,9 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 
-import {
-  generateVerdict,
-  VERDICT_PROMPT_VERSION,
-} from "@dwellverdict/ai";
+import { VERDICT_NARRATIVE_PROMPT_VERSION } from "@dwellverdict/ai";
+
+import { orchestrateVerdict } from "@/lib/verdict/orchestrator";
 
 import { resolveAppUser } from "@/lib/db/queries/users";
 import { getPropertyForOrg } from "@/lib/db/queries/properties";
@@ -12,17 +11,24 @@ import {
   markVerdictFailed,
   markVerdictReady,
 } from "@/lib/db/queries/verdicts";
-import { refundFreeVerdict } from "@/lib/db/queries/verdict-limits";
+import { refundReport, getPlanForUser } from "@/lib/db/queries/report-usage";
+import { describeError } from "@/lib/errors";
 
 /**
  * POST /api/verdicts/[id]/generate — kick off (or complete) Anthropic
  * verdict generation for a pending verdict row.
  *
  * Why a route handler and not a server action: the Anthropic call can
- * take 20-40s with web search. Route handlers on Node runtime get
- * their own `maxDuration` envelope (60s on default Vercel), and they
- * compose more cleanly with client-side fetch() than server actions
- * do for long-running work.
+ * take 60-180s with adaptive thinking + web search, well past the
+ * default server-action envelope. Route handlers on Node runtime let
+ * us raise `maxDuration` (300s is the Vercel Pro ceiling) and compose
+ * more cleanly with client-side fetch() for long-running work.
+ *
+ * If a verdict still hits the 300s envelope consistently, the right
+ * next step is to move generation behind Inngest (already in stack
+ * per CLAUDE.md): return 202 here, fire a background job, let the
+ * existing pending → ready transition drive the UI. We haven't yet
+ * because the p95 Anthropic turnaround fits inside this envelope.
  *
  * Idempotency: the client may call this twice during a refresh or
  * retry. We guard by reading the verdict's current status — if it's
@@ -35,13 +41,23 @@ import { refundFreeVerdict } from "@/lib/db/queries/verdict-limits";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id: verdictId } = await context.params;
+
+  // Optional { force: true } body to bypass the ready short-circuit
+  // and re-run the whole orchestrator. Useful while we're still
+  // tuning data-source scrapers and the regulatory prompt — lets us
+  // refresh a previously-generated verdict without deleting the row
+  // or creating a second property. No quota charge on force: caller
+  // is an authenticated owner re-running their own row.
+  const body = await req.json().catch(() => ({}));
+  const force =
+    body && typeof body === "object" && "force" in body && body.force === true;
 
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId) {
@@ -73,7 +89,15 @@ export async function POST(
   // Idempotency: already-ready short-circuits. pending / failed both
   // fall through to generation — markVerdictReady / markVerdictFailed
   // overwrite the final state regardless of prior status.
-  if (verdict.status === "ready") {
+  //
+  // TODO(inngest): proper in-flight dedupe so concurrent POSTs can't
+  // kick off duplicate Anthropic calls against the same row. Needs
+  // either a new `generation_started_at` column + atomic claim, or
+  // Inngest's event-key dedup (preferred — it'll arrive with the
+  // background-job migration). Until then, autoStart=false on the
+  // client plus the always-visible disabled "Working…" state handle
+  // the common case.
+  if (verdict.status === "ready" && !force) {
     return Response.json({ ok: true, status: "ready", verdictId });
   }
 
@@ -91,7 +115,7 @@ export async function POST(
     await markVerdictFailed({
       verdictId,
       error: "Property has no coordinates — cannot generate verdict",
-      promptVersion: VERDICT_PROMPT_VERSION,
+      promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
     });
     return Response.json(
       { ok: false, error: "no_coordinates" },
@@ -103,42 +127,115 @@ export async function POST(
     property.addressFull ??
     `${property.addressLine1}, ${property.city}, ${property.state} ${property.zip}`;
 
-  const result = await generateVerdict({ addressFull, lat, lng });
-
-  if (!result.ok) {
-    await markVerdictFailed({
+  // VERDICT_TEST_MODE=mock short-circuits the Anthropic call entirely
+  // and writes a synthetic ready verdict. Intended for UI / DB /
+  // routing / deploy verification without spending on inference.
+  // Leave unset (or set to "off") for real generation.
+  if (process.env.VERDICT_TEST_MODE === "mock") {
+    await markVerdictReady({
       verdictId,
-      error: result.error,
+      signal: "watch",
+      confidence: 55,
+      summary: `[TEST MODE] Mock verdict for ${addressFull}. No Anthropic call was made.`,
+      narrative:
+        "[TEST MODE] This is a synthetic verdict generated without calling " +
+        "Anthropic. It exists to let you verify the pending → ready UI " +
+        "transition, the certificate render, and the DB write path " +
+        "without spending on inference. Unset VERDICT_TEST_MODE in Vercel " +
+        "env vars to restore real generation.",
+      dataPoints: {
+        comps: "[TEST MODE] No comps fetched.",
+        revenue: "[TEST MODE] No revenue estimate.",
+        regulatory: "[TEST MODE] No regulatory lookup.",
+        location: "[TEST MODE] No location signals.",
+      },
+      sources: [
+        "https://dwellverdict.com/docs/test-mode",
+        "https://dwellverdict.com/docs/test-mode-2",
+      ],
+      modelVersion: "mock",
+      promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
+      inputTokens: 0,
+      outputTokens: 0,
+      costCents: 0,
+    });
+    return Response.json({ ok: true, status: "ready", verdictId, mode: "mock" });
+  }
+
+  // Outer guard: orchestrateVerdict catches per-signal failures and
+  // returns an OrchestratedVerdictFailure, but DB writes
+  // (markVerdictFailed / markVerdictReady) or other unexpected
+  // errors could still throw.
+  // If anything slips through, mark the verdict failed with a
+  // sanitised message and return a 502 the UI knows how to render as
+  // a retry state — never bubble a bare 500 to the browser.
+  try {
+    const result = await orchestrateVerdict({
+      addressFull,
+      city: property.city,
+      state: property.state,
+      lat,
+      lng,
+    });
+
+    if (!result.ok) {
+      await markVerdictFailed({
+        verdictId,
+        error: result.error,
+        modelVersion: result.observability.modelVersion,
+        promptVersion: result.observability.promptVersion,
+        inputTokens: result.observability.inputTokens,
+        outputTokens: result.observability.outputTokens,
+        costCents: result.observability.costCents,
+      });
+      await refundReport({
+        userId: appUser.userId,
+        plan: await getPlanForUser(appUser.userId),
+      }).catch(() => undefined);
+      return Response.json(
+        { ok: false, error: "generation_failed", message: result.error },
+        { status: 502 },
+      );
+    }
+
+    await markVerdictReady({
+      verdictId,
+      signal: result.signal,
+      confidence: result.confidence,
+      summary: result.summary,
+      narrative: result.narrative,
+      dataPoints: result.dataPoints,
+      sources: result.sources,
       modelVersion: result.observability.modelVersion,
       promptVersion: result.observability.promptVersion,
       inputTokens: result.observability.inputTokens,
       outputTokens: result.observability.outputTokens,
       costCents: result.observability.costCents,
     });
-    // Refund the free-tier slot the server action consumed — the
-    // user shouldn't be charged quota for our failure. Swallow refund
-    // errors (under-charging once is better than compounding errors).
-    await refundFreeVerdict(appUser.userId).catch(() => undefined);
+
+    return Response.json({ ok: true, status: "ready", verdictId });
+  } catch (err) {
+    const { message, code } = describeError(err);
+    console.error("[verdicts/generate] unexpected error", {
+      verdictId,
+      code,
+      message,
+      // Keep the raw error around in logs for deep-dive debugging
+      // — Vercel will serialize it so cause chains are visible.
+      raw: err,
+    });
+    await markVerdictFailed({
+      verdictId,
+      error: `unexpected: ${message}`,
+      promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
+    }).catch(() => undefined);
+    await refundReport({
+      userId: appUser.userId,
+      plan: await getPlanForUser(appUser.userId),
+    }).catch(() => undefined);
     return Response.json(
-      { ok: false, error: "generation_failed", message: result.error },
+      { ok: false, error: "generation_failed", code, message },
       { status: 502 },
     );
   }
-
-  await markVerdictReady({
-    verdictId,
-    signal: result.output.verdict,
-    confidence: result.output.confidence,
-    summary: result.output.summary,
-    narrative: result.output.narrative,
-    dataPoints: result.output.data_points,
-    sources: result.output.sources,
-    modelVersion: result.observability.modelVersion,
-    promptVersion: result.observability.promptVersion,
-    inputTokens: result.observability.inputTokens,
-    outputTokens: result.observability.outputTokens,
-    costCents: result.observability.costCents,
-  });
-
-  return Response.json({ ok: true, status: "ready", verdictId });
 }

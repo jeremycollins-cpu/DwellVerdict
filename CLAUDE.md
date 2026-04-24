@@ -246,12 +246,34 @@ Primary path is direct HTTP. See `docs/DATA_STRATEGY_V22.md` for full detail.
 
 ## Pricing and billing
 
-- **Free tier:** 3 basic reports per month. Account required. Stored in `user_usage` table. Basic reports include property snapshot, STR revenue range, city-level regulatory badge, **lightweight Location Verdict (tier + one-sentence summary only)**, and teasers for paid features.
-- **Full Report:** $29 one-time. Or 5-pack ($99) or 12-pack ($199). Credits expire in 90 days. Includes full underwriting with scenarios, 8 editable comps, LTR comparison, appreciation analysis, property-specific regulatory analysis, **full five-category Location Signals breakdown with metrics and AI verdict**, AI deal verdict, shareable PDF + public URL.
-- **Pro:** $79/mo or $790/yr. Unlimited reports, saved properties, full underwriting, buying workflow, team sharing.
-- **Portfolio:** $199/mo or $1,990/yr. Adds PMS integration, actuals, operating copilot, tax strategy, renovation PM.
+**Current model per ADR-5 + ADR-8 (supersedes the four-tier ladder
+that used to live here).** Two paid tiers + a lifetime free trial:
 
-Stripe handles all billing. Webhooks in `apps/web/app/api/webhooks/stripe/`.
+- **Free trial:** 1 full report per user, ever. No monthly refresh.
+  Pure conversion taster. `organizations.plan = 'free'`.
+- **DwellVerdict:** $20/month. 50 reports per calendar month, all
+  five lifecycle stages (Finding, Evaluating, Buying, Renovating,
+  Managing), CSV import, Schedule E tax summary, PDF export.
+  `organizations.plan = 'starter'`.
+- **DwellVerdict Pro:** $40/month. 200 reports per month, everything
+  in DwellVerdict plus Scout AI chat (30 messages/day, 300/month)
+  and priority verdict queue. `organizations.plan = 'pro'`.
+- **Canceled:** read-only access to historical rows; no new reports
+  until re-subscribe. `organizations.plan = 'canceled'`.
+
+Monthly caps are **hard** — no overage billing in v0. Resets at
+00:00 UTC on the 1st of each calendar month, aligned to Stripe's
+invoice date.
+
+Single `organizations.plan` column carries the state. `consumeReport`
+(apps/web/lib/db/queries/report-usage.ts) is plan-aware and atomic.
+Scout chat enforces rate limits via `consumeScoutMessage` against
+the same `user_report_usage` row.
+
+Stripe handles all billing. Checkout at `/api/stripe/checkout`,
+self-serve management at `/api/stripe/portal`, webhook mirrors
+subscription state to `organizations` at
+`apps/web/app/api/webhooks/stripe/route.ts`.
 
 ## Testing
 

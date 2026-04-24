@@ -1,0 +1,39 @@
+{
+  "name": "@dwellverdict/data-sources",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fema": "./src/fema.ts",
+    "./usgs": "./src/usgs.ts",
+    "./fbi": "./src/fbi.ts",
+    "./census": "./src/census.ts",
+    "./overpass": "./src/overpass.ts",
+    "./yelp": "./src/yelp.ts",
+    "./google-places": "./src/google-places.ts",
+    "./airbnb": "./src/airbnb.ts",
+    "./zillow": "./src/zillow.ts",
+    "./redfin": "./src/redfin.ts",
+    "./revenue": "./src/revenue.ts",
+    "./apify": "./src/apify.ts",
+    "./cache": "./src/cache.ts"
+  },
+  "scripts": {
+    "lint": "echo \"(no-op) data-sources lint\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dwellverdict/db": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

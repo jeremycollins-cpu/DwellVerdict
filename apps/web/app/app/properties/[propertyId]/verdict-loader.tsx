@@ -10,23 +10,38 @@ import { Button } from "@/components/ui/button";
  * VerdictLoader — client component that drives verdict generation for
  * a pending or failed verdict row.
  *
- * Behaviour:
- *   - autoStart=true (default): POST /api/verdicts/[id]/generate on
- *     mount. If it succeeds, refresh the page so the server component
- *     re-renders the 'ready' state.
- *   - autoStart=false: wait for the user to click "Retry". Used by
- *     the failed state so we don't silently re-spend on page load.
+ * COST CONTROL (important — do not re-enable without thinking):
+ * `autoStart` now defaults to FALSE. Previously the component fired
+ * a POST on every mount, which meant every page visit to a pending
+ * verdict kicked off a fresh ~$0.30 Anthropic call — reloads, tab
+ * duplicates, and the post-failure refresh all silently re-spent.
+ * Generation must be user-initiated via the "Generate verdict"
+ * button until we have (a) server-side dedupe, (b) a daily spend
+ * cap, and (c) Inngest-backed background generation.
  *
- * We don't poll — the POST blocks until Anthropic returns (20-40s
- * typical) or the 60s route maxDuration fires. Either way, the
+ * The button is always visible — disabled with a spinner while a
+ * fetch is in-flight, clickable otherwise.
+ *
+ * We don't poll — the POST blocks until Anthropic returns (60-180s
+ * typical) or the 300s route maxDuration fires. Either way, the
  * response carries the final state.
  */
 export function VerdictLoader({
   verdictId,
-  autoStart = true,
+  autoStart = false,
+  label = "Generate verdict",
+  force = false,
 }: {
   verdictId: string;
   autoStart?: boolean;
+  label?: string;
+  /**
+   * When true, send `{ force: true }` in the body so the server
+   * bypasses the ready short-circuit and re-runs the orchestrator.
+   * Used by the "Retry verdict" button on an already-ready row so
+   * the user can refresh the narrative after a data-source fix.
+   */
+  force?: boolean;
 }) {
   const router = useRouter();
   const [inFlight, setInFlight] = useState(autoStart);
@@ -42,14 +57,18 @@ export function VerdictLoader({
     try {
       const res = await fetch(`/api/verdicts/${verdictId}/generate`, {
         method: "POST",
-        // Give the route handler headroom — the default 30s fetch
-        // timeout some browsers apply would cut us off early.
-        signal: AbortSignal.timeout(70_000),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ force }),
+        // Match the route handler's 300s maxDuration with a small
+        // cushion so the browser doesn't abort before the server
+        // has a chance to write the final row + respond.
+        signal: AbortSignal.timeout(310_000),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(body?.message ?? `Generation failed (${res.status})`);
         setInFlight(false);
+        startedRef.current = false;
         router.refresh();
         return;
       }
@@ -59,14 +78,15 @@ export function VerdictLoader({
     } catch (err) {
       setError(
         err instanceof Error
-          ? err.message.includes("timeout")
+          ? err.message.includes("timed out") || err.message.includes("timeout")
             ? "Generation took too long — try again."
             : err.message
           : "Unexpected error",
       );
       setInFlight(false);
+      startedRef.current = false;
     }
-  }, [verdictId, inFlight, router]);
+  }, [verdictId, inFlight, router, force]);
 
   useEffect(() => {
     if (!autoStart) return;
@@ -77,28 +97,23 @@ export function VerdictLoader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
 
-  if (inFlight) {
-    // Pending microcopy lives inside VerdictCertificate during the
-    // in-flight generation. This component stays silent unless the
-    // call errors.
-    return null;
-  }
-
   return (
     <div className="flex items-center gap-3">
       <Button
         variant="outline"
         onClick={() => runGeneration()}
+        disabled={inFlight}
         className="gap-2"
       >
-        <RefreshCw className="h-4 w-4" />
-        Retry verdict
+        {inFlight ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <RefreshCw className="h-4 w-4" />
+        )}
+        {inFlight ? "Working…" : label}
       </Button>
       {error ? (
         <span className="font-mono text-xs text-ink-muted">{error}</span>
-      ) : null}
-      {inFlight ? (
-        <Loader2 className="h-4 w-4 animate-spin text-ink-muted" />
       ) : null}
     </div>
   );

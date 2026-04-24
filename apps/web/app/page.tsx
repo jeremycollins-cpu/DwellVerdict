@@ -3,8 +3,9 @@ import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { HeroReveal } from "@/components/hero-reveal";
+import { Logo } from "@/components/logo";
+import { PublicNav } from "@/components/public-nav";
 import { VerdictCertificate } from "@/components/verdict-certificate";
-import { Wordmark } from "@/components/wordmark";
 
 const STEPS = [
   {
@@ -34,40 +35,7 @@ const TRUST_PILLS = [
 export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-      {/* ─── Top bar ───────────────────────────────────────────────── */}
-      <header className="border-b border-hairline">
-        <div className="container flex h-14 items-center justify-between">
-          <Link
-            href="/"
-            className="transition-opacity hover:opacity-80"
-            aria-label="DwellVerdict home"
-          >
-            <Wordmark fontSize={18} />
-          </Link>
-          <div className="flex items-center gap-4 text-sm">
-            <SignedOut>
-              <Link
-                href="/sign-in"
-                className="text-ink-muted transition-colors hover:text-ink"
-              >
-                Sign in
-              </Link>
-              <Button
-                asChild
-                size="sm"
-                className="bg-terracotta text-white shadow-sm transition-colors hover:bg-terracotta/90"
-              >
-                <Link href="/sign-up">Get started</Link>
-              </Button>
-            </SignedOut>
-            <SignedIn>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/app/properties">Open dashboard</Link>
-              </Button>
-            </SignedIn>
-          </div>
-        </div>
-      </header>
+      <PublicNav />
 
       <main className="flex flex-1 flex-col">
         {/* ─── Hero ─────────────────────────────────────────────────
@@ -211,7 +179,7 @@ export default function HomePage() {
       <footer className="border-t border-hairline bg-card">
         <div className="container flex flex-col items-center justify-between gap-3 py-8 text-sm text-ink-muted md:flex-row">
           <div className="flex items-center gap-3">
-            <Wordmark fontSize={14} />
+            <Logo variant="wordmark" size="sm" />
             <span className="text-ink-muted/60">·</span>
             <span>Property-specific lifecycle intelligence</span>
           </div>

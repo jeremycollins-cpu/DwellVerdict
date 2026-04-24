@@ -15,6 +15,62 @@
       "when": 1776894987986,
       "tag": "0001_late_thaddeus_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777017600000,
+      "tag": "0002_pricing_pivot",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777017700000,
+      "tag": "0003_data_source_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777017800000,
+      "tag": "0004_regulatory_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777017900000,
+      "tag": "0005_place_sentiment_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777018000000,
+      "tag": "0006_buying_stage",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777018100000,
+      "tag": "0007_renovating_stage",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777018200000,
+      "tag": "0008_managing_stage",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777018300000,
+      "tag": "0009_scout_messages",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,11 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 
 import { VerdictCertificate } from "@/components/verdict-certificate";
 import { VerdictLoader } from "@/app/app/properties/[propertyId]/verdict-loader";
+import { PropertyStageNav } from "@/components/property-stage-nav";
 import { getPropertyForOrg } from "@/lib/db/queries/properties";
 import { getLatestVerdictForProperty } from "@/lib/db/queries/verdicts";
 import { resolveAppUser } from "@/lib/db/queries/users";
@@ -76,31 +77,49 @@ export default async function PropertyDetailPage({
           <h1 className="font-mono text-xl text-ink">{addressFull}</h1>
         </div>
 
+        <div className="flex items-center justify-between gap-3">
+          <PropertyStageNav propertyId={propertyId} active="finding" />
+          <Link
+            href={`/app/properties/${propertyId}/scout`}
+            className="flex flex-shrink-0 items-center gap-1.5 rounded-md border border-hairline bg-card px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:bg-paper"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Ask Scout
+          </Link>
+        </div>
+
         {verdict && verdict.status === "ready" ? (
-          <VerdictCertificate
-            mode="ready"
-            data={{
-              addressFull,
-              signal: verdict.signal as "buy" | "watch" | "pass",
-              confidence: verdict.confidence ?? 0,
-              summary: verdict.summary ?? "",
-              narrative: verdict.narrative ?? "",
-              dataPoints: (verdict.dataPoints as {
-                comps: string;
-                revenue: string;
-                regulatory: string;
-                location: string;
-              }) ?? {
-                comps: "",
-                revenue: "",
-                regulatory: "",
-                location: "",
-              },
-              sources: Array.isArray(verdict.sources)
-                ? (verdict.sources as string[])
-                : [],
-            }}
-          />
+          <>
+            <VerdictCertificate
+              mode="ready"
+              data={{
+                addressFull,
+                signal: verdict.signal as "buy" | "watch" | "pass",
+                confidence: verdict.confidence ?? 0,
+                summary: verdict.summary ?? "",
+                narrative: verdict.narrative ?? "",
+                dataPoints: (verdict.dataPoints as {
+                  comps: string;
+                  revenue: string;
+                  regulatory: string;
+                  location: string;
+                }) ?? {
+                  comps: "",
+                  revenue: "",
+                  regulatory: "",
+                  location: "",
+                },
+                sources: Array.isArray(verdict.sources)
+                  ? (verdict.sources as string[])
+                  : [],
+              }}
+            />
+            <VerdictLoader
+              verdictId={verdict.id}
+              label="Regenerate verdict"
+              force
+            />
+          </>
         ) : verdict && verdict.status === "pending" ? (
           <>
             <VerdictCertificate mode="pending" addressFull={addressFull} />
@@ -153,7 +172,7 @@ function VerdictFailedCard({
           </p>
         </div>
       </div>
-      <VerdictLoader verdictId={verdictId} autoStart={false} />
+      <VerdictLoader verdictId={verdictId} label="Retry verdict" />
     </>
   );
 }
