@@ -10,3 +10,4 @@ export * from "./place_sentiment_cache";
 export * from "./buying";
 export * from "./renovating";
 export * from "./managing";
+export * from "./scout_messages";

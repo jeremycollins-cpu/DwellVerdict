@@ -63,6 +63,8 @@ export type {
   PropertyExpense,
   NewPropertyExpense,
   ExpenseCategory,
+  ScoutMessage,
+  NewScoutMessage,
 } from "./schema";
 
 export {

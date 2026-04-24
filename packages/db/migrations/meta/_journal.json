@@ -64,6 +64,13 @@
       "when": 1777018200000,
       "tag": "0008_managing_stage",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777018300000,
+      "tag": "0009_scout_messages",
+      "breakpoints": true
     }
   ]
 }

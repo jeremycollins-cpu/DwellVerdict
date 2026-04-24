@@ -1,7 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 
 import { VerdictCertificate } from "@/components/verdict-certificate";
 import { VerdictLoader } from "@/app/app/properties/[propertyId]/verdict-loader";
@@ -77,7 +77,16 @@ export default async function PropertyDetailPage({
           <h1 className="font-mono text-xl text-ink">{addressFull}</h1>
         </div>
 
-        <PropertyStageNav propertyId={propertyId} active="finding" />
+        <div className="flex items-center justify-between gap-3">
+          <PropertyStageNav propertyId={propertyId} active="finding" />
+          <Link
+            href={`/app/properties/${propertyId}/scout`}
+            className="flex flex-shrink-0 items-center gap-1.5 rounded-md border border-hairline bg-card px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:bg-paper"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Ask Scout
+          </Link>
+        </div>
 
         {verdict && verdict.status === "ready" ? (
           <VerdictCertificate

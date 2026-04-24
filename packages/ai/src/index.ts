@@ -44,6 +44,17 @@ export {
   FAIR_HOUSING_DENIED_PATTERNS,
 } from "./tasks/place-sentiment-lint";
 export {
+  sendScoutMessage,
+  SCOUT_CHAT_TASK_TYPE,
+  SCOUT_CHAT_PROMPT_VERSION,
+  SCOUT_CHAT_MODEL,
+  SCOUT_CHAT_HISTORY_CAP,
+  type ScoutChatTurn,
+  type ScoutChatInput,
+  type ScoutChatSuccess,
+  type ScoutChatFailure,
+} from "./tasks/scout-chat";
+export {
   writeVerdictNarrative,
   VerdictNarrativeOutputSchema,
   VERDICT_NARRATIVE_TASK_TYPE,
