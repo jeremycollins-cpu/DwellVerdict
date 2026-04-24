@@ -24,42 +24,69 @@ import {
  * (zone code), SFHA_TF (Y/N), and STATIC_BFE fields.
  */
 
-const NFHL_URL =
-  "https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/28/query";
+// FEMA reorganizes MapServer layers with no migration path. We try
+// the known-historical layer URLs in order and stop at the first
+// that responds 200. If all fail, we surface the last error —
+// which usually tells us FEMA has moved the service entirely and
+// we need to re-map the client.
+const NFHL_QUERY_URLS = [
+  // Current known-good layer (flood hazard zones on the public
+  // NFHL MapServer). Kept first as the canonical path.
+  "https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/28/query",
+  // Historical FeatureServer mirror — occasionally the MapServer
+  // 404s while the FeatureServer keeps serving the same data.
+  "https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/FeatureServer/28/query",
+  // FEMA's older pre-2023 layer numbering. Still serves for some
+  // regions that haven't been re-indexed.
+  "https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/14/query",
+];
 const SOURCE_URL = "https://msc.fema.gov/portal/";
 
 export async function fetchFemaFlood(
   lat: number,
   lng: number,
 ): Promise<FemaFloodSignal> {
-  const url = new URL(NFHL_URL);
-  url.searchParams.set("f", "json");
-  url.searchParams.set("geometry", JSON.stringify({ x: lng, y: lat }));
-  url.searchParams.set("geometryType", "esriGeometryPoint");
-  url.searchParams.set("inSR", "4326");
-  url.searchParams.set("spatialRel", "esriSpatialRelIntersects");
-  url.searchParams.set("outFields", "FLD_ZONE,SFHA_TF,STATIC_BFE,ZONE_SUBTY");
-  url.searchParams.set("returnGeometry", "false");
-
-  const res = await fetch(url, {
-    headers: {
-      "user-agent": "ParcelBot/1.0 (+https://dwellverdict.com/bot)",
-      accept: "application/json",
-    },
-    // Respectful timeout — NFHL is usually fast (<1s) but can spike.
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!res.ok) {
-    // Capture the body so the orchestrator log shows whether this
-    // was a layer rename (FEMA occasionally reorganizes MapServer
-    // layers), an auth change, or a transient outage.
-    const body = await res.text().catch(() => "");
-    throw new Error(
-      `FEMA NFHL responded ${res.status}${body ? `: ${body.slice(0, 300)}` : ""}`,
+  let lastError = "FEMA NFHL: no endpoint tried";
+  for (const base of NFHL_QUERY_URLS) {
+    const url = new URL(base);
+    url.searchParams.set("f", "json");
+    url.searchParams.set("geometry", JSON.stringify({ x: lng, y: lat }));
+    url.searchParams.set("geometryType", "esriGeometryPoint");
+    url.searchParams.set("inSR", "4326");
+    url.searchParams.set("spatialRel", "esriSpatialRelIntersects");
+    url.searchParams.set(
+      "outFields",
+      "FLD_ZONE,SFHA_TF,STATIC_BFE,ZONE_SUBTY",
     );
-  }
+    url.searchParams.set("returnGeometry", "false");
 
-  const payload = (await res.json()) as {
+    const res = await fetch(url, {
+      headers: {
+        "user-agent": "ParcelBot/1.0 (+https://dwellverdict.com/bot)",
+        accept: "application/json",
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      lastError = `FEMA NFHL ${res.status} at ${base}${
+        body ? `: ${body.slice(0, 200)}` : ""
+      }`;
+      continue;
+    }
+    const text = await res.text();
+    // Esri sometimes 200s with a JSON-wrapped error instead of 4xx.
+    if (text.includes('"error"') && !text.includes('"features"')) {
+      lastError = `FEMA NFHL returned error payload at ${base}: ${text.slice(0, 200)}`;
+      continue;
+    }
+    return parseFemaResponse(text);
+  }
+  throw new Error(lastError);
+}
+
+function parseFemaResponse(text: string): FemaFloodSignal {
+  const payload = JSON.parse(text) as {
     features?: Array<{
       attributes: {
         FLD_ZONE?: string | null;

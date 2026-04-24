@@ -46,8 +46,13 @@ async function geocodeToTract(lat: number, lng: number): Promise<TractFips | nul
   const url = new URL(GEOCODER_URL);
   url.searchParams.set("x", lng.toString());
   url.searchParams.set("y", lat.toString());
-  url.searchParams.set("benchmark", "Public_AR_Current");
-  url.searchParams.set("vintage", "Current_Current");
+  // Census 2020-aligned vintage is the most reliably populated for
+  // tract lookups. "Current_Current" was returning empty for remote
+  // lat/lngs (Kings Beach tested empty despite being in a real
+  // tract), likely because "current" refers to whichever partial
+  // release is in flight.
+  url.searchParams.set("benchmark", "Public_AR_Census2020");
+  url.searchParams.set("vintage", "Census2020_Census2020");
   url.searchParams.set("format", "json");
   // Numeric layer id (10 = Census Tracts). The string form
   // "Census Tracts" was ambiguously URL-encoded and caused the
