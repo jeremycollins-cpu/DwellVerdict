@@ -176,8 +176,18 @@ export async function fetchAirbnbCompsDirect(
 async function fetchAirbnbCompsApify(
   lat: number,
   lng: number,
+  locationQuery?: string,
 ): Promise<AirbnbComp[]> {
-  const items = (await runAirbnbScraper({ lat, lng, maxItems: 20 })) as Array<{
+  const items = (await runAirbnbScraper({
+    lat,
+    lng,
+    // Pass a "City, State" string when the caller has it. The
+    // tri_angle actor feeds this into Airbnb's own location
+    // autocomplete, which returns *far* more comps than a raw
+    // lat/lng string ever will.
+    locationQuery,
+    maxListings: 20,
+  })) as Array<{
     id?: string;
     name?: string;
     url?: string;
@@ -255,6 +265,7 @@ function haversineMiles(
 export async function fetchAirbnbComps(
   lat: number,
   lng: number,
+  locationQuery?: string,
 ): Promise<AirbnbCompsSignal> {
   const forceApify = useApifyFallback();
 
@@ -267,14 +278,14 @@ export async function fetchAirbnbComps(
     } catch (err) {
       // Direct failed — try Apify if we have a token configured.
       if (process.env.APIFY_API_TOKEN) {
-        comps = await fetchAirbnbCompsApify(lat, lng);
+        comps = await fetchAirbnbCompsApify(lat, lng, locationQuery);
         fetchedVia = "apify";
       } else {
         throw err;
       }
     }
   } else {
-    comps = await fetchAirbnbCompsApify(lat, lng);
+    comps = await fetchAirbnbCompsApify(lat, lng, locationQuery);
     fetchedVia = "apify";
   }
 
@@ -330,6 +341,10 @@ export async function getAirbnbCompsSignal(
   db: DbClient,
   lat: number,
   lng: number,
+  /** Human-readable "City, State" to seed Apify's location
+   *  autocomplete. Caller should plumb it from the property record.
+   *  Direct StaysSearch path ignores it (uses the lat/lng bbox). */
+  locationQuery?: string,
 ): Promise<SignalResult<AirbnbCompsSignal>> {
   try {
     const data = await withCache({
@@ -337,7 +352,7 @@ export async function getAirbnbCompsSignal(
       source: "airbnb",
       cacheKey: coordBucketKey(lat, lng),
       ttlMs: TTL.AIRBNB,
-      fetch: () => fetchAirbnbComps(lat, lng),
+      fetch: () => fetchAirbnbComps(lat, lng, locationQuery),
     });
     return {
       ok: true,

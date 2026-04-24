@@ -101,7 +101,7 @@ export async function orchestrateVerdict(input: {
     getFbiCrimeSignal(db, lat, lng),
     getCensusAcsSignal(db, lat, lng),
     getOverpassSignal(db, lat, lng),
-    getAirbnbCompsSignal(db, lat, lng),
+    getAirbnbCompsSignal(db, lat, lng, `${city}, ${state}`),
     getZillowValuationSignal(db, addressFull),
     getRedfinValuationSignal(db, addressFull),
     getRegulatorySignal({ city, state }),

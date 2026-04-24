@@ -67,20 +67,26 @@ async function runActorSync<T = unknown>(params: {
 export async function runAirbnbScraper(params: {
   lat: number;
   lng: number;
-  /** Search radius in miles. Default 1. */
-  radiusMiles?: number;
+  /** Optional human-readable query — the tri_angle actor prefers
+   *  "City, State" over raw coordinates because it uses Airbnb's
+   *  own location autocomplete. Falls back to "lat, lng" if unset. */
+  locationQuery?: string;
   /** Max listings to return. Default 20. */
-  maxItems?: number;
+  maxListings?: number;
 }): Promise<unknown[]> {
+  // tri_angle/airbnb-scraper input shape (per Apify store page):
+  //   locationQueries: string[]
+  //   maxListings: number
+  //   currency: string
+  // Sending unknown fields breaks actor input validation, so only
+  // include the documented keys.
   return runActorSync({
     actorId: "tri_angle~airbnb-scraper",
     input: {
-      locationQuery: `${params.lat}, ${params.lng}`,
-      // The actor accepts a location query string; for coordinate-
-      // based search we pass lat/lng. Some markets prefer a city
-      // query — airbnb.ts will resolve city from lat/lng via Google
-      // Places geocode if the lat/lng path returns 0 results.
-      maxItems: params.maxItems ?? 20,
+      locationQueries: [
+        params.locationQuery ?? `${params.lat}, ${params.lng}`,
+      ],
+      maxListings: params.maxListings ?? 20,
       currency: "USD",
     },
   });
