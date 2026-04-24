@@ -1,15 +1,4 @@
 export {
-  generateVerdict,
-  VerdictOutputSchema,
-  VERDICT_TASK_TYPE,
-  VERDICT_PROMPT_VERSION,
-  VERDICT_MODEL,
-  type VerdictInput,
-  type VerdictOutput,
-  type VerdictSuccess,
-  type VerdictFailure,
-} from "./tasks/verdict-generation";
-export {
   getAnthropicClient,
   __setAnthropicClientForTesting,
   __resetAnthropicClientForTesting,

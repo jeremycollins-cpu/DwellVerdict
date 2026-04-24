@@ -1,6 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 
-import { VERDICT_PROMPT_VERSION } from "@dwellverdict/ai";
+import { VERDICT_NARRATIVE_PROMPT_VERSION } from "@dwellverdict/ai";
 
 import { orchestrateVerdict } from "@/lib/verdict/orchestrator";
 
@@ -104,7 +104,7 @@ export async function POST(
     await markVerdictFailed({
       verdictId,
       error: "Property has no coordinates — cannot generate verdict",
-      promptVersion: VERDICT_PROMPT_VERSION,
+      promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
     });
     return Response.json(
       { ok: false, error: "no_coordinates" },
@@ -143,7 +143,7 @@ export async function POST(
         "https://dwellverdict.com/docs/test-mode-2",
       ],
       modelVersion: "mock",
-      promptVersion: VERDICT_PROMPT_VERSION,
+      promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
       inputTokens: 0,
       outputTokens: 0,
       costCents: 0,
@@ -151,9 +151,10 @@ export async function POST(
     return Response.json({ ok: true, status: "ready", verdictId, mode: "mock" });
   }
 
-  // Outer guard: generateVerdict already catches Anthropic errors and
-  // returns a VerdictFailure, but DB writes (markVerdictFailed /
-  // markVerdictReady) or other unexpected errors could still throw.
+  // Outer guard: orchestrateVerdict catches per-signal failures and
+  // returns an OrchestratedVerdictFailure, but DB writes
+  // (markVerdictFailed / markVerdictReady) or other unexpected
+  // errors could still throw.
   // If anything slips through, mark the verdict failed with a
   // sanitised message and return a 502 the UI knows how to render as
   // a retry state — never bubble a bare 500 to the browser.
@@ -211,7 +212,7 @@ export async function POST(
     await markVerdictFailed({
       verdictId,
       error: `unexpected: ${message}`,
-      promptVersion: VERDICT_PROMPT_VERSION,
+      promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
     }).catch(() => undefined);
     await refundReport({
       userId: appUser.userId,

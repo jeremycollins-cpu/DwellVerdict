@@ -13,7 +13,12 @@ import {
   type AirbnbCompsSignal,
   type PropertyValuation,
 } from "@dwellverdict/data-sources";
-import { scoreVerdict, writeVerdictNarrative, type VerdictScore } from "@dwellverdict/ai";
+import {
+  scoreVerdict,
+  writeVerdictNarrative,
+  lintPlaceSentiment,
+  type VerdictScore,
+} from "@dwellverdict/ai";
 
 import { getDb } from "@/lib/db";
 import { getRegulatorySignal } from "@/lib/regulatory/lookup";
@@ -205,6 +210,32 @@ export async function orchestrateVerdict(input: {
     return {
       ok: false,
       error: `narrative_failed: ${narrative.error}`,
+      observability: narrative.observability,
+    };
+  }
+
+  // Fail-closed fair-housing lint on the narrative + four data-
+  // point strings. If anything flags, we refuse the verdict
+  // rather than persist a potentially-FHA-problematic record.
+  // The caller marks the verdict failed; user retries or we
+  // iterate the prompt. Same pattern as place-sentiment.
+  const fhaFlags = lintPlaceSentiment({
+    bullets: [
+      narrative.output.data_points.comps,
+      narrative.output.data_points.revenue,
+      narrative.output.data_points.regulatory,
+      narrative.output.data_points.location,
+    ],
+    summary: `${narrative.output.summary}\n\n${narrative.output.narrative}`,
+  });
+  if (fhaFlags.length > 0) {
+    console.error("[verdict] fair-housing lint blocked narrative", {
+      addressFull,
+      flags: fhaFlags,
+    });
+    return {
+      ok: false,
+      error: `fair_housing_lint_blocked: ${fhaFlags.map((f) => f.reason).join("; ")}`,
       observability: narrative.observability,
     };
   }
