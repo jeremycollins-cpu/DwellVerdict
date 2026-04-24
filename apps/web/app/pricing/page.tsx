@@ -165,6 +165,10 @@ export default async function PricingPage() {
             q="Is this investment advice?"
             a="No. DwellVerdict provides research summaries and data — not investment, legal, or tax advice. Verify regulatory status, insurance requirements, and market specifics with the relevant professionals before making decisions."
           />
+          <Faq
+            q="Have a promo code?"
+            a="Enter it on the Stripe checkout page — there's an 'Add promotion code' field right above the payment details. Codes apply automatically to the subscription price."
+          />
         </div>
       </section>
 

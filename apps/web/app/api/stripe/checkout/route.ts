@@ -97,6 +97,12 @@ export async function POST(req: Request): Promise<Response> {
     mode: "subscription",
     customer: stripeCustomerId,
     line_items: [{ price: priceId, quantity: 1 }],
+    // Show a "promo code" field on the Stripe-hosted Checkout
+    // page. Codes are created + managed in Stripe dashboard →
+    // Products → Coupons → Promotion Codes. Founder path: create
+    // a 100%-off forever coupon, generate a promo code under it,
+    // enter at checkout to bypass paying yourself.
+    allow_promotion_codes: true,
     success_url: `${appUrl}/app/properties?checkout=success`,
     cancel_url: `${appUrl}/pricing?checkout=canceled`,
     // Tie the session back to our org so the webhook can correlate
