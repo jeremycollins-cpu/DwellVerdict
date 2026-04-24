@@ -50,7 +50,13 @@ export async function fetchFemaFlood(
     signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) {
-    throw new Error(`FEMA NFHL responded ${res.status}`);
+    // Capture the body so the orchestrator log shows whether this
+    // was a layer rename (FEMA occasionally reorganizes MapServer
+    // layers), an auth change, or a transient outage.
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `FEMA NFHL responded ${res.status}${body ? `: ${body.slice(0, 300)}` : ""}`,
+    );
   }
 
   const payload = (await res.json()) as {

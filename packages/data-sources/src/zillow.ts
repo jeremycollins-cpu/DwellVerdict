@@ -1,5 +1,6 @@
 import { TTL, withCache, type DbClient } from "./cache";
 import { runZillowScraper, useApifyFallback } from "./apify";
+import { USER_AGENTS } from "./user-agents";
 import {
   PropertyValuationSchema,
   type PropertyValuation,
@@ -215,8 +216,14 @@ function buildZillowSummary(p: {
 async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
-      "user-agent": "ParcelBot/1.0 (+https://dwellverdict.com/bot)",
-      accept: "text/html",
+      // Zillow sits behind Akamai; any UA without a browser shape
+      // returns 403 at the edge. Present as current-stable Chrome.
+      "user-agent": USER_AGENTS.browser,
+      accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "accept-language": "en-US,en;q=0.9",
+      "accept-encoding": "gzip, deflate, br",
+      "upgrade-insecure-requests": "1",
     },
     signal: AbortSignal.timeout(15_000),
   });

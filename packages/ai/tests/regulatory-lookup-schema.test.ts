@@ -55,15 +55,23 @@ describe("RegulatoryLookupOutputSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects fewer than 2 source URLs", () => {
+  it("rejects an empty sources array", () => {
     const bad = RegulatoryLookupOutputSchema.safeParse({
       ...goldenOutput,
-      sources: ["https://example.com/only-one"],
+      sources: [],
     });
     expect(bad.success).toBe(false);
   });
 
-  it("rejects more than 4 source URLs", () => {
+  it("accepts a single source URL (small-jurisdiction case)", () => {
+    const ok = RegulatoryLookupOutputSchema.safeParse({
+      ...goldenOutput,
+      sources: ["https://example.com/municipal-code/str"],
+    });
+    expect(ok.success).toBe(true);
+  });
+
+  it("rejects more than 6 source URLs", () => {
     const bad = RegulatoryLookupOutputSchema.safeParse({
       ...goldenOutput,
       sources: [
@@ -72,6 +80,8 @@ describe("RegulatoryLookupOutputSchema", () => {
         "https://a.com/3",
         "https://a.com/4",
         "https://a.com/5",
+        "https://a.com/6",
+        "https://a.com/7",
       ],
     });
     expect(bad.success).toBe(false);

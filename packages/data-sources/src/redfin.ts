@@ -4,6 +4,7 @@ import {
   type PropertyValuation,
   type SignalResult,
 } from "./types";
+import { USER_AGENTS } from "./user-agents";
 
 /**
  * Redfin property valuation client per CLAUDE.md data-sourcing
@@ -56,8 +57,12 @@ export async function fetchRedfinValuation(
 
   const autoRes = await fetch(autoUrl, {
     headers: {
-      "user-agent": "ParcelBot/1.0 (+https://dwellverdict.com/bot)",
-      accept: "application/json",
+      // Redfin's edge (Cloudflare-backed) 403s any non-browser UA.
+      // Presenting as Chrome unlocks the public autocomplete JSON.
+      "user-agent": USER_AGENTS.browser,
+      accept: "application/json, text/plain, */*",
+      "accept-language": "en-US,en;q=0.9",
+      referer: "https://www.redfin.com/",
     },
     signal: AbortSignal.timeout(10_000),
   });
@@ -77,8 +82,11 @@ export async function fetchRedfinValuation(
   // Step 2: detail page HTML
   const detailRes = await fetch(detailUrl, {
     headers: {
-      "user-agent": "ParcelBot/1.0 (+https://dwellverdict.com/bot)",
-      accept: "text/html",
+      "user-agent": USER_AGENTS.browser,
+      accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "accept-language": "en-US,en;q=0.9",
+      referer: "https://www.redfin.com/",
     },
     signal: AbortSignal.timeout(15_000),
   });

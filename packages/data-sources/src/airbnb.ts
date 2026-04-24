@@ -6,6 +6,7 @@ import {
   type AirbnbCompsSignal,
   type SignalResult,
 } from "./types";
+import { USER_AGENTS } from "./user-agents";
 
 /**
  * Airbnb nearby-listing client per ADR-6 + CLAUDE.md scraping rules.
@@ -77,7 +78,13 @@ export async function fetchAirbnbCompsDirect(
       "content-type": "application/json",
       "x-airbnb-api-key": AIRBNB_API_KEY,
       "x-airbnb-supports-airlock-v2": "true",
-      "user-agent": "ParcelBot/1.0 (+https://dwellverdict.com/bot)",
+      // Browser UA — Airbnb's edge rejects non-browser shapes at
+      // the Akamai layer before the payload is even parsed.
+      "user-agent": USER_AGENTS.browser,
+      accept: "*/*",
+      "accept-language": "en-US,en;q=0.9",
+      origin: "https://www.airbnb.com",
+      referer: "https://www.airbnb.com/",
     },
     body: JSON.stringify({
       operationName: STAYS_SEARCH_OPERATION,
@@ -96,7 +103,16 @@ export async function fetchAirbnbCompsDirect(
     }),
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new Error(`Airbnb StaysSearch responded ${res.status}`);
+  if (!res.ok) {
+    // Capture response body on failure so the orchestrator log tells
+    // us whether this is a stale hash (PersistedQueryNotFound) vs an
+    // auth issue vs an upstream incident. The body is ≤ ~1KB for an
+    // error response, cheap to read.
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `Airbnb StaysSearch responded ${res.status}${body ? `: ${body.slice(0, 500)}` : ""}`,
+    );
+  }
 
   const payload = (await res.json()) as {
     data?: {

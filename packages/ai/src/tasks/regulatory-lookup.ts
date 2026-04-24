@@ -36,8 +36,15 @@ export const RegulatoryLookupOutputSchema = z.object({
   cap_on_non_oo: z.string().nullable(),
   renewal_frequency: z.enum(["annual", "biennial", "none"]).nullable(),
   minimum_stay_days: z.number().int().nullable(),
-  summary: z.string().min(1).max(600),
-  sources: z.array(z.string().url()).min(2).max(4),
+  // Narrative-length summary. Real municipal STR code is messy —
+  // Placer County's program alone has six categories with different
+  // caps and permit rules. 1500 chars lets the model be precise
+  // without truncating; the UI clamps for display anyway.
+  summary: z.string().min(1).max(1500),
+  // At least one source. Some small jurisdictions have exactly one
+  // primary document (a municipal code section); previous minimum
+  // of 2 was rejecting otherwise-valid lookups.
+  sources: z.array(z.string().url()).min(1).max(6),
 });
 export type RegulatoryLookupOutput = z.infer<typeof RegulatoryLookupOutputSchema>;
 
@@ -84,12 +91,14 @@ const RENDER_REGULATORY_TOOL: Anthropic.Messages.Tool = {
       },
       summary: {
         type: "string",
-        description: "One or two plain-prose sentences summarizing the regulatory posture.",
+        description:
+          "2-4 plain-prose sentences summarizing the regulatory posture. Capture nuance (permit categories, caps, zones) — do not oversimplify.",
       },
       sources: {
         type: "array",
         items: { type: "string" },
-        description: "2-4 URLs the model actually read. Prefer primary sources.",
+        description:
+          "1-6 URLs the model actually read. Prefer primary sources (municipal code, county STR page).",
       },
     },
     required: [

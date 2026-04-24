@@ -49,7 +49,10 @@ async function geocodeToTract(lat: number, lng: number): Promise<TractFips | nul
   url.searchParams.set("benchmark", "Public_AR_Current");
   url.searchParams.set("vintage", "Current_Current");
   url.searchParams.set("format", "json");
-  url.searchParams.set("layers", "Census Tracts");
+  // Numeric layer id (10 = Census Tracts). The string form
+  // "Census Tracts" was ambiguously URL-encoded and caused the
+  // Geocoder to 500 with an HTML error page for some coordinates.
+  url.searchParams.set("layers", "10");
 
   const res = await fetch(url, {
     headers: {
@@ -58,9 +61,21 @@ async function geocodeToTract(lat: number, lng: number): Promise<TractFips | nul
     },
     signal: AbortSignal.timeout(10_000),
   });
-  if (!res.ok) throw new Error(`Census Geocoder responded ${res.status}`);
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(
+      `Census Geocoder responded ${res.status}${text ? `: ${text.slice(0, 300)}` : ""}`,
+    );
+  }
+  // Geocoder occasionally 200s with an HTML error page — check the
+  // response shape before trusting JSON.parse.
+  if (!text.trim().startsWith("{")) {
+    throw new Error(
+      `Census Geocoder returned non-JSON (expected '{', got '${text.slice(0, 60)}')`,
+    );
+  }
 
-  const payload = (await res.json()) as {
+  const payload = JSON.parse(text) as {
     result?: {
       geographies?: {
         "Census Tracts"?: Array<{
