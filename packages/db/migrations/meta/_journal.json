@@ -50,6 +50,13 @@
       "when": 1777018000000,
       "tag": "0006_buying_stage",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777018100000,
+      "tag": "0007_renovating_stage",
+      "breakpoints": true
     }
   ]
 }

@@ -44,6 +44,18 @@ export type {
   NewDealBudgetItem,
   DealBudgetCategory,
   DealBudgetStatus,
+  RenovationScopeItem,
+  NewRenovationScopeItem,
+  RenovationScopeCategory,
+  RenovationScopeStatus,
+  RenovationTask,
+  NewRenovationTask,
+  RenovationContractor,
+  NewRenovationContractor,
+  RenovationTrade,
+  RenovationQuote,
+  NewRenovationQuote,
+  RenovationQuoteStatus,
 } from "./schema";
 
 export {
@@ -58,4 +70,8 @@ export {
   DEAL_CONTACT_ROLES,
   DEAL_BUDGET_CATEGORIES,
   DEAL_BUDGET_STATUSES,
+  RENOVATION_SCOPE_CATEGORIES,
+  RENOVATION_SCOPE_STATUSES,
+  RENOVATION_TRADES,
+  RENOVATION_QUOTE_STATUSES,
 } from "./schema";

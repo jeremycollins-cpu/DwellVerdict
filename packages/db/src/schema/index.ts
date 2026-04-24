@@ -8,3 +8,4 @@ export * from "./data_source_cache";
 export * from "./regulatory_cache";
 export * from "./place_sentiment_cache";
 export * from "./buying";
+export * from "./renovating";
