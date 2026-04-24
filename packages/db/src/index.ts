@@ -30,6 +30,8 @@ export type {
   NewDataSourceCacheRow,
   RegulatoryCacheRow,
   NewRegulatoryCacheRow,
+  PlaceSentimentCacheRow,
+  NewPlaceSentimentCacheRow,
 } from "./schema";
 
 export {

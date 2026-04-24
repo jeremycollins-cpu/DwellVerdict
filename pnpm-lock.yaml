@@ -29,6 +29,9 @@ importers:
       '@dwellverdict/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@dwellverdict/data-sources':
+        specifier: workspace:*
+        version: link:../../packages/data-sources
       '@dwellverdict/db':
         specifier: workspace:*
         version: link:../../packages/db

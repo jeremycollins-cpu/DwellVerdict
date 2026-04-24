@@ -36,6 +36,13 @@
       "when": 1777017800000,
       "tag": "0004_regulatory_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777017900000,
+      "tag": "0005_place_sentiment_cache",
+      "breakpoints": true
     }
   ]
 }

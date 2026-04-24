@@ -26,3 +26,20 @@ export {
   type RegulatoryLookupSuccess,
   type RegulatoryLookupFailure,
 } from "./tasks/regulatory-lookup";
+export {
+  synthesizePlaceSentiment,
+  PlaceSentimentOutputSchema,
+  PLACE_SENTIMENT_TASK_TYPE,
+  PLACE_SENTIMENT_PROMPT_VERSION,
+  PLACE_SENTIMENT_MODEL,
+  type PlaceSentimentInput,
+  type PlaceSentimentInputData,
+  type PlaceSentimentOutput,
+  type PlaceSentimentSuccess,
+  type PlaceSentimentFailure,
+} from "./tasks/place-sentiment";
+export {
+  containsFairHousingFlag,
+  lintPlaceSentiment,
+  FAIR_HOUSING_DENIED_PATTERNS,
+} from "./tasks/place-sentiment-lint";

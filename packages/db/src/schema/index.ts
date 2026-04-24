@@ -6,3 +6,4 @@ export * from "./verdicts";
 export * from "./user_report_usage";
 export * from "./data_source_cache";
 export * from "./regulatory_cache";
+export * from "./place_sentiment_cache";
