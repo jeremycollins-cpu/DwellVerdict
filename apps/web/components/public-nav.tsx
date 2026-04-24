@@ -2,11 +2,11 @@ import Link from "next/link";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
-import { Wordmark } from "@/components/wordmark";
+import { Logo } from "@/components/logo";
 
 /**
  * Public marketing header. Used on `/`, `/pricing`, and any other
- * unauthenticated surfaces we ship. Keeps the Wordmark on the left,
+ * unauthenticated surfaces we ship. Keeps the Logo on the left,
  * a small link cluster in the middle, and auth CTAs on the right.
  *
  * SignedIn / SignedOut flip the right-hand slot between Sign in +
@@ -23,7 +23,7 @@ export function PublicNav() {
             className="transition-opacity hover:opacity-80"
             aria-label="DwellVerdict home"
           >
-            <Wordmark fontSize={18} />
+            <Logo variant="full" size="md" />
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link

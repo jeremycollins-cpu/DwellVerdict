@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 52" fill="none" role="img" aria-label="DwellVerdict">
+  <title>DwellVerdict</title>
+  <!-- Mark: D-house with V-check -->
+  <g>
+    <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+    <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  <!-- Wordmark: Geist 800 two-tone "dwell" + "verdict" -->
+  <!-- NOTE: Uses web font when available; for OG/print use, render path version separately -->
+  <text x="58" y="38"
+        font-family="Geist, -apple-system, sans-serif"
+        font-weight="800"
+        font-size="36"
+        letter-spacing="-1.6"
+        fill="#1c1917">dwell<tspan fill="#c55a3f">verdict</tspan></text>
+</svg>

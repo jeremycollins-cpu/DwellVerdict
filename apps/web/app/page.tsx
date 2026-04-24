@@ -3,9 +3,9 @@ import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { HeroReveal } from "@/components/hero-reveal";
+import { Logo } from "@/components/logo";
 import { PublicNav } from "@/components/public-nav";
 import { VerdictCertificate } from "@/components/verdict-certificate";
-import { Wordmark } from "@/components/wordmark";
 
 const STEPS = [
   {
@@ -179,7 +179,7 @@ export default function HomePage() {
       <footer className="border-t border-hairline bg-card">
         <div className="container flex flex-col items-center justify-between gap-3 py-8 text-sm text-ink-muted md:flex-row">
           <div className="flex items-center gap-3">
-            <Wordmark fontSize={14} />
+            <Logo variant="wordmark" size="sm" />
             <span className="text-ink-muted/60">·</span>
             <span>Property-specific lifecycle intelligence</span>
           </div>

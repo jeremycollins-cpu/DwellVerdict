@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 
-import { Wordmark } from "@/components/wordmark";
+import { Logo } from "@/components/logo";
 
 /**
  * Persistent top nav for the authenticated app shell. Lives in
@@ -44,7 +44,7 @@ export function AppNav() {
             className="transition-opacity hover:opacity-80"
             aria-label="DwellVerdict dashboard"
           >
-            <Wordmark fontSize={18} />
+            <Logo variant="full" size="sm" />
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             {LINKS.map((link) => {
