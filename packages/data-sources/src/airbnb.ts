@@ -178,35 +178,56 @@ async function fetchAirbnbCompsApify(
   lng: number,
   locationQuery?: string,
 ): Promise<AirbnbComp[]> {
+  // Apify actors evolve their output shape without notice. We
+  // type the fields we care about as `unknown` and run them
+  // through coerceNumber below, which walks common nested
+  // containers (`{rate}`, `{amount}`, `{value}`, `{guestSatisfaction}`)
+  // until it finds a number. Keeps the parser resilient to actor
+  // version bumps without needing a schema update each time.
   const items = (await runAirbnbScraper({
     lat,
     lng,
-    // Pass a "City, State" string when the caller has it. The
-    // tri_angle actor feeds this into Airbnb's own location
-    // autocomplete, which returns *far* more comps than a raw
-    // lat/lng string ever will.
     locationQuery,
     maxListings: 20,
   })) as Array<{
-    id?: string;
+    id?: string | number;
     name?: string;
     url?: string;
     bedrooms?: number;
     bathrooms?: number;
-    price?: number;
+    // Price can arrive as a number, a `{rate, currency}` object,
+    // or a string label ("$450"). Handle all three.
+    price?: unknown;
+    pricing?: unknown;
     priceLabel?: string;
+    nightlyPrice?: unknown;
     reviewsCount?: number;
-    rating?: number;
+    reviewCount?: number;
+    // Rating can arrive as a number or `{value}` / `{guestSatisfaction}`.
+    rating?: unknown;
+    reviews?: unknown;
     coordinates?: { latitude?: number; longitude?: number };
+    lat?: number;
+    lng?: number;
+    latitude?: number;
+    longitude?: number;
   }>;
 
   return items
-    .filter((i) => i.id)
+    .filter((i) => i.id != null)
     .map((i) => {
       const listingId = String(i.id);
-      const price = i.price ?? parsePrice(i.priceLabel);
-      const listLat = i.coordinates?.latitude ?? null;
-      const listLng = i.coordinates?.longitude ?? null;
+      const price =
+        coerceNumber(i.price) ??
+        coerceNumber(i.pricing) ??
+        coerceNumber(i.nightlyPrice) ??
+        parsePrice(i.priceLabel);
+      const rating = coerceNumber(i.rating) ?? coerceNumber(i.reviews);
+      const reviewsCount = i.reviewsCount ?? i.reviewCount ?? null;
+      const listLat =
+        i.coordinates?.latitude ?? i.lat ?? i.latitude ?? null;
+      const listLng =
+        i.coordinates?.longitude ?? i.lng ?? i.longitude ?? null;
       return {
         listingId,
         title: i.name ?? "",
@@ -214,8 +235,8 @@ async function fetchAirbnbCompsApify(
         bedrooms: i.bedrooms ?? null,
         bathrooms: i.bathrooms ?? null,
         nightlyRate: price,
-        reviewsCount: i.reviewsCount ?? null,
-        rating: i.rating ?? null,
+        reviewsCount,
+        rating,
         lat: listLat,
         lng: listLng,
         distanceMiles:
@@ -227,6 +248,42 @@ async function fetchAirbnbCompsApify(
 }
 
 /** Parse a string like "$215" or "$1,234 per night" into a number. */
+/**
+ * Pull a finite number out of a value that may be a number, a
+ * numeric-looking string, or an object wrapping a number under a
+ * familiar key. Handles the Apify Airbnb actor's various output
+ * shapes (`{rate}`, `{amount}`, `{value}`, `{guestSatisfaction}`
+ * etc.) without needing per-actor-version branches.
+ */
+function coerceNumber(raw: unknown, depth = 0): number | null {
+  if (raw == null) return null;
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  if (typeof raw === "string") {
+    const n = Number(raw.replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
+  if (depth > 4 || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const keys = [
+    "rate",
+    "amount",
+    "value",
+    "price",
+    "nightlyRate",
+    "guestSatisfaction",
+    "averageRating",
+    "rating",
+    "score",
+  ];
+  for (const k of keys) {
+    if (k in obj) {
+      const found = coerceNumber(obj[k], depth + 1);
+      if (found != null) return found;
+    }
+  }
+  return null;
+}
+
 function parsePrice(raw: string | undefined): number | null {
   if (!raw) return null;
   const match = raw.match(/\$?([0-9,]+)/);

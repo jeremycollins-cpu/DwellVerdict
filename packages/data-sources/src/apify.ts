@@ -95,10 +95,13 @@ export async function runAirbnbScraper(params: {
 export async function runZillowScraper(params: {
   url: string;
 }): Promise<unknown[]> {
+  // maxcopell/zillow-scraper's input schema calls the field
+  // searchUrls (per Apify store page), not startUrls. Sending
+  // the wrong shape returned 400 "input.searchUrls is required".
   return runActorSync({
     actorId: "maxcopell~zillow-scraper",
     input: {
-      startUrls: [{ url: params.url }],
+      searchUrls: [{ url: params.url }],
     },
   });
 }

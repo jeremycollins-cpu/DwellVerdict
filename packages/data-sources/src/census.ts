@@ -46,18 +46,15 @@ async function geocodeToTract(lat: number, lng: number): Promise<TractFips | nul
   const url = new URL(GEOCODER_URL);
   url.searchParams.set("x", lng.toString());
   url.searchParams.set("y", lat.toString());
-  // Census 2020-aligned vintage is the most reliably populated for
-  // tract lookups. "Current_Current" was returning empty for remote
-  // lat/lngs (Kings Beach tested empty despite being in a real
-  // tract), likely because "current" refers to whichever partial
-  // release is in flight.
+  // Public_AR_Census2020 + Census2020_Current is the most reliably
+  // populated benchmark/vintage pair. We do NOT pass the `layers`
+  // filter — it narrows results to a single layer and the key
+  // name ("Census Tracts" vs "2020 Census Tracts") shifts per
+  // benchmark. Grabbing all geographies and picking the tract by
+  // regex is more robust.
   url.searchParams.set("benchmark", "Public_AR_Census2020");
-  url.searchParams.set("vintage", "Census2020_Census2020");
+  url.searchParams.set("vintage", "Census2020_Current");
   url.searchParams.set("format", "json");
-  // Numeric layer id (10 = Census Tracts). The string form
-  // "Census Tracts" was ambiguously URL-encoded and caused the
-  // Geocoder to 500 with an HTML error page for some coordinates.
-  url.searchParams.set("layers", "10");
 
   const res = await fetch(url, {
     headers: {
@@ -82,17 +79,21 @@ async function geocodeToTract(lat: number, lng: number): Promise<TractFips | nul
 
   const payload = JSON.parse(text) as {
     result?: {
-      geographies?: {
-        "Census Tracts"?: Array<{
-          STATE?: string;
-          COUNTY?: string;
-          TRACT?: string;
-        }>;
-      };
+      geographies?: Record<
+        string,
+        Array<{ STATE?: string; COUNTY?: string; TRACT?: string }>
+      >;
     };
   };
 
-  const tract = payload.result?.geographies?.["Census Tracts"]?.[0];
+  // Find any geography key whose name mentions "tract" (case-
+  // insensitive). Works across benchmark variants that use either
+  // "Census Tracts" or "2020 Census Tracts".
+  const geographies = payload.result?.geographies ?? {};
+  const tractKey = Object.keys(geographies).find((k) =>
+    /tract/i.test(k),
+  );
+  const tract = tractKey ? geographies[tractKey]?.[0] : undefined;
   if (!tract?.STATE || !tract.COUNTY || !tract.TRACT) return null;
   return {
     stateFips: tract.STATE,

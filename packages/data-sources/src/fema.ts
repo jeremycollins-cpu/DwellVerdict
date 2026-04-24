@@ -24,21 +24,15 @@ import {
  * (zone code), SFHA_TF (Y/N), and STATIC_BFE fields.
  */
 
-// FEMA reorganizes MapServer layers with no migration path. We try
-// the known-historical layer URLs in order and stop at the first
-// that responds 200. If all fail, we surface the last error —
-// which usually tells us FEMA has moved the service entirely and
-// we need to re-map the client.
+// FEMA retired the /public/NFHL/MapServer path entirely (all three
+// historic layers now 404). NFHL data lives on FEMA's ArcGIS
+// Online hosted FeatureServer now, published under the FEMA org
+// id HAJAw18hMX4YJMdE. The flood-hazard-zones layer is 27 on the
+// National Flood Hazard Layer service there. Kept a second URL
+// as a sanity fallback in case they move again.
 const NFHL_QUERY_URLS = [
-  // Current known-good layer (flood hazard zones on the public
-  // NFHL MapServer). Kept first as the canonical path.
-  "https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/28/query",
-  // Historical FeatureServer mirror — occasionally the MapServer
-  // 404s while the FeatureServer keeps serving the same data.
-  "https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/FeatureServer/28/query",
-  // FEMA's older pre-2023 layer numbering. Still serves for some
-  // regions that haven't been re-indexed.
-  "https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/14/query",
+  "https://services.arcgis.com/HAJAw18hMX4YJMdE/arcgis/rest/services/National_Flood_Hazard_Layer/FeatureServer/27/query",
+  "https://services.arcgis.com/HAJAw18hMX4YJMdE/arcgis/rest/services/National_Flood_Hazard_Layer/FeatureServer/28/query",
 ];
 const SOURCE_URL = "https://msc.fema.gov/portal/";
 
