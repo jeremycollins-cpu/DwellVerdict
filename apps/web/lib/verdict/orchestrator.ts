@@ -109,6 +109,10 @@ export async function orchestrateVerdict(input: {
   ]);
 
   // Unpack with null fallbacks so downstream can degrade gracefully.
+  // Log every signal's outcome — success/failure/empty — so we can
+  // actually see in Vercel logs what happened for each property.
+  // Without this, signal failures are invisible and we can't tell
+  // a real data gap from a broken scraper.
   const fema = femaResult.ok ? femaResult.data : null;
   const usgs = usgsResult.ok ? usgsResult.data : null;
   const fbi = fbiResult.ok ? fbiResult.data : null;
@@ -125,6 +129,57 @@ export async function orchestrateVerdict(input: {
     : null;
   const regulatory = regulatorySignal.ok ? regulatorySignal : null;
   const placeSentiment = placeSentimentSignal.ok ? placeSentimentSignal : null;
+
+  console.log("[verdict/orchestrator] signal summary", {
+    addressFull,
+    lat,
+    lng,
+    fema: femaResult.ok
+      ? { ok: true, sfha: fema?.sfha }
+      : { ok: false, error: femaResult.error },
+    usgs: usgsResult.ok
+      ? { ok: true, nearbyFireCount: usgs?.nearbyFireCount }
+      : { ok: false, error: usgsResult.error },
+    fbi: fbiResult.ok
+      ? { ok: true, violentPer1k: fbi?.violentPer1k }
+      : { ok: false, error: fbiResult.error },
+    census: censusResult.ok
+      ? { ok: true, medianIncome: census?.medianHouseholdIncome }
+      : { ok: false, error: censusResult.error },
+    overpass: overpassResult.ok
+      ? { ok: true, walkScore: overpass?.walkScore }
+      : { ok: false, error: overpassResult.error },
+    airbnb: airbnbResult.ok
+      ? {
+          ok: true,
+          compCount: airbnb?.comps.length ?? 0,
+          median: airbnb?.medianNightlyRate,
+        }
+      : { ok: false, error: airbnbResult.error },
+    zillow: zillowResult.ok
+      ? {
+          ok: true,
+          listPrice: zillow?.listPrice,
+          estimate: zillow?.currentEstimate,
+        }
+      : { ok: false, error: zillowResult.error },
+    redfin: redfinResult.ok
+      ? {
+          ok: true,
+          listPrice: redfin?.listPrice,
+          estimate: redfin?.currentEstimate,
+        }
+      : { ok: false, error: redfinResult.error },
+    regulatory: regulatorySignal.ok
+      ? { ok: true, strLegal: regulatory?.strLegal }
+      : { ok: false, error: regulatorySignal.error },
+    placeSentiment: placeSentimentSignal.ok
+      ? {
+          ok: true,
+          bulletCount: placeSentiment?.bullets.length ?? 0,
+        }
+      : { ok: false, error: placeSentimentSignal.error },
+  });
 
   // ---- Phase 2: deterministic computation ----
   const revenue =
