@@ -1,9 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 
-import {
-  generateVerdict,
-  VERDICT_PROMPT_VERSION,
-} from "@dwellverdict/ai";
+import { VERDICT_PROMPT_VERSION } from "@dwellverdict/ai";
+
+import { orchestrateVerdict } from "@/lib/verdict/orchestrator";
 
 import { resolveAppUser } from "@/lib/db/queries/users";
 import { getPropertyForOrg } from "@/lib/db/queries/properties";
@@ -159,7 +158,13 @@ export async function POST(
   // sanitised message and return a 502 the UI knows how to render as
   // a retry state — never bubble a bare 500 to the browser.
   try {
-    const result = await generateVerdict({ addressFull, lat, lng });
+    const result = await orchestrateVerdict({
+      addressFull,
+      city: property.city,
+      state: property.state,
+      lat,
+      lng,
+    });
 
     if (!result.ok) {
       await markVerdictFailed({
@@ -171,10 +176,6 @@ export async function POST(
         outputTokens: result.observability.outputTokens,
         costCents: result.observability.costCents,
       });
-      // Refund the free-tier slot the server action consumed — the
-      // user shouldn't be charged quota for our failure. Swallow
-      // refund errors (under-charging once is better than compounding
-      // errors).
       await refundReport({
         userId: appUser.userId,
         plan: await getPlanForUser(appUser.userId),
@@ -187,12 +188,12 @@ export async function POST(
 
     await markVerdictReady({
       verdictId,
-      signal: result.output.verdict,
-      confidence: result.output.confidence,
-      summary: result.output.summary,
-      narrative: result.output.narrative,
-      dataPoints: result.output.data_points,
-      sources: result.output.sources,
+      signal: result.signal,
+      confidence: result.confidence,
+      summary: result.summary,
+      narrative: result.narrative,
+      dataPoints: result.dataPoints,
+      sources: result.sources,
       modelVersion: result.observability.modelVersion,
       promptVersion: result.observability.promptVersion,
       inputTokens: result.observability.inputTokens,

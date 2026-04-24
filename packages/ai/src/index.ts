@@ -43,3 +43,15 @@ export {
   lintPlaceSentiment,
   FAIR_HOUSING_DENIED_PATTERNS,
 } from "./tasks/place-sentiment-lint";
+export {
+  writeVerdictNarrative,
+  VerdictNarrativeOutputSchema,
+  VERDICT_NARRATIVE_TASK_TYPE,
+  VERDICT_NARRATIVE_PROMPT_VERSION,
+  VERDICT_NARRATIVE_MODEL,
+  type VerdictNarrativeInput,
+  type VerdictNarrativeOutput,
+  type VerdictNarrativeSuccess,
+  type VerdictNarrativeFailure,
+} from "./tasks/verdict-narrative";
+export { scoreVerdict, type VerdictInputs, type VerdictScore } from "./scoring";
