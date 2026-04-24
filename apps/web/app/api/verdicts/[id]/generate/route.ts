@@ -12,6 +12,7 @@ import {
   markVerdictReady,
 } from "@/lib/db/queries/verdicts";
 import { refundReport, getPlanForUser } from "@/lib/db/queries/report-usage";
+import { describeError } from "@/lib/errors";
 
 /**
  * POST /api/verdicts/[id]/generate — kick off (or complete) Anthropic
@@ -204,10 +205,14 @@ export async function POST(
 
     return Response.json({ ok: true, status: "ready", verdictId });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const { message, code } = describeError(err);
     console.error("[verdicts/generate] unexpected error", {
       verdictId,
+      code,
       message,
+      // Keep the raw error around in logs for deep-dive debugging
+      // — Vercel will serialize it so cause chains are visible.
+      raw: err,
     });
     await markVerdictFailed({
       verdictId,
@@ -219,7 +224,7 @@ export async function POST(
       plan: await getPlanForUser(appUser.userId),
     }).catch(() => undefined);
     return Response.json(
-      { ok: false, error: "generation_failed", message },
+      { ok: false, error: "generation_failed", code, message },
       { status: 502 },
     );
   }

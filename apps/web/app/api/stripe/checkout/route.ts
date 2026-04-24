@@ -7,6 +7,7 @@ import {
   getOrgById,
   setOrgStripeCustomerId,
 } from "@/lib/db/queries/organizations";
+import { describeError } from "@/lib/errors";
 
 /**
  * POST /api/stripe/checkout — creates a Stripe Checkout Session
@@ -74,10 +75,10 @@ export async function POST(req: Request): Promise<Response> {
     const { starterPriceId, proPriceId } = requireStripeConfig();
     priceId = parsed.data.plan === "starter" ? starterPriceId : proPriceId;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[stripe/checkout] config error", { message });
+    const { message, code } = describeError(err);
+    console.error("[stripe/checkout] config error", { code, message, raw: err });
     return Response.json(
-      { ok: false, error: "stripe_config", message },
+      { ok: false, error: "stripe_config", code, message },
       { status: 500 },
     );
   }
@@ -146,11 +147,7 @@ export async function POST(req: Request): Promise<Response> {
     //     price from the other mode (test vs live)
     //   - STRIPE_SECRET_KEY in the wrong mode
     //   - Coupon / promo constraints
-    const message = err instanceof Error ? err.message : String(err);
-    const code =
-      err && typeof err === "object" && "code" in err
-        ? String((err as { code: unknown }).code)
-        : null;
+    const { message, code } = describeError(err);
     console.error("[stripe/checkout] failed", {
       orgId: org.id,
       plan: parsed.data.plan,
@@ -158,6 +155,7 @@ export async function POST(req: Request): Promise<Response> {
       stripeCustomerId,
       code,
       message,
+      raw: err,
     });
     return Response.json(
       { ok: false, error: "checkout_failed", code, message },
