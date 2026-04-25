@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Settings · Notifications</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7; --paper-warm: #f5f2ec; --paper-deep: #ebe6da;
+    --sidebar-bg: #f7f5f0; --card-ink: #ffffff;
+    --ink: #1c1917; --ink-70: #44403c; --ink-muted: #78716c; --ink-subtle: #a8a29e; --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f; --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08); --terracotta-wash: rgba(197, 90, 63, 0.04); --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07); --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467; --buy-soft: rgba(14, 148, 103, 0.08); --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14; --watch-soft: rgba(199, 122, 20, 0.08); --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d; --pass-soft: rgba(196, 61, 61, 0.08); --pass-border: rgba(196, 61, 61, 0.25);
+    --sidebar-w: 232px;
+    --settings-nav-w: 200px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Geist', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  a { color: inherit; text-decoration: none; }
+
+  .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+  .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--hairline); padding: 22px 18px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { padding: 4px 8px 22px 8px; border-bottom: 1px solid var(--hairline); margin-bottom: 16px; }
+  .logo-lockup { display: inline-flex; align-items: center; gap: 8px; }
+  .logo-wordmark { font-weight: 800; font-size: 22px; letter-spacing: -0.045em; line-height: 1; }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+  .nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 14px 10px 6px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; position: relative; transition: all 0.12s; }
+  .nav-item:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .nav-item.active { background: var(--terracotta-soft); color: var(--terracotta); font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--terracotta); border-radius: 0 2px 2px 0; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 10px; background: var(--ink); color: var(--paper); padding: 1px 6px; border-radius: 8px; letter-spacing: 0.04em; }
+  .nav-item .badge.accent { background: var(--terracotta); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #1c1917, #44403c); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .sidebar-user { flex: 1; }
+  .sidebar-user .name { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+  .sidebar-user .plan { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .main-col { display: flex; flex-direction: column; min-width: 0; }
+  .settings-page-top { background: rgba(250,250,247,0.88); backdrop-filter: saturate(180%) blur(10px); border-bottom: 1px solid var(--hairline); padding: 18px 32px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; }
+  .settings-breadcrumb { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); letter-spacing: 0.06em; display: inline-flex; align-items: center; gap: 8px; }
+  .settings-breadcrumb a { color: var(--ink-muted); transition: color 0.12s; }
+  .settings-breadcrumb a:hover { color: var(--terracotta); }
+  .settings-breadcrumb .sep { color: var(--ink-faint); }
+  .settings-breadcrumb .current { color: var(--ink); font-weight: 500; }
+
+  .settings-shell { display: grid; grid-template-columns: var(--settings-nav-w) 1fr; flex: 1; min-height: 0; }
+  .settings-nav { border-right: 1px solid var(--hairline); padding: 24px 16px; background: var(--paper); overflow-y: auto; }
+  .settings-nav-section { margin-bottom: 18px; }
+  .settings-nav-section:last-child { margin-bottom: 0; }
+  .settings-nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 0 10px 8px 10px; font-weight: 500; }
+  .settings-nav-link { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; transition: all 0.12s; }
+  .settings-nav-link:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .settings-nav-link.active { background: var(--card-ink); color: var(--ink); font-weight: 500; border: 1px solid var(--hairline); }
+  .settings-nav-link svg { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.6; }
+  .settings-nav-link.active svg { opacity: 1; color: var(--terracotta); }
+
+  .settings-content { padding: 36px 44px 44px 44px; max-width: 880px; width: 100%; }
+  .settings-headline { font-size: 28px; font-weight: 500; letter-spacing: -0.025em; color: var(--ink); line-height: 1.1; margin-bottom: 6px; }
+  .settings-sub { font-size: 14px; color: var(--ink-muted); line-height: 1.55; margin-bottom: 32px; max-width: 580px; }
+
+  /* GLOBAL TOGGLES STRIP */
+  .global-toggles {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .global-toggle-row {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    gap: 16px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--hairline);
+    align-items: center;
+  }
+  .global-toggle-row:last-child { border-bottom: none; }
+  .channel-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: var(--paper-warm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-70);
+    flex-shrink: 0;
+  }
+  .channel-icon svg { width: 16px; height: 16px; }
+  .channel-icon.active { background: var(--terracotta-soft); color: var(--terracotta); }
+  .channel-body { min-width: 0; }
+  .channel-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    margin-bottom: 2px;
+  }
+  .channel-meta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+  .channel-meta strong { color: var(--ink); font-weight: 500; }
+
+  .toggle-switch {
+    width: 32px; height: 18px;
+    border-radius: 100px;
+    background: var(--hairline-strong);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: left 0.15s;
+  }
+  .toggle-switch.on { background: var(--terracotta); }
+  .toggle-switch.on::after { left: 16px; }
+  .toggle-switch.disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* SECTION HEADING */
+  .section-rule { display: flex; align-items: center; gap: 14px; padding: 22px 0 10px 0; }
+  .section-label-h2 {
+    font-family: 'Geist', sans-serif;
+    font-size: 16px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    white-space: nowrap;
+  }
+  .section-sub-h2 {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+  .section-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .section-rule-line { height: 1px; background: var(--hairline); flex: 1; align-self: center; }
+
+  /* EVENT MATRIX TABLE */
+  .matrix-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .matrix-head {
+    display: grid;
+    grid-template-columns: 1fr 70px 70px 70px;
+    gap: 12px;
+    padding: 12px 22px;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--hairline);
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+    align-items: center;
+  }
+  .matrix-head-channel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .matrix-head-channel svg { width: 11px; height: 11px; opacity: 0.6; }
+
+  .matrix-row {
+    display: grid;
+    grid-template-columns: 1fr 70px 70px 70px;
+    gap: 12px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--hairline);
+    align-items: center;
+  }
+  .matrix-row:last-child { border-bottom: none; }
+  .matrix-event {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .matrix-event-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .matrix-event-icon {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    background: var(--paper-warm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-70);
+    flex-shrink: 0;
+  }
+  .matrix-event-icon svg { width: 12px; height: 12px; }
+  .matrix-event-icon.terracotta { background: var(--terracotta-soft); color: var(--terracotta); }
+  .matrix-event-icon.buy { background: var(--buy-soft); color: var(--buy); }
+  .matrix-event-icon.watch { background: var(--watch-soft); color: var(--watch); }
+  .matrix-event-icon.pass { background: var(--pass-soft); color: var(--pass); }
+  .matrix-event-name {
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .matrix-event-desc {
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+    padding-left: 34px;
+  }
+  .matrix-cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* QUIET HOURS */
+  .quiet-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-top: 22px;
+  }
+  .quiet-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .quiet-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: var(--paper-warm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-70);
+  }
+  .quiet-icon svg { width: 17px; height: 17px; }
+  .quiet-title-block { flex: 1; min-width: 0; }
+  .quiet-title { font-size: 14.5px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; line-height: 1.2; }
+  .quiet-sub {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-top: 3px;
+    letter-spacing: 0.04em;
+  }
+  .quiet-toggle-block {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .quiet-times {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding-top: 6px;
+  }
+  .quiet-time-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .quiet-time-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+  }
+  .quiet-time-input {
+    background: var(--paper);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 5px;
+    padding: 9px 12px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+  }
+  .quiet-time-input:focus { border-color: var(--ink); }
+
+  /* DESIGN NOTES */
+  .design-note { position: relative; }
+  .design-note::before { content: attr(data-note); position: absolute; right: 14px; top: -11px; background: #2563eb; color: white; font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 500; padding: 4px 9px; border-radius: 10px; letter-spacing: 0.06em; z-index: 5; opacity: 0.92; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; border: none; padding: 11px 18px; border-radius: 20px; font-family: 'Geist Mono', monospace; font-size: 10px; cursor: pointer; letter-spacing: 0.14em; text-transform: uppercase; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; font-weight: 500; }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-lockup">
+        <svg width="24" height="24" viewBox="0 0 52 52" fill="none">
+          <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+          <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+      </div>
+    </div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/></svg><span>Dashboard</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg><span>Properties</span><span class="badge accent">3</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg><span>Verdicts</span><span class="badge">12</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="10" rx="1"/><path d="M2 7h12M6 2v4M10 2v4"/></svg><span>Compare</span></div>
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg><span>Portfolio</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Briefs</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg><span>Alerts</span><span class="badge accent">2</span></div>
+    <div class="nav-section-label">Account</div>
+    <div class="nav-item active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/></svg><span>Settings</span></div>
+    <div class="sidebar-footer">
+      <div class="avatar">JC</div>
+      <div class="sidebar-user">
+        <div class="name">Jeremy Collins</div>
+        <div class="plan">Pro · $40/mo</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="settings-page-top">
+      <div class="settings-breadcrumb">
+        <a href="#">Settings</a>
+        <span class="sep">/</span>
+        <span class="current">Notifications</span>
+      </div>
+    </div>
+
+    <div class="settings-shell">
+      <aside class="settings-nav">
+        <div class="settings-nav-section">
+          <div class="settings-nav-section-label">Account</div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M3 14a5 5 0 0110 0"/></svg>
+            Profile
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg>
+            Investor profile
+          </div>
+        </div>
+        <div class="settings-nav-section">
+          <div class="settings-nav-section-label">Billing &amp; integrations</div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1"/><path d="M2 7h12"/></svg>
+            Billing
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/><circle cx="8" cy="8" r="2"/></svg>
+            PMS integration
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2a8 8 0 010 12"/></svg>
+            Data sources
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h10M3 10h10M5 3v10M11 3v10"/></svg>
+            Export &amp; API
+          </div>
+        </div>
+        <div class="settings-nav-section">
+          <div class="settings-nav-section-label">Preferences</div>
+          <div class="settings-nav-link active">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a5 5 0 0110 0v4l1 2H2l1-2V7z"/></svg>
+            Notifications
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
+            Appearance
+          </div>
+        </div>
+      </aside>
+
+      <div class="settings-content">
+
+        <h1 class="settings-headline">Notifications</h1>
+        <p class="settings-sub">
+          Pick which channels you want to hear on, then fine-tune by event type. Quiet hours and severity filters apply to everything.
+        </p>
+
+        <!-- CHANNEL TOGGLES -->
+        <div class="global-toggles design-note" data-note="Channel-level master toggles">
+
+          <div class="global-toggle-row">
+            <div class="channel-icon active">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M14 5L8 10 2 5"/></svg>
+            </div>
+            <div class="channel-body">
+              <div class="channel-name">Email</div>
+              <div class="channel-meta"><strong>jeremy@routeware.com</strong> · verified</div>
+            </div>
+            <div class="toggle-switch on"></div>
+          </div>
+
+          <div class="global-toggle-row">
+            <div class="channel-icon active">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg>
+            </div>
+            <div class="channel-body">
+              <div class="channel-name">In-app</div>
+              <div class="channel-meta"><strong>Sidebar badge + alert center</strong> · always available when signed in</div>
+            </div>
+            <div class="toggle-switch on"></div>
+          </div>
+
+          <div class="global-toggle-row">
+            <div class="channel-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="1" width="10" height="14" rx="2"/><circle cx="8" cy="12" r="0.5" fill="currentColor"/></svg>
+            </div>
+            <div class="channel-body">
+              <div class="channel-name">Browser push</div>
+              <div class="channel-meta">Desktop notifications when DwellVerdict is open · <strong>not enabled</strong></div>
+            </div>
+            <div class="toggle-switch"></div>
+          </div>
+
+          <div class="global-toggle-row">
+            <div class="channel-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 3l10 10M3 13L13 3"/></svg>
+            </div>
+            <div class="channel-body">
+              <div class="channel-name">SMS</div>
+              <div class="channel-meta">Coming soon · we're prioritizing email + push first</div>
+            </div>
+            <div class="toggle-switch disabled"></div>
+          </div>
+
+        </div>
+
+        <!-- VERDICTS &amp; ALERTS MATRIX -->
+        <div class="section-rule">
+          <div class="section-block">
+            <span class="section-label-h2">Verdicts</span>
+            <span class="section-sub-h2">Verdict generation, completion, change events</span>
+          </div>
+          <span class="section-rule-line"></span>
+        </div>
+
+        <div class="matrix-card design-note" data-note="Per-event channel matrix · most precise control">
+          <div class="matrix-head">
+            <span>Event</span>
+            <span class="matrix-head-channel">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M14 5L8 10 2 5"/></svg>
+              Email
+            </span>
+            <span class="matrix-head-channel">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg>
+              In-app
+            </span>
+            <span class="matrix-head-channel">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="1" width="10" height="14" rx="2"/></svg>
+              Push
+            </span>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon buy">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 8l4 4 8-8"/></svg>
+                </div>
+                <span class="matrix-event-name">Verdict ready</span>
+              </div>
+              <div class="matrix-event-desc">When Scout finishes generating a new verdict</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon pass">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3l10 10M13 3L3 13"/></svg>
+                </div>
+                <span class="matrix-event-name">Verdict failed</span>
+              </div>
+              <div class="matrix-event-desc">If verdict generation fails (refunded automatically)</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon watch">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2 2"/></svg>
+                </div>
+                <span class="matrix-event-name">Confidence shift ≥ 10 points</span>
+              </div>
+              <div class="matrix-event-desc">When a re-run changes confidence by 10+ on the same property</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon terracotta">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2L3 7l5 5 5-5z"/></svg>
+                </div>
+                <span class="matrix-event-name">Signal flipped</span>
+              </div>
+              <div class="matrix-event-desc">When verdict moves between BUY ↔ WATCH ↔ PASS</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+          </div>
+
+        </div>
+
+        <!-- ALERTS SECTION -->
+        <div class="section-rule">
+          <div class="section-block">
+            <span class="section-label-h2">Alerts</span>
+            <span class="section-sub-h2">Triggered alerts from your custom rules</span>
+          </div>
+          <span class="section-rule-line"></span>
+        </div>
+
+        <div class="matrix-card">
+          <div class="matrix-head">
+            <span>Severity</span>
+            <span class="matrix-head-channel">Email</span>
+            <span class="matrix-head-channel">In-app</span>
+            <span class="matrix-head-channel">Push</span>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon pass">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3v5c0 3.5-2.5 6.5-6 7-3.5-.5-6-3.5-6-7V4l6-3z"/></svg>
+                </div>
+                <span class="matrix-event-name">Critical</span>
+              </div>
+              <div class="matrix-event-desc">STR bans, regulatory flips, verdict-altering events · always delivered</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch on disabled"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on disabled"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon watch">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l7 14H1z"/></svg>
+                </div>
+                <span class="matrix-event-name">Warning</span>
+              </div>
+              <div class="matrix-event-desc">Cap utilization, HOA changes, material data shifts</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon buy">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 13l5-5 3 3 5-5"/></svg>
+                </div>
+                <span class="matrix-event-name">Opportunity</span>
+              </div>
+              <div class="matrix-event-desc">New comps, price moves, signals worth re-running for</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v2H3V3zm0 4h10v2H3V7zm0 4h7v2H3v-2z"/></svg>
+                </div>
+                <span class="matrix-event-name">Info</span>
+              </div>
+              <div class="matrix-event-desc">Weekly digests, scheduled re-runs, low-priority info</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+        </div>
+
+        <!-- BRIEFS &amp; SCOUT SECTION -->
+        <div class="section-rule">
+          <div class="section-block">
+            <span class="section-label-h2">Briefs, Scout, account</span>
+            <span class="section-sub-h2">Generation, replies, account changes</span>
+          </div>
+          <span class="section-rule-line"></span>
+        </div>
+
+        <div class="matrix-card">
+          <div class="matrix-head">
+            <span>Event</span>
+            <span class="matrix-head-channel">Email</span>
+            <span class="matrix-head-channel">In-app</span>
+            <span class="matrix-head-channel">Push</span>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h8l3 3v9H3V2zm8 0v3h3"/></svg>
+                </div>
+                <span class="matrix-event-name">Brief generated</span>
+              </div>
+              <div class="matrix-event-desc">When a brief is ready to download or share</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon terracotta">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 12h12M5 8h6M7 4h2"/></svg>
+                </div>
+                <span class="matrix-event-name">Scout daily limit warning</span>
+              </div>
+              <div class="matrix-event-desc">When you've used 80% of your daily Scout messages</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="4" width="12" height="9" rx="1"/></svg>
+                </div>
+                <span class="matrix-event-name">Billing events</span>
+              </div>
+              <div class="matrix-event-desc">Receipts, failed payments, plan changes, renewal reminders</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch on disabled"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+          <div class="matrix-row">
+            <div class="matrix-event">
+              <div class="matrix-event-row">
+                <div class="matrix-event-icon pass">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="6" r="3"/><path d="M3 14a5 5 0 0110 0"/></svg>
+                </div>
+                <span class="matrix-event-name">Security events</span>
+              </div>
+              <div class="matrix-event-desc">New device sign-in, password changes, 2FA changes · always email</div>
+            </div>
+            <div class="matrix-cell"><div class="toggle-switch on disabled"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch on"></div></div>
+            <div class="matrix-cell"><div class="toggle-switch"></div></div>
+          </div>
+
+        </div>
+
+        <!-- QUIET HOURS -->
+        <div class="quiet-card design-note" data-note="Suppression window · respects all channels">
+          <div class="quiet-head">
+            <div class="quiet-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 3a5 5 0 11-7 7 5 5 0 005-9c2 .5 3 2 2 2z"/></svg>
+            </div>
+            <div class="quiet-title-block">
+              <div class="quiet-title">Quiet hours</div>
+              <div class="quiet-sub">Suppress non-critical notifications during these hours · CRITICAL alerts always deliver</div>
+            </div>
+            <div class="quiet-toggle-block">
+              <div class="toggle-switch on"></div>
+            </div>
+          </div>
+
+          <div class="quiet-times">
+            <div class="quiet-time-field">
+              <span class="quiet-time-label">From</span>
+              <input type="text" class="quiet-time-input" value="9:00 PM PT" />
+            </div>
+            <div class="quiet-time-field">
+              <span class="quiet-time-label">Until</span>
+              <input type="text" class="quiet-time-input" value="7:00 AM PT" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

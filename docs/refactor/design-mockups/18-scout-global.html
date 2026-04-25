@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Scout · All conversations</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7; --paper-warm: #f5f2ec; --paper-deep: #ebe6da;
+    --sidebar-bg: #f7f5f0; --card-ink: #ffffff;
+    --ink: #1c1917; --ink-70: #44403c; --ink-muted: #78716c; --ink-subtle: #a8a29e; --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f; --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08); --terracotta-wash: rgba(197, 90, 63, 0.04); --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07); --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467; --buy-soft: rgba(14, 148, 103, 0.08); --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14; --watch-soft: rgba(199, 122, 20, 0.08); --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d; --pass-soft: rgba(196, 61, 61, 0.08); --pass-border: rgba(196, 61, 61, 0.25);
+    --sidebar-w: 232px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Geist', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  a { color: inherit; text-decoration: none; }
+
+  .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+  .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--hairline); padding: 22px 18px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { padding: 4px 8px 22px 8px; border-bottom: 1px solid var(--hairline); margin-bottom: 16px; }
+  .logo-lockup { display: inline-flex; align-items: center; gap: 8px; }
+  .logo-wordmark { font-weight: 800; font-size: 22px; letter-spacing: -0.045em; line-height: 1; }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+  .nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 14px 10px 6px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; position: relative; transition: all 0.12s; }
+  .nav-item:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .nav-item.active { background: var(--terracotta-soft); color: var(--terracotta); font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--terracotta); border-radius: 0 2px 2px 0; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 10px; background: var(--ink); color: var(--paper); padding: 1px 6px; border-radius: 8px; letter-spacing: 0.04em; }
+  .nav-item .badge.accent { background: var(--terracotta); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #1c1917, #44403c); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .sidebar-user { flex: 1; }
+  .sidebar-user .name { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+  .sidebar-user .plan { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .main-col { display: flex; flex-direction: column; min-width: 0; }
+  .page-top { background: rgba(250,250,247,0.88); backdrop-filter: saturate(180%) blur(10px); border-bottom: 1px solid var(--hairline); padding: 18px 32px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 20px; }
+  .page-title-block { flex: 1; }
+  .page-title { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: var(--ink); line-height: 1.15; margin-bottom: 2px; }
+  .page-sub { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); letter-spacing: 0.02em; }
+  .btn-ghost { background: transparent; border: 1px solid var(--hairline-strong); padding: 7px 13px; border-radius: 5px; font-size: 12px; color: var(--ink-70); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-ghost svg { width: 13px; height: 13px; }
+  .btn-primary { background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
+  .btn-primary:hover { background: #2d2825; }
+  .btn-primary svg { width: 13px; height: 13px; }
+
+  .content-wrap { padding: 28px 32px 40px; max-width: 1200px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 22px; }
+
+  /* HERO ASK */
+  .hero-ask {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 32px 36px 28px;
+    background: linear-gradient(180deg, var(--terracotta-wash) 0%, var(--card-ink) 80%);
+    border-left: 3px solid var(--terracotta);
+    padding-left: 33px;
+  }
+  .hero-ask-eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 10px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-ask-eyebrow .dot {
+    width: 6px; height: 6px;
+    background: var(--terracotta);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px var(--terracotta-soft);
+  }
+  .hero-ask-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 32px;
+    font-weight: 400;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .hero-ask-sub {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+    margin-bottom: 24px;
+    max-width: 620px;
+  }
+
+  .hero-composer {
+    background: white;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 12px;
+    padding: 14px 16px 14px 20px;
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    transition: border-color 0.15s;
+  }
+  .hero-composer:focus-within { border-color: var(--ink); }
+  .hero-composer-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 15.5px;
+    color: var(--ink);
+    background: transparent;
+    line-height: 1.5;
+    padding: 4px 0;
+    resize: none;
+    min-height: 28px;
+    max-height: 100px;
+  }
+  .hero-composer-input::placeholder { color: var(--ink-faint); }
+  .hero-composer-send {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: var(--ink);
+    color: var(--paper);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hero-composer-send:hover { background: #2d2825; }
+  .hero-composer-send svg { width: 15px; height: 15px; }
+
+  .quick-asks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .quick-ask-chip {
+    background: white;
+    border: 1px solid var(--hairline);
+    border-radius: 100px;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    color: var(--ink-70);
+    cursor: pointer;
+    transition: all 0.12s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .quick-ask-chip:hover {
+    border-color: var(--terracotta);
+    background: var(--terracotta-wash);
+    color: var(--ink);
+  }
+  .quick-ask-chip svg { width: 12px; height: 12px; color: var(--ink-muted); }
+  .quick-ask-chip:hover svg { color: var(--terracotta); }
+
+  /* SEARCH + FILTERS */
+  .search-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .search-input {
+    flex: 1;
+    max-width: 380px;
+    display: flex;
+    align-items: center;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .search-input:focus-within { border-color: var(--ink); }
+  .search-input svg { width: 14px; height: 14px; color: var(--ink-muted); }
+  .search-input input { flex: 1; border: none; outline: none; font-family: inherit; font-size: 13px; background: transparent; color: var(--ink); }
+  .search-input input::placeholder { color: var(--ink-faint); }
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: var(--ink-70);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .filter-chip:hover { border-color: var(--ink); color: var(--ink); }
+  .filter-chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .filter-chip .count { font-family: 'Geist Mono', monospace; font-size: 10px; opacity: 0.7; }
+  .filter-chip-thumb { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+  .filter-chip-thumb.coastal { background: linear-gradient(135deg, #a8c0d0 0%, #7a9aa8 50%, #4a6070 100%); }
+  .filter-chip-thumb.mountain { background: linear-gradient(135deg, #b8a88a 0%, #8a7a5a 50%, #5a4a3a 100%); }
+  .filter-chip-thumb.aspen { background: linear-gradient(135deg, #d0d0c8 0%, #8a8a85 50%, #5a5a55 100%); }
+  .filter-spacer { flex: 1; }
+  .sort-select {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: var(--ink-70);
+    cursor: pointer;
+  }
+  .sort-select:hover { border-color: var(--ink); color: var(--ink); }
+  .sort-select svg { width: 11px; height: 11px; color: var(--ink-muted); }
+
+  /* SECTION GROUPING (date-grouped conversations) */
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0 4px 0;
+    margin-top: 10px;
+  }
+  .group-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .group-rule { height: 1px; background: var(--hairline); flex: 1; }
+  .group-count { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-subtle); letter-spacing: 0.08em; }
+
+  /* CONVERSATION CARD (the meaty unit on this page) */
+  .conv-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .conv-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 18px 22px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .conv-card:hover {
+    border-color: var(--hairline-strong);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -6px rgba(28,25,23,0.08);
+  }
+  .conv-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .conv-property-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px 4px 4px;
+    background: var(--paper-warm);
+    border-radius: 100px;
+    font-size: 11.5px;
+    color: var(--ink-70);
+    font-weight: 500;
+  }
+  .conv-property-pill.global {
+    background: transparent;
+    border: 1px dashed var(--hairline-strong);
+    padding: 3px 10px;
+    color: var(--ink-muted);
+  }
+  .conv-property-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .conv-property-thumb.coastal { background: linear-gradient(135deg, #a8c0d0 0%, #7a9aa8 50%, #4a6070 100%); }
+  .conv-property-thumb.mountain { background: linear-gradient(135deg, #b8a88a 0%, #8a7a5a 50%, #5a4a3a 100%); }
+  .conv-property-thumb.aspen { background: linear-gradient(135deg, #d0d0c8 0%, #8a8a85 50%, #5a5a55 100%); }
+
+  .conv-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+  .conv-meta .sep { width: 2px; height: 2px; background: var(--ink-faint); border-radius: 50%; }
+  .conv-meta .pinned {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--terracotta);
+    font-weight: 500;
+  }
+  .conv-meta .pinned svg { width: 10px; height: 10px; }
+
+  .conv-question {
+    font-family: 'Geist', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    line-height: 1.35;
+    margin-bottom: 8px;
+  }
+  .conv-question mark {
+    background: var(--terracotta-soft);
+    color: var(--terracotta);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+
+  .conv-snippet {
+    font-size: 13.5px;
+    color: var(--ink-70);
+    line-height: 1.6;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .conv-snippet strong { color: var(--ink); font-weight: 500; }
+
+  .conv-card-foot {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+  .conv-card-foot .sep { width: 3px; height: 3px; background: var(--ink-faint); border-radius: 50%; }
+  .conv-card-foot strong { color: var(--ink); font-weight: 500; }
+  .conv-jump {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    margin-left: auto;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .conv-jump:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  .conv-tags {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .conv-tag {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    color: var(--ink-70);
+    background: var(--paper-warm);
+    padding: 2px 7px;
+    border-radius: 8px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .conv-tag.regulatory { color: var(--watch); background: var(--watch-soft); }
+  .conv-tag.financial { color: var(--buy); background: var(--buy-soft); }
+  .conv-tag.location { color: var(--ink-70); }
+
+  /* DESIGN NOTES */
+  .design-note { position: relative; }
+  .design-note::before { content: attr(data-note); position: absolute; right: 14px; top: -11px; background: #2563eb; color: white; font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 500; padding: 4px 9px; border-radius: 10px; letter-spacing: 0.06em; z-index: 5; opacity: 0.92; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; border: none; padding: 11px 18px; border-radius: 20px; font-family: 'Geist Mono', monospace; font-size: 10px; cursor: pointer; letter-spacing: 0.14em; text-transform: uppercase; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; font-weight: 500; }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-lockup">
+        <svg width="24" height="24" viewBox="0 0 52 52" fill="none">
+          <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+          <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+      </div>
+    </div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/></svg><span>Dashboard</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg><span>Properties</span><span class="badge accent">3</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg><span>Verdicts</span><span class="badge">12</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="10" rx="1"/><path d="M2 7h12M6 2v4M10 2v4"/></svg><span>Compare</span></div>
+    <div class="nav-item active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h12M5 8h6M7 4h2"/></svg><span>Scout</span><span class="badge accent">42</span></div>
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg><span>Portfolio</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Briefs</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg><span>Alerts</span><span class="badge accent">2</span></div>
+    <div class="nav-section-label">Account</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/></svg><span>Settings</span></div>
+    <div class="sidebar-footer">
+      <div class="avatar">JC</div>
+      <div class="sidebar-user">
+        <div class="name">Jeremy Collins</div>
+        <div class="plan">Pro · $40/mo</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="page-top">
+      <div class="page-title-block">
+        <div class="page-title">Scout</div>
+        <div class="page-sub">42 conversations across 3 properties · 14 of 30 messages used today</div>
+      </div>
+      <button class="btn-ghost">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 2h8l3 3v9H3V2zm8 0v3h3"/></svg>
+        Export history
+      </button>
+      <button class="btn-primary">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h12M5 8h6M7 4h2" stroke-linecap="round"/></svg>
+        New conversation
+      </button>
+    </div>
+
+    <div class="content-wrap">
+
+      <!-- HERO ASK BLOCK -->
+      <div class="hero-ask design-note" data-note="Editorial entry · ask Scout anything across portfolio">
+        <div class="hero-ask-eyebrow">
+          <span class="dot"></span>
+          Scout · all conversations
+        </div>
+        <h1 class="hero-ask-headline">Ask Scout something. Skip the property picker.</h1>
+        <p class="hero-ask-sub">
+          Cross-portfolio analysis — comparing markets, analyzing trends, identifying patterns across all your verdicts. Or pick up where you left off in any conversation below.
+        </p>
+
+        <div class="hero-composer">
+          <textarea class="hero-composer-input" placeholder="What should I be paying attention to this week across all 3 properties?" rows="1"></textarea>
+          <button class="hero-composer-send">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 13V3M3 8l5-5 5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <div class="quick-asks">
+          <button class="quick-ask-chip">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2 2"/></svg>
+            What changed across my portfolio this week?
+          </button>
+          <button class="quick-ask-chip">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 13l5-5 3 3 5-5"/></svg>
+            Which markets are heating up?
+          </button>
+          <button class="quick-ask-chip">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 1l6 3v5c0 3.5-2.5 6.5-6 7-3.5-.5-6-3.5-6-7V4l6-3z"/></svg>
+            Compare regulatory risk across all properties
+          </button>
+          <button class="quick-ask-chip">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M2 14L8 4l6 10H2z"/></svg>
+            Where am I most exposed financially?
+          </button>
+        </div>
+      </div>
+
+      <!-- SEARCH CONTROLS -->
+      <div class="search-controls design-note" data-note="Search across all conversations · scope by property">
+        <div class="search-input">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="7" cy="7" r="5"/><path d="M14 14l-3-3" stroke-linecap="round"/></svg>
+          <input type="text" placeholder="Search conversation history..." />
+        </div>
+        <button class="filter-chip active">All <span class="count">42</span></button>
+        <button class="filter-chip">
+          <span class="filter-chip-thumb coastal"></span>
+          Cypress Point <span class="count">18</span>
+        </button>
+        <button class="filter-chip">
+          <span class="filter-chip-thumb mountain"></span>
+          Bend Ave <span class="count">14</span>
+        </button>
+        <button class="filter-chip">
+          <span class="filter-chip-thumb aspen"></span>
+          Forest Hill <span class="count">7</span>
+        </button>
+        <button class="filter-chip">Cross-portfolio <span class="count">3</span></button>
+        <div class="filter-spacer"></div>
+        <button class="sort-select">
+          Most recent
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 5l3 3 3-3" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <!-- CONVERSATION LIST -->
+      <!-- TODAY -->
+      <div class="group-header">
+        <span class="group-label">Today · April 24</span>
+        <span class="group-rule"></span>
+        <span class="group-count">2 conversations</span>
+      </div>
+
+      <div class="conv-list">
+
+        <div class="conv-card design-note" data-note="Each card · property pill, question, snippet of Scout's answer, jump-back">
+          <div class="conv-card-top">
+            <div class="conv-property-pill">
+              <span class="conv-property-thumb coastal"></span>
+              <span>1244 Cypress Point</span>
+            </div>
+            <div class="conv-meta">
+              <span class="pinned">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l2 5h5l-4 3 1.5 5L8 11l-4.5 3L5 9 1 6h5z"/></svg>
+                Pinned
+              </span>
+              <span class="sep"></span>
+              <span>3 messages</span>
+              <span class="sep"></span>
+              <span>Today · 8:42 AM</span>
+            </div>
+          </div>
+          <div class="conv-question">
+            What's the realistic risk that the <mark>STR permit</mark> doesn't transfer at closing?
+          </div>
+          <div class="conv-snippet">
+            <strong>Scout</strong>: Low-to-moderate risk, with one specific hinge point. Monterey County's STR program operates on a conditional use permit (CUP) tied to the property, not the owner, so when the property transfers...
+          </div>
+          <div class="conv-card-foot">
+            <div class="conv-tags">
+              <span class="conv-tag regulatory">Regulatory</span>
+              <span class="conv-tag">Closing</span>
+            </div>
+            <span class="sep"></span>
+            <span>3 sources cited</span>
+            <span class="sep"></span>
+            <span>$0.18 cost</span>
+            <button class="conv-jump">
+              Jump back in
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l3 3-3 3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="conv-card">
+          <div class="conv-card-top">
+            <div class="conv-property-pill">
+              <span class="conv-property-thumb mountain"></span>
+              <span>295 Bend Ave</span>
+            </div>
+            <div class="conv-meta">
+              <span>4 messages</span>
+              <span class="sep"></span>
+              <span>Today · 7:15 AM</span>
+            </div>
+          </div>
+          <div class="conv-question">
+            Is the <mark>Placer County STR cap</mark> actually going to hit ceiling this year?
+          </div>
+          <div class="conv-snippet">
+            <strong>Scout</strong>: At current velocity — yes, around late September. Permit utilization moved from 37% to 54% in the last 7 days alone. If the trend holds (about 245 net permits/week), the 3,900 cap is reached in roughly 19 weeks...
+          </div>
+          <div class="conv-card-foot">
+            <div class="conv-tags">
+              <span class="conv-tag regulatory">Regulatory</span>
+              <span class="conv-tag">Trend analysis</span>
+            </div>
+            <span class="sep"></span>
+            <span>5 sources cited</span>
+            <span class="sep"></span>
+            <span>$0.24 cost</span>
+            <button class="conv-jump">
+              Jump back in
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l3 3-3 3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- YESTERDAY -->
+      <div class="group-header">
+        <span class="group-label">Yesterday · April 23</span>
+        <span class="group-rule"></span>
+        <span class="group-count">3 conversations</span>
+      </div>
+
+      <div class="conv-list">
+
+        <div class="conv-card">
+          <div class="conv-card-top">
+            <div class="conv-property-pill global">
+              <span style="font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;">Cross-portfolio</span>
+            </div>
+            <div class="conv-meta">
+              <span>8 messages</span>
+              <span class="sep"></span>
+              <span>Yesterday · 4:22 PM</span>
+            </div>
+          </div>
+          <div class="conv-question">
+            Which of my 3 properties has the highest <mark>regulatory risk</mark> heading into Q3?
+          </div>
+          <div class="conv-snippet">
+            <strong>Scout</strong>: Forest Hill (Aspen) is the highest by a wide margin — STR is moratorium-banned, no near-term path to legal short-term operation. Bend Ave is medium-rising as Placer cap fills. Cypress Point is structurally stable...
+          </div>
+          <div class="conv-card-foot">
+            <div class="conv-tags">
+              <span class="conv-tag regulatory">Regulatory</span>
+              <span class="conv-tag">Cross-property</span>
+              <span class="conv-tag">Risk</span>
+            </div>
+            <span class="sep"></span>
+            <span>11 sources cited</span>
+            <span class="sep"></span>
+            <span>$0.62 cost</span>
+            <button class="conv-jump">
+              Jump back in
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l3 3-3 3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="conv-card">
+          <div class="conv-card-top">
+            <div class="conv-property-pill">
+              <span class="conv-property-thumb coastal"></span>
+              <span>1244 Cypress Point</span>
+            </div>
+            <div class="conv-meta">
+              <span>6 messages</span>
+              <span class="sep"></span>
+              <span>Yesterday · 11:08 AM</span>
+            </div>
+          </div>
+          <div class="conv-question">
+            What should I <mark>offer</mark> at? Comps suggest a range of $2.18M–$2.42M
+          </div>
+          <div class="conv-snippet">
+            <strong>Scout</strong>: $2.34M makes sense as your opening. That's the median of your comp range, signals serious intent without anchoring high, and leaves you room to negotiate up to $2.4M if there's competition...
+          </div>
+          <div class="conv-card-foot">
+            <div class="conv-tags">
+              <span class="conv-tag financial">Financial</span>
+              <span class="conv-tag">Negotiation</span>
+            </div>
+            <span class="sep"></span>
+            <span>4 sources cited</span>
+            <span class="sep"></span>
+            <span>$0.31 cost</span>
+            <button class="conv-jump">
+              Jump back in
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l3 3-3 3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="conv-card">
+          <div class="conv-card-top">
+            <div class="conv-property-pill">
+              <span class="conv-property-thumb aspen"></span>
+              <span>8873 Forest Hill</span>
+            </div>
+            <div class="conv-meta">
+              <span>2 messages</span>
+              <span class="sep"></span>
+              <span>Yesterday · 9:32 AM</span>
+            </div>
+          </div>
+          <div class="conv-question">
+            If I pivot Forest Hill to <mark>long-term rental</mark>, what does that change?
+          </div>
+          <div class="conv-snippet">
+            <strong>Scout</strong>: It removes the regulatory PASS but the financial picture weakens dramatically. LTR comps in Aspen run $4,800–$6,200/mo for similar SF, which annualized is roughly $58–74K — about half the STR projection if STR were viable...
+          </div>
+          <div class="conv-card-foot">
+            <div class="conv-tags">
+              <span class="conv-tag financial">Financial</span>
+              <span class="conv-tag">Strategy</span>
+            </div>
+            <span class="sep"></span>
+            <span>2 sources cited</span>
+            <span class="sep"></span>
+            <span>$0.08 cost</span>
+            <button class="conv-jump">
+              Jump back in
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l3 3-3 3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- EARLIER THIS WEEK -->
+      <div class="group-header">
+        <span class="group-label">Earlier this week</span>
+        <span class="group-rule"></span>
+        <span class="group-count">5 conversations</span>
+      </div>
+
+      <div class="conv-list">
+
+        <div class="conv-card">
+          <div class="conv-card-top">
+            <div class="conv-property-pill">
+              <span class="conv-property-thumb coastal"></span>
+              <span>1244 Cypress Point</span>
+            </div>
+            <div class="conv-meta">
+              <span>4 messages</span>
+              <span class="sep"></span>
+              <span>Apr 21</span>
+            </div>
+          </div>
+          <div class="conv-question">
+            Pull deed records for the comp set — any <mark>flippers</mark> in there?
+          </div>
+          <div class="conv-snippet">
+            <strong>Scout</strong>: Two of your 12 comps look like flips — purchased and re-listed within 9 and 14 months respectively. Both at $610-$640/sqft on resale. Useful signal: the market is rewarding renovation work...
+          </div>
+          <div class="conv-card-foot">
+            <div class="conv-tags">
+              <span class="conv-tag financial">Financial</span>
+              <span class="conv-tag">Comp analysis</span>
+            </div>
+            <span class="sep"></span>
+            <span>3 sources cited</span>
+            <span class="sep"></span>
+            <span>$0.21 cost</span>
+            <button class="conv-jump">
+              Jump back in
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l3 3-3 3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="conv-card">
+          <div class="conv-card-top">
+            <div class="conv-property-pill">
+              <span class="conv-property-thumb mountain"></span>
+              <span>295 Bend Ave</span>
+            </div>
+            <div class="conv-meta">
+              <span>5 messages</span>
+              <span class="sep"></span>
+              <span>Apr 20</span>
+            </div>
+          </div>
+          <div class="conv-question">
+            Why did the <mark>confidence</mark> jump 12 points on the re-run?
+          </div>
+          <div class="conv-snippet">
+            <strong>Scout</strong>: Three things changed. New HOA documentation arrived from Placer County clarifying CC&Rs. Two new STR comps appeared within 0.6 miles, both with verified 12-month operating history. And...
+          </div>
+          <div class="conv-card-foot">
+            <div class="conv-tags">
+              <span class="conv-tag">Verdict</span>
+              <span class="conv-tag">Confidence</span>
+            </div>
+            <span class="sep"></span>
+            <span>4 sources cited</span>
+            <span class="sep"></span>
+            <span>$0.16 cost</span>
+            <button class="conv-jump">
+              Jump back in
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l3 3-3 3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="conv-card">
+          <div class="conv-card-top">
+            <div class="conv-property-pill">
+              <span class="conv-property-thumb coastal"></span>
+              <span>1244 Cypress Point</span>
+            </div>
+            <div class="conv-meta">
+              <span>4 messages</span>
+              <span class="sep"></span>
+              <span>Apr 20</span>
+            </div>
+          </div>
+          <div class="conv-question">
+            Walkability score breakdown — what's actually nearby?
+          </div>
+          <div class="conv-snippet">
+            <strong>Scout</strong>: Within a 15-minute walk: 2 grocery options (small market + larger Safeway), 6 restaurants (3 highly-rated coastal cuisine), the Pebble Beach Lodge, Lovers Point park, Asilomar State Beach access...
+          </div>
+          <div class="conv-card-foot">
+            <div class="conv-tags">
+              <span class="conv-tag location">Location</span>
+              <span class="conv-tag">Walkability</span>
+            </div>
+            <span class="sep"></span>
+            <span>2 sources cited</span>
+            <span class="sep"></span>
+            <span>$0.11 cost</span>
+            <button class="conv-jump">
+              Jump back in
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l3 3-3 3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="conv-card">
+          <div class="conv-card-top">
+            <div class="conv-property-pill global">
+              <span style="font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;">Cross-portfolio</span>
+            </div>
+            <div class="conv-meta">
+              <span>3 messages</span>
+              <span class="sep"></span>
+              <span>Apr 19</span>
+            </div>
+          </div>
+          <div class="conv-question">
+            Average <mark>occupancy rate</mark> across my portfolio — and how does that compare to comp medians?
+          </div>
+          <div class="conv-snippet">
+            <strong>Scout</strong>: Your projected occupancy averaged across the 2 viable STR properties is 60%. Comp medians for those same submarkets average 61%. You're tracking just below blended benchmark — Cypress Point is...
+          </div>
+          <div class="conv-card-foot">
+            <div class="conv-tags">
+              <span class="conv-tag financial">Financial</span>
+              <span class="conv-tag">Cross-property</span>
+            </div>
+            <span class="sep"></span>
+            <span>4 sources cited</span>
+            <span class="sep"></span>
+            <span>$0.18 cost</span>
+            <button class="conv-jump">
+              Jump back in
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l3 3-3 3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

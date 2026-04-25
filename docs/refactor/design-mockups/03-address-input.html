@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Add Property</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7;
+    --paper-warm: #f5f2ec;
+    --paper-deep: #ebe6da;
+    --card-ink: #ffffff;
+    --ink: #1c1917;
+    --ink-70: #44403c;
+    --ink-muted: #78716c;
+    --ink-subtle: #a8a29e;
+    --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f;
+    --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08);
+    --terracotta-wash: rgba(197, 90, 63, 0.04);
+    --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07);
+    --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Geist', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  input { font-family: inherit; }
+
+  .input-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .input-top {
+    padding: 28px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-muted);
+    background: transparent;
+  }
+  .back-btn:hover { color: var(--ink); }
+  .back-btn svg { width: 14px; height: 14px; }
+
+  .logo-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-wordmark {
+    font-family: 'Geist', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.045em;
+    line-height: 1;
+  }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+
+  .usage-hint {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.08em;
+  }
+  .usage-hint strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .input-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 72px 40px 64px;
+  }
+
+  .welcome-block {
+    max-width: 720px;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .welcome-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 6px 14px;
+    background: var(--terracotta-soft);
+    border: 1px solid var(--terracotta-border);
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .welcome-eyebrow .dot {
+    width: 5px; height: 5px;
+    background: var(--terracotta);
+    border-radius: 50%;
+  }
+  .welcome-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 48px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: 14px;
+  }
+  .welcome-sub {
+    font-size: 16px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  /* ─── ADDRESS INPUT ─── */
+  .address-input-wrapper {
+    max-width: 720px;
+    width: 100%;
+    margin-bottom: 24px;
+    position: relative;
+  }
+
+  .address-input-box {
+    background: var(--card-ink);
+    border: 2px solid var(--hairline-strong);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    padding: 4px 4px 4px 22px;
+    transition: all 0.15s;
+    gap: 14px;
+  }
+  .address-input-box:focus-within {
+    border-color: var(--terracotta);
+    box-shadow: 0 0 0 4px var(--terracotta-soft);
+  }
+
+  .address-input-icon {
+    color: var(--ink-muted);
+    flex-shrink: 0;
+  }
+  .address-input-icon svg { width: 20px; height: 20px; }
+
+  .address-input-field {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 18px;
+    padding: 18px 0;
+    background: transparent;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .address-input-field::placeholder {
+    color: var(--ink-faint);
+  }
+
+  .address-input-cta {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 14px 22px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .address-input-cta:hover { background: #2d2825; }
+  .address-input-cta svg { width: 14px; height: 14px; }
+
+  /* ─── AUTOCOMPLETE DROPDOWN ─── */
+  .autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px -16px rgba(28, 25, 23, 0.18), 0 0 0 1px rgba(28, 25, 23, 0.04);
+    overflow: hidden;
+    z-index: 10;
+  }
+  .autocomplete-header {
+    padding: 10px 18px;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .autocomplete-header .eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .autocomplete-header .by {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    color: var(--ink-subtle);
+    letter-spacing: 0.1em;
+  }
+  .autocomplete-item {
+    padding: 14px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    border-bottom: 1px solid var(--hairline);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover { background: var(--paper-warm); }
+  .autocomplete-item.highlighted { background: var(--paper-warm); }
+  .autocomplete-pin {
+    width: 18px; height: 18px;
+    color: var(--terracotta);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .autocomplete-pin svg { width: 100%; height: 100%; }
+  .autocomplete-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .autocomplete-primary {
+    font-size: 14px;
+    color: var(--ink);
+    font-weight: 500;
+    margin-bottom: 2px;
+    letter-spacing: -0.005em;
+  }
+  .autocomplete-primary strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .autocomplete-secondary {
+    font-size: 12px;
+    color: var(--ink-muted);
+    font-family: 'Geist Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+  .autocomplete-badge {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 3px 8px;
+    background: var(--terracotta-soft);
+    border-radius: 10px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .autocomplete-badge.verdict {
+    color: var(--ink-muted);
+    background: var(--paper-warm);
+  }
+
+  /* ─── ALT PATHS ─── */
+  .alt-paths {
+    max-width: 720px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+  .alt-path {
+    background: transparent;
+    color: var(--ink-muted);
+    font-size: 13px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+  .alt-path:hover {
+    color: var(--ink);
+    background: var(--card-ink);
+    border-color: var(--hairline);
+  }
+  .alt-path svg {
+    width: 14px; height: 14px;
+  }
+
+  /* ─── TRUST STRIP ─── */
+  .trust-strip {
+    max-width: 720px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 32px;
+    padding-top: 32px;
+    border-top: 1px solid var(--hairline);
+  }
+  .trust-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .trust-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: var(--paper-warm);
+    color: var(--terracotta);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .trust-icon svg { width: 14px; height: 14px; }
+  .trust-body .title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .trust-body .desc {
+    font-size: 12px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+
+  /* ─── RECENT SEARCHES (optional surface) ─── */
+  .recent-strip {
+    max-width: 720px;
+    width: 100%;
+    margin-top: 40px;
+    padding: 20px 24px;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+  }
+  .recent-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .recent-title {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+  }
+  .recent-link {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-70);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .recent-link:hover { color: var(--terracotta); }
+  .recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .recent-item {
+    padding: 8px 0;
+    display: grid;
+    grid-template-columns: 20px 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    cursor: pointer;
+    transition: opacity 0.12s;
+  }
+  .recent-item:hover .recent-address { color: var(--terracotta); }
+  .recent-status {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    justify-self: center;
+  }
+  .recent-status.buy { background: var(--buy); }
+  .recent-status.watch { background: #c77a14; }
+  .recent-status.pass { background: #c43d3d; }
+  .recent-address {
+    font-size: 13px;
+    color: var(--ink-70);
+    letter-spacing: -0.005em;
+    transition: color 0.12s;
+  }
+  .recent-date {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-subtle);
+  }
+  .recent-verdict-chip {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 3px 8px;
+    background: var(--paper-warm);
+    border-radius: 10px;
+  }
+
+  .design-note { position: relative; }
+  .design-note::before {
+    content: attr(data-note);
+    position: absolute;
+    right: 14px;
+    top: -11px;
+    background: #2563eb;
+    color: white;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    padding: 4px 9px;
+    border-radius: 10px;
+    letter-spacing: 0.06em;
+    z-index: 5;
+    opacity: 0.92;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 20px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 50;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="input-shell">
+
+  <div class="input-top">
+    <button class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10 3L5 8l5 5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Back to dashboard</span>
+    </button>
+    <div class="logo-lockup">
+      <svg width="22" height="22" viewBox="0 0 52 52" fill="none">
+        <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+        <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+    </div>
+    <div class="usage-hint">
+      Verdicts this month · <strong>2 of 3 used</strong>
+    </div>
+  </div>
+
+  <main class="input-main">
+
+    <div class="welcome-block design-note" data-note="First-time user hero">
+      <div class="welcome-eyebrow">
+        <span class="dot"></span>
+        Step 02 · Get your first verdict
+      </div>
+      <h1 class="welcome-headline">Paste any address to begin.</h1>
+      <p class="welcome-sub">
+        Any U.S. residential property. We'll generate a verdict with cited evidence in under 30 seconds.
+      </p>
+    </div>
+
+    <!-- ADDRESS INPUT WITH AUTOCOMPLETE -->
+    <div class="address-input-wrapper design-note" data-note="Google Places autocomplete — 3-char trigger">
+      <div class="address-input-box">
+        <span class="address-input-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 22s-8-7.5-8-13a8 8 0 0116 0c0 5.5-8 13-8 13z" stroke-linejoin="round"/>
+            <circle cx="12" cy="9" r="3"/>
+          </svg>
+        </span>
+        <input
+          class="address-input-field"
+          type="text"
+          placeholder="295 Bend Ave, Kings Beach, CA"
+          value="295 Bend"
+          autofocus
+        />
+        <button class="address-input-cta">
+          Generate verdict
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 3l5 5-5 5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- AUTOCOMPLETE SHOWN -->
+      <div class="autocomplete-dropdown">
+        <div class="autocomplete-header">
+          <span class="eyebrow">Matching addresses</span>
+          <span class="by">Google Places</span>
+        </div>
+        <div class="autocomplete-item highlighted">
+          <span class="autocomplete-pin">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 00-8 8c0 5.5 8 13 8 13s8-7.5 8-13a8 8 0 00-8-8zm0 11a3 3 0 110-6 3 3 0 010 6z"/></svg>
+          </span>
+          <div class="autocomplete-main">
+            <div class="autocomplete-primary"><strong>295 Bend Ave</strong></div>
+            <div class="autocomplete-secondary">Kings Beach, CA 96143 · North Lake Tahoe</div>
+          </div>
+          <span class="autocomplete-badge verdict">Previous verdict</span>
+        </div>
+        <div class="autocomplete-item">
+          <span class="autocomplete-pin">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 00-8 8c0 5.5 8 13 8 13s8-7.5 8-13a8 8 0 00-8-8zm0 11a3 3 0 110-6 3 3 0 010 6z"/></svg>
+          </span>
+          <div class="autocomplete-main">
+            <div class="autocomplete-primary">295 Bend <strong>St</strong></div>
+            <div class="autocomplete-secondary">Bend, OR 97701</div>
+          </div>
+        </div>
+        <div class="autocomplete-item">
+          <span class="autocomplete-pin">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 00-8 8c0 5.5 8 13 8 13s8-7.5 8-13a8 8 0 00-8-8zm0 11a3 3 0 110-6 3 3 0 010 6z"/></svg>
+          </span>
+          <div class="autocomplete-main">
+            <div class="autocomplete-primary">295 Bend <strong>Meadow Dr</strong></div>
+            <div class="autocomplete-secondary">Reno, NV 89509</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALT PATHS -->
+    <div class="alt-paths">
+      <button class="alt-path">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75">
+          <rect x="2" y="3" width="12" height="10" rx="1"/>
+          <path d="M2 6h12M6 3v10"/>
+        </svg>
+        Paste Zillow URL
+      </button>
+      <button class="alt-path">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75">
+          <path d="M2 3h12v10H2z"/>
+          <path d="M5 6h6M5 9h4"/>
+        </svg>
+        Enter manually
+      </button>
+    </div>
+
+    <!-- RECENT SEARCHES -->
+    <div class="recent-strip design-note" data-note="Shown only for returning users — new users don't see">
+      <div class="recent-head">
+        <span class="recent-title">Recent properties</span>
+        <button class="recent-link">View all →</button>
+      </div>
+      <div class="recent-list">
+        <div class="recent-item">
+          <span class="recent-status watch"></span>
+          <span class="recent-address">295 Bend Ave, Kings Beach, CA</span>
+          <span class="recent-date">04.24.26</span>
+          <span class="recent-verdict-chip">Watch · 50</span>
+        </div>
+        <div class="recent-item">
+          <span class="recent-status buy"></span>
+          <span class="recent-address">1244 Cypress Point Dr, Pebble Beach, CA</span>
+          <span class="recent-date">04.18.26</span>
+          <span class="recent-verdict-chip">Buy · 82</span>
+        </div>
+        <div class="recent-item">
+          <span class="recent-status pass"></span>
+          <span class="recent-address">8873 Forest Hill Rd, Aspen, CO</span>
+          <span class="recent-date">04.12.26</span>
+          <span class="recent-verdict-chip">Pass · 28</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRUST STRIP -->
+    <div class="trust-strip">
+      <div class="trust-item">
+        <div class="trust-icon">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M8 4v4l2.5 2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="trust-body">
+          <div class="title">Under 30 seconds</div>
+          <div class="desc">Verdicts generate in real-time with cited evidence.</div>
+        </div>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M8 1l6 3v5c0 3.5-2.5 6.5-6 7-3.5-.5-6-3.5-6-7V4l6-3z"/>
+          </svg>
+        </div>
+        <div class="trust-body">
+          <div class="title">Every source cited</div>
+          <div class="desc">Click through to verify every claim we make.</div>
+        </div>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M2 14l4-4M6 10L2 6m0 4h12M14 4l-4 4M10 4l4 4"/>
+          </svg>
+        </div>
+        <div class="trust-body">
+          <div class="title">Re-runnable</div>
+          <div class="desc">Verdicts update as data changes. Full history preserved.</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Compare</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7; --paper-warm: #f5f2ec; --paper-deep: #ebe6da;
+    --sidebar-bg: #f7f5f0; --card-ink: #ffffff;
+    --ink: #1c1917; --ink-70: #44403c; --ink-muted: #78716c; --ink-subtle: #a8a29e; --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f; --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08); --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07); --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467; --buy-soft: rgba(14, 148, 103, 0.08); --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14; --watch-soft: rgba(199, 122, 20, 0.08); --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d; --pass-soft: rgba(196, 61, 61, 0.08); --pass-border: rgba(196, 61, 61, 0.25);
+    --sidebar-w: 232px;
+    --winner-soft: rgba(14, 148, 103, 0.06);
+    --loser-soft: rgba(196, 61, 61, 0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Geist', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  a { color: inherit; text-decoration: none; }
+
+  .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+  /* SIDEBAR (consistent) */
+  .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--hairline); padding: 22px 18px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { padding: 4px 8px 22px 8px; border-bottom: 1px solid var(--hairline); margin-bottom: 16px; }
+  .logo-lockup { display: inline-flex; align-items: center; gap: 8px; }
+  .logo-wordmark { font-weight: 800; font-size: 22px; letter-spacing: -0.045em; line-height: 1; }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+  .nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 14px 10px 6px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; position: relative; transition: all 0.12s; }
+  .nav-item:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .nav-item.active { background: var(--terracotta-soft); color: var(--terracotta); font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--terracotta); border-radius: 0 2px 2px 0; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 10px; background: var(--ink); color: var(--paper); padding: 1px 6px; border-radius: 8px; letter-spacing: 0.04em; }
+  .nav-item .badge.accent { background: var(--terracotta); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #1c1917, #44403c); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .sidebar-user { flex: 1; }
+  .sidebar-user .name { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+  .sidebar-user .plan { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .main-col { display: flex; flex-direction: column; min-width: 0; }
+  .page-top { background: rgba(250,250,247,0.88); backdrop-filter: saturate(180%) blur(10px); border-bottom: 1px solid var(--hairline); padding: 18px 32px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 20px; }
+  .page-title-block { flex: 1; }
+  .page-title { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: var(--ink); line-height: 1.15; margin-bottom: 2px; }
+  .page-sub { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); letter-spacing: 0.02em; }
+  .btn-ghost { background: transparent; border: 1px solid var(--hairline-strong); padding: 7px 13px; border-radius: 5px; font-size: 12px; color: var(--ink-70); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-ghost svg { width: 13px; height: 13px; }
+  .btn-primary { background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
+  .btn-primary:hover { background: #2d2825; }
+  .btn-primary svg { width: 13px; height: 13px; }
+
+  .content-wrap { padding: 24px 32px 40px; max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 24px; }
+
+  /* COMPARING HEADER CARD */
+  .compare-header {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .compare-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+  }
+  .compare-props-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+  .prop-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 6px;
+    background: var(--paper-warm);
+    border: 1px solid var(--hairline);
+    border-radius: 100px;
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+  .prop-chip-thumb {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #9eb6c9 0%, #7a8a7a 50%, #5a6f4d 100%);
+    flex-shrink: 0;
+  }
+  .prop-chip-thumb.coastal { background: linear-gradient(135deg, #a8c0d0 0%, #7a9aa8 50%, #4a6070 100%); }
+  .prop-chip-thumb.mountain { background: linear-gradient(135deg, #b8a88a 0%, #8a7a5a 50%, #5a4a3a 100%); }
+  .prop-chip-thumb.aspen { background: linear-gradient(135deg, #d0d0c8 0%, #8a8a85 50%, #5a5a55 100%); }
+  .prop-chip-remove {
+    background: transparent;
+    color: var(--ink-subtle);
+    padding: 0;
+    margin-left: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px; height: 16px;
+  }
+  .prop-chip-remove:hover { color: var(--pass); }
+  .prop-chip-remove svg { width: 11px; height: 11px; }
+  .prop-chip.add-slot {
+    background: transparent;
+    border: 1px dashed var(--hairline-strong);
+    color: var(--ink-muted);
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  .prop-chip.add-slot:hover {
+    border-color: var(--terracotta);
+    color: var(--terracotta);
+  }
+  .prop-chip.add-slot svg { width: 12px; height: 12px; margin-right: 4px; }
+
+  /* VERDICT SUMMARY ROW */
+  .summary-strip {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .summary-head {
+    display: grid;
+    grid-template-columns: 180px 1fr 1fr 1fr;
+    padding: 18px 24px;
+    gap: 20px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--paper-warm);
+  }
+  .summary-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .summary-col-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .summary-prop-addr {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    line-height: 1.25;
+  }
+  .summary-prop-city {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.02em;
+  }
+
+  .summary-body {
+    display: grid;
+    grid-template-columns: 180px 1fr 1fr 1fr;
+    padding: 20px 24px;
+    gap: 20px;
+  }
+  .summary-body.verdict-row {
+    background: var(--card-ink);
+  }
+  .summary-cell-label {
+    font-size: 12.5px;
+    color: var(--ink-70);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+  }
+  .summary-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .verdict-chip-big {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    padding: 5px 12px;
+    border-radius: 14px;
+    font-weight: 500;
+    width: fit-content;
+  }
+  .verdict-chip-big .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .verdict-chip-big.buy { background: var(--buy-soft); color: var(--buy); border: 1px solid var(--buy-border); }
+  .verdict-chip-big.buy .dot { background: var(--buy); }
+  .verdict-chip-big.watch { background: var(--watch-soft); color: var(--watch); border: 1px solid var(--watch-border); }
+  .verdict-chip-big.watch .dot { background: var(--watch); }
+  .verdict-chip-big.pass { background: var(--pass-soft); color: var(--pass); border: 1px solid var(--pass-border); }
+  .verdict-chip-big.pass .dot { background: var(--pass); }
+
+  .big-num {
+    font-family: 'Geist', sans-serif;
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.028em;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .big-num.buy { color: var(--buy); }
+  .big-num.watch { color: var(--watch); }
+  .big-num.pass { color: var(--pass); }
+  .sub-text {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* DOMAIN COMPARISON TABLE */
+  .domain-table {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .domain-section {
+    border-bottom: 1px solid var(--hairline);
+  }
+  .domain-section:last-child { border-bottom: none; }
+  .domain-head {
+    padding: 16px 24px 14px;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .domain-icon {
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    background: var(--card-ink);
+    color: var(--ink-70);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--hairline);
+  }
+  .domain-icon svg { width: 14px; height: 14px; }
+  .domain-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .domain-sub {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-left: auto;
+  }
+
+  .domain-rows { display: flex; flex-direction: column; }
+  .domain-row {
+    display: grid;
+    grid-template-columns: 180px 1fr 1fr 1fr;
+    padding: 14px 24px;
+    gap: 20px;
+    border-bottom: 1px solid var(--hairline);
+    align-items: center;
+  }
+  .domain-row:last-child { border-bottom: none; }
+
+  .domain-row-label {
+    font-size: 12.5px;
+    color: var(--ink-70);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .domain-row-label-main { font-weight: 500; color: var(--ink); }
+  .domain-row-label-sub { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-subtle); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .domain-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin: -4px -8px;
+  }
+  .domain-cell.winner {
+    background: var(--winner-soft);
+    position: relative;
+  }
+  .domain-cell.winner::before {
+    content: '';
+    position: absolute;
+    top: 4px; bottom: 4px;
+    left: 0;
+    width: 2px;
+    background: var(--buy);
+    border-radius: 2px;
+  }
+  .domain-cell.loser {
+    opacity: 0.6;
+  }
+  .domain-val {
+    font-family: 'Geist', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.015em;
+  }
+  .domain-val.muted {
+    font-family: 'Geist Mono', monospace;
+    color: var(--ink-faint);
+    font-weight: 400;
+    font-size: 13px;
+  }
+  .domain-val-sub {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+  .domain-cell.winner .domain-val-sub { color: var(--buy); }
+  .winner-badge {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--buy);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-top: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .winner-badge::before {
+    content: '★';
+    font-size: 10px;
+  }
+
+  .lock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 3px 7px;
+    background: var(--terracotta-soft);
+    border-radius: 8px;
+    width: fit-content;
+    font-weight: 500;
+  }
+  .lock-badge svg { width: 9px; height: 9px; }
+
+  /* RECOMMENDATION CALLOUT */
+  .recommendation {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 28px 32px;
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 32px;
+  }
+  .rec-body h3 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 26px;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    line-height: 1.25;
+    margin-bottom: 12px;
+  }
+  .rec-body h3 em {
+    font-style: italic;
+    color: var(--terracotta);
+  }
+  .rec-body p {
+    font-size: 14px;
+    color: var(--ink-70);
+    line-height: 1.65;
+    margin-bottom: 12px;
+  }
+  .rec-body p:last-child { margin-bottom: 0; }
+  .rec-body strong { color: var(--ink); font-weight: 500; }
+  .rec-aside {
+    border-left: 1px solid var(--hairline);
+    padding-left: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .rec-aside h4 {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .rec-ranking {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rec-rank-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .rec-rank-item:last-child { border-bottom: none; }
+  .rec-rank-num {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-subtle);
+    letter-spacing: 0.1em;
+    width: 18px;
+  }
+  .rec-rank-item.top .rec-rank-num { color: var(--buy); }
+  .rec-rank-name {
+    flex: 1;
+    font-size: 12px;
+    color: var(--ink-70);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rec-rank-score {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* DESIGN NOTES */
+  .design-note { position: relative; }
+  .design-note::before { content: attr(data-note); position: absolute; right: 14px; top: -11px; background: #2563eb; color: white; font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 500; padding: 4px 9px; border-radius: 10px; letter-spacing: 0.06em; z-index: 5; opacity: 0.92; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; border: none; padding: 11px 18px; border-radius: 20px; font-family: 'Geist Mono', monospace; font-size: 10px; cursor: pointer; letter-spacing: 0.14em; text-transform: uppercase; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; font-weight: 500; }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-lockup">
+        <svg width="24" height="24" viewBox="0 0 52 52" fill="none">
+          <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+          <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+      </div>
+    </div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/></svg><span>Dashboard</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg><span>Properties</span><span class="badge accent">3</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg><span>Verdicts</span><span class="badge">12</span></div>
+    <div class="nav-item active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="10" rx="1"/><path d="M2 7h12M6 2v4M10 2v4"/></svg><span>Compare</span></div>
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg><span>Portfolio</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Briefs</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg><span>Alerts</span><span class="badge accent">2</span></div>
+    <div class="nav-section-label">Account</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/></svg><span>Settings</span></div>
+    <div class="sidebar-footer">
+      <div class="avatar">JC</div>
+      <div class="sidebar-user">
+        <div class="name">Jeremy Collins</div>
+        <div class="plan">Pro · $40/mo</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+
+    <div class="page-top">
+      <div class="page-title-block">
+        <div class="page-title">Compare</div>
+        <div class="page-sub">Side-by-side · 3 properties · Generated 04.24.26</div>
+      </div>
+      <button class="btn-ghost">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 2v12h10V6l-4-4H3z"/></svg>
+        Export PDF
+      </button>
+      <button class="btn-ghost">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 4L8 8 4 4m0 8l4-4 4 4"/></svg>
+        Share
+      </button>
+      <button class="btn-primary">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v12M2 8h12" stroke-linecap="round"/></svg>
+        Add property
+      </button>
+    </div>
+
+    <div class="content-wrap">
+
+      <!-- COMPARE HEADER -->
+      <div class="compare-header design-note" data-note="Managing which properties are in the comparison">
+        <span class="compare-label">Comparing</span>
+        <div class="compare-props-chips">
+          <div class="prop-chip">
+            <span class="prop-chip-thumb coastal"></span>
+            <span>1244 Cypress Point</span>
+            <button class="prop-chip-remove"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l10 10M13 3L3 13" stroke-linecap="round"/></svg></button>
+          </div>
+          <div class="prop-chip">
+            <span class="prop-chip-thumb mountain"></span>
+            <span>295 Bend Ave</span>
+            <button class="prop-chip-remove"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l10 10M13 3L3 13" stroke-linecap="round"/></svg></button>
+          </div>
+          <div class="prop-chip">
+            <span class="prop-chip-thumb aspen"></span>
+            <span>8873 Forest Hill</span>
+            <button class="prop-chip-remove"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l10 10M13 3L3 13" stroke-linecap="round"/></svg></button>
+          </div>
+          <button class="prop-chip add-slot">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10" stroke-linecap="round"/></svg>
+            Add another
+          </button>
+        </div>
+      </div>
+
+      <!-- PROPERTY HEADERS + VERDICTS -->
+      <div class="summary-strip design-note" data-note="Header strip + verdict summary">
+        <div class="summary-head">
+          <div class="summary-col">
+            <span class="summary-col-label">Property</span>
+          </div>
+          <div class="summary-col">
+            <span class="summary-prop-addr">1244 Cypress Point Dr</span>
+            <span class="summary-prop-city">Pebble Beach, CA · Monterey</span>
+          </div>
+          <div class="summary-col">
+            <span class="summary-prop-addr">295 Bend Ave</span>
+            <span class="summary-prop-city">Kings Beach, CA · N. Lake Tahoe</span>
+          </div>
+          <div class="summary-col">
+            <span class="summary-prop-addr">8873 Forest Hill Rd</span>
+            <span class="summary-prop-city">Aspen, CO · Pitkin County</span>
+          </div>
+        </div>
+        <div class="summary-body verdict-row">
+          <div class="summary-cell-label">Current verdict</div>
+          <div class="summary-cell">
+            <span class="verdict-chip-big buy"><span class="dot"></span>Buy · 82</span>
+            <span class="sub-text">Run 01 · 04.23.26</span>
+          </div>
+          <div class="summary-cell">
+            <span class="verdict-chip-big watch"><span class="dot"></span>Watch · 50</span>
+            <span class="sub-text">Run 02 · 04.24.26</span>
+          </div>
+          <div class="summary-cell">
+            <span class="verdict-chip-big pass"><span class="dot"></span>Pass · 28</span>
+            <span class="sub-text">Run 01 · 04.12.26</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DOMAIN COMPARISON TABLE -->
+      <div class="domain-table design-note" data-note="Row-based per D9 · winner highlighting">
+
+        <!-- REGULATORY -->
+        <div class="domain-section">
+          <div class="domain-head">
+            <div class="domain-icon">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3v5c0 3.5-2.5 6.5-6 7-3.5-.5-6-3.5-6-7V4l6-3z"/></svg>
+            </div>
+            <span class="domain-title">Regulatory</span>
+            <span class="domain-sub">Jurisdiction · STR permit · HOA</span>
+          </div>
+          <div class="domain-rows">
+            <div class="domain-row">
+              <div class="domain-row-label">
+                <span class="domain-row-label-main">STR Status</span>
+                <span class="domain-row-label-sub">Jurisdiction permit</span>
+              </div>
+              <div class="domain-cell winner">
+                <span class="domain-val">Permitted</span>
+                <span class="domain-val-sub">Monterey County · no cap</span>
+                <span class="winner-badge">Best path</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">Permitted</span>
+                <span class="domain-val-sub">Placer County · 1,443 / 3,900 cap</span>
+              </div>
+              <div class="domain-cell loser">
+                <span class="domain-val" style="color: var(--pass);">Banned</span>
+                <span class="domain-val-sub">Aspen STR moratorium · active</span>
+              </div>
+            </div>
+            <div class="domain-row">
+              <div class="domain-row-label">
+                <span class="domain-row-label-main">HOA overlay</span>
+                <span class="domain-row-label-sub">Additional rules</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">None</span>
+                <span class="domain-val-sub">Non-HOA lot</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val muted" style="color: var(--watch);">Pending</span>
+                <span class="domain-val-sub">CC&amp;Rs not yet verified</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">Restrictive</span>
+                <span class="domain-val-sub">HOA bans rentals &lt; 30 days</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOCATION -->
+        <div class="domain-section">
+          <div class="domain-head">
+            <div class="domain-icon">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 00-5 5c0 4.5 5 9 5 9s5-4.5 5-9a5 5 0 00-5-5zm0 7a2 2 0 110-4 2 2 0 010 4z"/></svg>
+            </div>
+            <span class="domain-title">Location</span>
+            <span class="domain-sub">Walkability · amenities · ratings</span>
+          </div>
+          <div class="domain-rows">
+            <div class="domain-row">
+              <div class="domain-row-label">
+                <span class="domain-row-label-main">Walk score</span>
+                <span class="domain-row-label-sub">Out of 100</span>
+              </div>
+              <div class="domain-cell winner">
+                <span class="domain-val buy">62</span>
+                <span class="domain-val-sub">Somewhat walkable</span>
+                <span class="winner-badge">Best location</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val watch">37</span>
+                <span class="domain-val-sub">Car dependent</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">81</span>
+                <span class="domain-val-sub">Very walkable</span>
+              </div>
+            </div>
+            <div class="domain-row">
+              <div class="domain-row-label">
+                <span class="domain-row-label-main">Nearby rating</span>
+                <span class="domain-row-label-sub">Avg ★ of top 10 spots</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">4.72★</span>
+                <span class="domain-val-sub">Restaurants + coastal trails</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">4.56★</span>
+                <span class="domain-val-sub">Lake access · seasonal</span>
+              </div>
+              <div class="domain-cell winner">
+                <span class="domain-val">4.81★</span>
+                <span class="domain-val-sub">Downtown Aspen · year-round</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COMPS -->
+        <div class="domain-section">
+          <div class="domain-head">
+            <div class="domain-icon">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg>
+            </div>
+            <span class="domain-title">Comparable Properties</span>
+            <span class="domain-sub">Comps · ADR · occupancy</span>
+          </div>
+          <div class="domain-rows">
+            <div class="domain-row">
+              <div class="domain-row-label">
+                <span class="domain-row-label-main">Comp count</span>
+                <span class="domain-row-label-sub">Within 1.2 miles</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">12</span>
+                <span class="domain-val-sub">3BR matches</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">15</span>
+                <span class="domain-val-sub">3BR matches</span>
+              </div>
+              <div class="domain-cell winner">
+                <span class="domain-val">24</span>
+                <span class="domain-val-sub">3BR matches</span>
+                <span class="winner-badge">Most comp data</span>
+              </div>
+            </div>
+            <div class="domain-row">
+              <div class="domain-row-label">
+                <span class="domain-row-label-main">Median ADR</span>
+                <span class="domain-row-label-sub">Per night</span>
+              </div>
+              <div class="domain-cell winner">
+                <span class="domain-val buy">$525</span>
+                <span class="domain-val-sub">Coastal premium</span>
+                <span class="winner-badge">Highest ADR</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">$462</span>
+                <span class="domain-val-sub">Seasonal swing $280-$640</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">$384</span>
+                <span class="domain-val-sub">Can't realize (STR banned)</span>
+              </div>
+            </div>
+            <div class="domain-row">
+              <div class="domain-row-label">
+                <span class="domain-row-label-main">Median occupancy</span>
+                <span class="domain-row-label-sub">Annualized</span>
+              </div>
+              <div class="domain-cell winner">
+                <span class="domain-val buy">67%</span>
+                <span class="domain-val-sub">Year-round</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">54%</span>
+                <span class="domain-val-sub">Winter-heavy</span>
+              </div>
+              <div class="domain-cell">
+                <span class="lock-badge">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg>
+                  Pro
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- REVENUE -->
+        <div class="domain-section">
+          <div class="domain-head">
+            <div class="domain-icon">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg>
+            </div>
+            <span class="domain-title">Revenue Projection</span>
+            <span class="domain-sub">Annual · seasonality</span>
+          </div>
+          <div class="domain-rows">
+            <div class="domain-row">
+              <div class="domain-row-label">
+                <span class="domain-row-label-main">Annual projection</span>
+                <span class="domain-row-label-sub">Comp-weighted</span>
+              </div>
+              <div class="domain-cell winner">
+                <span class="domain-val buy">$128K</span>
+                <span class="domain-val-sub">High confidence</span>
+                <span class="winner-badge">Highest revenue</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">$68K</span>
+                <span class="domain-val-sub">Medium confidence</span>
+              </div>
+              <div class="domain-cell loser">
+                <span class="domain-val">$0</span>
+                <span class="domain-val-sub">STR banned · LTR only viable</span>
+              </div>
+            </div>
+            <div class="domain-row">
+              <div class="domain-row-label">
+                <span class="domain-row-label-main">Peak month</span>
+                <span class="domain-row-label-sub">Highest revenue month</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">August</span>
+                <span class="domain-val-sub">$14.2K / mo</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val">July</span>
+                <span class="domain-val-sub">$9.8K / mo</span>
+              </div>
+              <div class="domain-cell">
+                <span class="domain-val muted">—</span>
+                <span class="domain-val-sub">N/A</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RECOMMENDATION -->
+      <div class="recommendation design-note" data-note="Scout synthesizes the comparison into a recommendation">
+        <div class="rec-body">
+          <h3>Cypress Point is the clear <em>move</em> — but only if the permit path stays open.</h3>
+          <p>
+            Across all four evidence domains, <strong>1244 Cypress Point Dr</strong> either wins outright or ties for best. Highest ADR at $525/night, strongest walkability, largest comp set, and a $128K revenue projection that roughly doubles Kings Beach. The coastal Monterey market has year-round occupancy — no seasonal cliff.
+          </p>
+          <p>
+            <strong>295 Bend Ave is the speculative hold.</strong> STR is permitted but the permit cap (1,443 of 3,900 used) is the key watch item. Revenue is half of Cypress Point and heavily winter-dependent. Workable if you want lake exposure, but not the obvious pick.
+          </p>
+          <p>
+            <strong>8873 Forest Hill is a pass</strong> under current rules. Aspen's STR moratorium plus the HOA restriction on rentals under 30 days means the revenue case can't close. A great property, wrong structure. Monitor for ordinance change or pivot to long-term rental analysis.
+          </p>
+        </div>
+        <aside class="rec-aside">
+          <div>
+            <h4>Overall ranking</h4>
+            <div class="rec-ranking">
+              <div class="rec-rank-item top">
+                <span class="rec-rank-num">01</span>
+                <span class="rec-rank-name">Cypress Point</span>
+                <span class="rec-rank-score">82</span>
+              </div>
+              <div class="rec-rank-item">
+                <span class="rec-rank-num">02</span>
+                <span class="rec-rank-name">Bend Ave</span>
+                <span class="rec-rank-score">50</span>
+              </div>
+              <div class="rec-rank-item">
+                <span class="rec-rank-num">03</span>
+                <span class="rec-rank-name">Forest Hill</span>
+                <span class="rec-rank-score">28</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

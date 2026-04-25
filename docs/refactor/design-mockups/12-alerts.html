@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Alerts</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7; --paper-warm: #f5f2ec; --paper-deep: #ebe6da;
+    --sidebar-bg: #f7f5f0; --card-ink: #ffffff;
+    --ink: #1c1917; --ink-70: #44403c; --ink-muted: #78716c; --ink-subtle: #a8a29e; --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f; --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08); --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07); --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467; --buy-soft: rgba(14, 148, 103, 0.08); --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14; --watch-soft: rgba(199, 122, 20, 0.08); --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d; --pass-soft: rgba(196, 61, 61, 0.08); --pass-border: rgba(196, 61, 61, 0.25);
+    --sidebar-w: 232px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Geist', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  a { color: inherit; text-decoration: none; }
+
+  .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+  .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--hairline); padding: 22px 18px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { padding: 4px 8px 22px 8px; border-bottom: 1px solid var(--hairline); margin-bottom: 16px; }
+  .logo-lockup { display: inline-flex; align-items: center; gap: 8px; }
+  .logo-wordmark { font-weight: 800; font-size: 22px; letter-spacing: -0.045em; line-height: 1; }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+  .nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 14px 10px 6px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; position: relative; transition: all 0.12s; }
+  .nav-item:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .nav-item.active { background: var(--terracotta-soft); color: var(--terracotta); font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--terracotta); border-radius: 0 2px 2px 0; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 10px; background: var(--ink); color: var(--paper); padding: 1px 6px; border-radius: 8px; letter-spacing: 0.04em; }
+  .nav-item .badge.accent { background: var(--terracotta); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #1c1917, #44403c); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .sidebar-user { flex: 1; }
+  .sidebar-user .name { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+  .sidebar-user .plan { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .main-col { display: flex; flex-direction: column; min-width: 0; }
+  .page-top { background: rgba(250,250,247,0.88); backdrop-filter: saturate(180%) blur(10px); border-bottom: 1px solid var(--hairline); padding: 18px 32px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 20px; }
+  .page-title-block { flex: 1; }
+  .page-title { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: var(--ink); line-height: 1.15; margin-bottom: 2px; }
+  .page-sub { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); letter-spacing: 0.02em; }
+  .btn-ghost { background: transparent; border: 1px solid var(--hairline-strong); padding: 7px 13px; border-radius: 5px; font-size: 12px; color: var(--ink-70); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-ghost svg { width: 13px; height: 13px; }
+  .btn-primary { background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
+  .btn-primary:hover { background: #2d2825; }
+  .btn-primary svg { width: 13px; height: 13px; }
+
+  .content-wrap { padding: 24px 32px 40px; max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 20px; }
+
+  /* TAB BAR */
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--hairline);
+    gap: 28px;
+    margin-bottom: 8px;
+  }
+  .tab-bar button {
+    padding: 12px 0;
+    font-family: 'Geist', sans-serif;
+    font-size: 13.5px;
+    font-weight: 400;
+    color: var(--ink-muted);
+    background: transparent;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.12s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tab-bar button:hover { color: var(--ink); }
+  .tab-bar button.active {
+    color: var(--ink);
+    font-weight: 500;
+    border-bottom-color: var(--terracotta);
+  }
+  .tab-bar button .count-badge {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    background: var(--paper-warm);
+    color: var(--ink-muted);
+    padding: 2px 7px;
+    border-radius: 10px;
+    letter-spacing: 0.08em;
+  }
+  .tab-bar button.active .count-badge {
+    background: var(--terracotta-soft);
+    color: var(--terracotta);
+  }
+  .tab-bar button .new-dot {
+    width: 6px; height: 6px;
+    background: var(--terracotta);
+    border-radius: 50%;
+  }
+
+  /* GLANCE */
+  .alerts-glance {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .glance-tile {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .glance-tile.accent { border-left: 3px solid var(--terracotta); padding-left: 13px; }
+  .glance-label { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.14em; }
+  .glance-value { display: flex; align-items: baseline; gap: 6px; }
+  .glance-big { font-size: 22px; font-weight: 500; letter-spacing: -0.025em; color: var(--ink); line-height: 1; }
+  .glance-big.terracotta { color: var(--terracotta); }
+  .glance-big.watch { color: var(--watch); }
+  .glance-big.buy { color: var(--buy); }
+  .glance-sub { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); }
+
+  /* VIEW TOGGLE */
+  #view-inbox { display: block; }
+  #view-rules { display: none; }
+  #view-settings { display: none; }
+  body.show-rules #view-inbox { display: none; }
+  body.show-rules #view-rules { display: block; }
+  body.show-settings #view-inbox { display: none; }
+  body.show-settings #view-settings { display: block; }
+
+  /* ALERTS INBOX */
+  .section-rule {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0 6px 0;
+  }
+  .section-rule-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .section-rule-line { height: 1px; background: var(--hairline); flex: 1; }
+  .section-rule-count { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-subtle); letter-spacing: 0.08em; }
+
+  .alert-list { display: flex; flex-direction: column; gap: 10px; }
+  .alert-row {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: grid;
+    grid-template-columns: 36px 1fr 100px 80px 32px;
+    gap: 14px;
+    align-items: flex-start;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .alert-row:hover { border-color: var(--hairline-strong); transform: translateY(-1px); box-shadow: 0 4px 12px -4px rgba(28,25,23,0.08); }
+  .alert-row.unread { background: var(--terracotta-soft); border-color: var(--terracotta-border); }
+  .alert-row.unread::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--terracotta);
+    border-radius: 50%;
+    position: absolute;
+    margin-left: -16px;
+    margin-top: 10px;
+  }
+  .alert-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .alert-icon.terracotta { background: var(--terracotta-soft); color: var(--terracotta); }
+  .alert-icon.watch { background: var(--watch-soft); color: var(--watch); }
+  .alert-icon.buy { background: var(--buy-soft); color: var(--buy); }
+  .alert-icon.pass { background: var(--pass-soft); color: var(--pass); }
+  .alert-icon.neutral { background: var(--paper-warm); color: var(--ink-70); }
+  .alert-icon svg { width: 17px; height: 17px; }
+
+  .alert-body { min-width: 0; }
+  .alert-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+  .alert-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .alert-title strong { font-weight: 600; }
+  .alert-title-badge {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 3px 8px;
+    background: var(--terracotta-soft);
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .alert-desc {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+  }
+  .alert-desc strong { color: var(--ink); font-weight: 500; }
+  .alert-desc .addr {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11.5px;
+  }
+  .alert-cta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .alert-cta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 0;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+  }
+  .alert-cta:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .alert-cta.secondary { color: var(--ink-muted); }
+  .alert-cta.secondary:hover { color: var(--ink); }
+
+  .alert-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+    justify-self: start;
+    white-space: nowrap;
+  }
+  .alert-status-chip .dot { width: 4px; height: 4px; border-radius: 50%; }
+  .alert-status-chip.opportunity { color: var(--buy); background: var(--buy-soft); border: 1px solid var(--buy-border); }
+  .alert-status-chip.opportunity .dot { background: var(--buy); }
+  .alert-status-chip.warning { color: var(--watch); background: var(--watch-soft); border: 1px solid var(--watch-border); }
+  .alert-status-chip.warning .dot { background: var(--watch); }
+  .alert-status-chip.critical { color: var(--pass); background: var(--pass-soft); border: 1px solid var(--pass-border); }
+  .alert-status-chip.critical .dot { background: var(--pass); }
+  .alert-status-chip.info { color: var(--ink-70); background: var(--paper-warm); }
+  .alert-status-chip.info .dot { background: var(--ink-muted); }
+
+  .alert-time {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    text-align: right;
+  }
+  .alert-menu { width: 28px; height: 28px; border-radius: 4px; background: transparent; color: var(--ink-muted); display: inline-flex; align-items: center; justify-content: center; }
+  .alert-menu:hover { background: var(--paper-warm); color: var(--ink); }
+  .alert-menu svg { width: 14px; height: 14px; }
+
+  /* RULES VIEW (saved alert rules) */
+  .rules-empty {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 48px 32px;
+    text-align: center;
+  }
+
+  .rule-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: 36px 1fr auto auto 40px;
+    gap: 14px;
+    align-items: center;
+  }
+  .rule-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: var(--paper-warm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-70);
+  }
+  .rule-icon svg { width: 16px; height: 16px; }
+  .rule-body { min-width: 0; }
+  .rule-name { font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
+  .rule-definition {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    letter-spacing: 0.01em;
+  }
+  .rule-definition code {
+    color: var(--ink);
+    background: var(--paper-warm);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+  .rule-scope {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .rule-triggers {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    padding: 4px 10px;
+    background: var(--paper-warm);
+    border-radius: 10px;
+    letter-spacing: 0.04em;
+  }
+  .rule-triggers strong { color: var(--ink); font-weight: 500; }
+
+  /* CREATE RULE CARD */
+  .rules-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 24px 0 14px 0;
+  }
+  .rules-head-title { font-size: 14px; font-weight: 500; color: var(--ink); }
+
+  .rule-create-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-top: 24px;
+  }
+  .rule-create-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .rule-create-eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+  }
+  .rule-create-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    line-height: 1.15;
+    margin-bottom: 6px;
+  }
+
+  .rule-builder {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 0;
+    font-size: 13.5px;
+    color: var(--ink-70);
+    line-height: 2.2;
+  }
+  .rule-builder .chunk { white-space: nowrap; }
+  .rule-builder-select {
+    background: var(--paper-warm);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: border-color 0.12s;
+  }
+  .rule-builder-select:hover { border-color: var(--ink); }
+  .rule-builder-select svg { width: 10px; height: 10px; color: var(--ink-muted); }
+
+  .trigger-templates {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .trigger-template {
+    background: var(--paper-warm);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .trigger-template:hover {
+    border-color: var(--terracotta);
+    background: var(--terracotta-wash);
+  }
+  .trigger-template-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .trigger-template-icon {
+    width: 18px; height: 18px;
+    color: var(--terracotta);
+  }
+  .trigger-template-icon svg { width: 100%; height: 100%; }
+  .trigger-template-name {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .trigger-template-desc {
+    font-size: 11px;
+    color: var(--ink-muted);
+    line-height: 1.45;
+  }
+
+  .rule-delivery {
+    display: flex;
+    gap: 14px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--hairline);
+  }
+  .delivery-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--paper-warm);
+    border: 1px solid var(--hairline);
+    border-radius: 100px;
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .delivery-toggle.active {
+    background: var(--terracotta-soft);
+    border-color: var(--terracotta-border);
+    color: var(--terracotta);
+    font-weight: 500;
+  }
+  .delivery-toggle svg { width: 14px; height: 14px; }
+
+  .rule-create-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--hairline);
+  }
+
+  /* SETTINGS VIEW */
+  .settings-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 24px 28px;
+  }
+  .settings-section { margin-bottom: 24px; }
+  .settings-section:last-child { margin-bottom: 0; }
+  .settings-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .settings-section-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .settings-section-sub {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+
+  .settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-body { min-width: 0; }
+  .settings-row-label {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 2px;
+    letter-spacing: -0.005em;
+  }
+  .settings-row-desc {
+    font-size: 12px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+
+  .toggle-switch {
+    width: 32px; height: 18px;
+    border-radius: 100px;
+    background: var(--hairline-strong);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: left 0.15s;
+  }
+  .toggle-switch.on { background: var(--terracotta); }
+  .toggle-switch.on::after { left: 16px; }
+
+  /* DESIGN NOTES */
+  .design-note { position: relative; }
+  .design-note::before { content: attr(data-note); position: absolute; right: 14px; top: -11px; background: #2563eb; color: white; font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 500; padding: 4px 9px; border-radius: 10px; letter-spacing: 0.06em; z-index: 5; opacity: 0.92; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; border: none; padding: 11px 18px; border-radius: 20px; font-family: 'Geist Mono', monospace; font-size: 10px; cursor: pointer; letter-spacing: 0.14em; text-transform: uppercase; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; font-weight: 500; }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-lockup">
+        <svg width="24" height="24" viewBox="0 0 52 52" fill="none">
+          <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+          <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+      </div>
+    </div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/></svg><span>Dashboard</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg><span>Properties</span><span class="badge accent">3</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg><span>Verdicts</span><span class="badge">12</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="10" rx="1"/><path d="M2 7h12M6 2v4M10 2v4"/></svg><span>Compare</span></div>
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg><span>Portfolio</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Briefs</span></div>
+    <div class="nav-item active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg><span>Alerts</span><span class="badge accent">2</span></div>
+    <div class="nav-section-label">Account</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/></svg><span>Settings</span></div>
+    <div class="sidebar-footer">
+      <div class="avatar">JC</div>
+      <div class="sidebar-user">
+        <div class="name">Jeremy Collins</div>
+        <div class="plan">Pro · $40/mo</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="page-top">
+      <div class="page-title-block">
+        <div class="page-title">Alerts</div>
+        <div class="page-sub">2 unread · 8 rules active · Last check 4 min ago</div>
+      </div>
+      <button class="btn-ghost">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 8l4 4 8-8"/></svg>
+        Mark all as read
+      </button>
+      <button class="btn-primary">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v12M2 8h12" stroke-linecap="round"/></svg>
+        New alert rule
+      </button>
+    </div>
+
+    <div class="content-wrap">
+
+      <div class="tab-bar">
+        <button class="active" onclick="setView('inbox')">
+          <span>Inbox</span>
+          <span class="count-badge">12</span>
+          <span class="new-dot"></span>
+        </button>
+        <button onclick="setView('rules')">
+          <span>Alert rules</span>
+          <span class="count-badge">8</span>
+        </button>
+        <button onclick="setView('settings')">
+          <span>Delivery settings</span>
+        </button>
+      </div>
+
+      <!-- INBOX VIEW -->
+      <div id="view-inbox">
+
+        <div class="alerts-glance design-note" data-note="Alert volume and health">
+          <div class="glance-tile accent">
+            <span class="glance-label">Unread</span>
+            <div class="glance-value"><span class="glance-big terracotta">2</span><span class="glance-sub">this week</span></div>
+          </div>
+          <div class="glance-tile">
+            <span class="glance-label">Opportunities</span>
+            <div class="glance-value"><span class="glance-big buy">3</span><span class="glance-sub">last 30 days</span></div>
+          </div>
+          <div class="glance-tile">
+            <span class="glance-label">Warnings</span>
+            <div class="glance-value"><span class="glance-big watch">4</span><span class="glance-sub">last 30 days</span></div>
+          </div>
+          <div class="glance-tile">
+            <span class="glance-label">Active rules</span>
+            <div class="glance-value"><span class="glance-big">8</span><span class="glance-sub">checking hourly</span></div>
+          </div>
+        </div>
+
+        <!-- THIS WEEK -->
+        <div class="section-rule">
+          <span class="section-rule-label">This week</span>
+          <span class="section-rule-line"></span>
+          <span class="section-rule-count">2 unread · 3 total</span>
+        </div>
+
+        <div class="alert-list">
+          <div class="alert-row unread">
+            <div class="alert-icon terracotta">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg>
+            </div>
+            <div class="alert-body">
+              <div class="alert-title-row">
+                <span class="alert-title"><strong>Placer County STR cap nearing 54%</strong></span>
+                <span class="alert-title-badge">New</span>
+              </div>
+              <div class="alert-desc">
+                Permit cap utilization jumped from 37% to 54% in the last 7 days. <strong>2,102 of 3,900</strong> active permits. Could affect future verdicts for <strong>295 Bend Ave</strong>. <span class="addr">Kings Beach, CA</span>
+              </div>
+              <div class="alert-cta-row">
+                <button class="alert-cta">Re-run 295 Bend verdict →</button>
+                <button class="alert-cta secondary">Dismiss</button>
+              </div>
+            </div>
+            <span class="alert-status-chip warning"><span class="dot"></span>Warning</span>
+            <span class="alert-time">2 days ago</span>
+            <button class="alert-menu"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+
+          <div class="alert-row unread">
+            <div class="alert-icon buy">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M2 8l4 4 8-8"/></svg>
+            </div>
+            <div class="alert-body">
+              <div class="alert-title-row">
+                <span class="alert-title"><strong>3 new STR comps added near Cypress Point</strong></span>
+                <span class="alert-title-badge">New</span>
+              </div>
+              <div class="alert-desc">
+                Three fresh listings within 0.8 miles of <strong>1244 Cypress Point Dr</strong>. Median ADR moved up from $485 to $521. <span class="addr">Pebble Beach, CA</span>
+              </div>
+              <div class="alert-cta-row">
+                <button class="alert-cta">View updated comp set →</button>
+                <button class="alert-cta secondary">Dismiss</button>
+              </div>
+            </div>
+            <span class="alert-status-chip opportunity"><span class="dot"></span>Opportunity</span>
+            <span class="alert-time">3 days ago</span>
+            <button class="alert-menu"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+
+          <div class="alert-row">
+            <div class="alert-icon neutral">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v2H3V3zm0 4h10v2H3V7zm0 4h7v2H3v-2z"/></svg>
+            </div>
+            <div class="alert-body">
+              <div class="alert-title-row">
+                <span class="alert-title">Weekly portfolio summary · 3 properties</span>
+              </div>
+              <div class="alert-desc">
+                No verdict changes this week. <strong>1 BUY, 1 WATCH, 1 PASS</strong> stable. Avg confidence 54 (unchanged).
+              </div>
+            </div>
+            <span class="alert-status-chip info"><span class="dot"></span>Info</span>
+            <span class="alert-time">4 days ago</span>
+            <button class="alert-menu"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+
+        </div>
+
+        <!-- EARLIER -->
+        <div class="section-rule">
+          <span class="section-rule-label">Earlier this month</span>
+          <span class="section-rule-line"></span>
+          <span class="section-rule-count">9 total</span>
+        </div>
+
+        <div class="alert-list">
+          <div class="alert-row">
+            <div class="alert-icon pass">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="8" cy="8" r="6"/><path d="M5 8h6"/></svg>
+            </div>
+            <div class="alert-body">
+              <div class="alert-title-row">
+                <span class="alert-title"><strong>Aspen STR moratorium extended</strong></span>
+              </div>
+              <div class="alert-desc">
+                Pitkin County Council voted 4-1 to extend the STR moratorium through Q4 2026. Directly affects <strong>8873 Forest Hill Rd</strong>. Verdict auto-refreshed — confidence declined.
+              </div>
+            </div>
+            <span class="alert-status-chip critical"><span class="dot"></span>Critical</span>
+            <span class="alert-time">Apr 15</span>
+            <button class="alert-menu"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+
+          <div class="alert-row">
+            <div class="alert-icon buy">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 13l5-5 3 3 5-5M14 3h-3M14 3v3"/></svg>
+            </div>
+            <div class="alert-body">
+              <div class="alert-title-row">
+                <span class="alert-title">Zillow Zestimate rose +8% for <strong>41 Maywood Ct</strong></span>
+              </div>
+              <div class="alert-desc">
+                From $772K to $834K over the past 30 days. Area 30-day sale velocity trending upward. Consider re-running verdict.
+              </div>
+            </div>
+            <span class="alert-status-chip opportunity"><span class="dot"></span>Opportunity</span>
+            <span class="alert-time">Apr 10</span>
+            <button class="alert-menu"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RULES VIEW -->
+      <div id="view-rules">
+
+        <div class="rules-head">
+          <span class="rules-head-title">Your alert rules</span>
+          <button class="btn-ghost">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M2 8h12M8 2v12" stroke-linecap="round"/></svg>
+            Add rule
+          </button>
+        </div>
+
+        <div class="rule-card">
+          <div class="rule-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3v5c0 3.5-2.5 6.5-6 7-3.5-.5-6-3.5-6-7V4l6-3z"/></svg></div>
+          <div class="rule-body">
+            <div class="rule-name">Regulatory change in any jurisdiction</div>
+            <div class="rule-definition">
+              When <code>regulatory status</code> changes, affecting any property in portfolio
+            </div>
+          </div>
+          <span class="rule-scope">All properties</span>
+          <span class="rule-triggers"><strong>4</strong> triggers · 30d</span>
+          <div class="toggle-switch on"></div>
+        </div>
+
+        <div class="rule-card">
+          <div class="rule-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg></div>
+          <div class="rule-body">
+            <div class="rule-name">STR cap utilization crosses 50%</div>
+            <div class="rule-definition">
+              When <code>jurisdiction STR cap</code> exceeds <code>50%</code> full, for any property
+            </div>
+          </div>
+          <span class="rule-scope">All properties</span>
+          <span class="rule-triggers"><strong>1</strong> trigger · 30d</span>
+          <div class="toggle-switch on"></div>
+        </div>
+
+        <div class="rule-card">
+          <div class="rule-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg></div>
+          <div class="rule-body">
+            <div class="rule-name">Comp ADR shifts ≥ 5%</div>
+            <div class="rule-definition">
+              When <code>median ADR</code> for nearby comps changes by <code>5%</code> or more, for watched properties
+            </div>
+          </div>
+          <span class="rule-scope">Watch + Pass only</span>
+          <span class="rule-triggers"><strong>2</strong> triggers · 30d</span>
+          <div class="toggle-switch on"></div>
+        </div>
+
+        <div class="rule-card">
+          <div class="rule-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 13l5-5 3 3 5-5M14 3h-3M14 3v3"/></svg></div>
+          <div class="rule-body">
+            <div class="rule-name">Zestimate changes ≥ 5%</div>
+            <div class="rule-definition">
+              When <code>Zillow Zestimate</code> moves by <code>5%</code> or more, for saved properties
+            </div>
+          </div>
+          <span class="rule-scope">All properties</span>
+          <span class="rule-triggers"><strong>1</strong> trigger · 30d</span>
+          <div class="toggle-switch on"></div>
+        </div>
+
+        <div class="rule-card">
+          <div class="rule-icon"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg></div>
+          <div class="rule-body">
+            <div class="rule-name">Weekly portfolio digest</div>
+            <div class="rule-definition">
+              Every <code>Monday 8am PT</code>, summary of verdict changes, alerts, and portfolio stats
+            </div>
+          </div>
+          <span class="rule-scope">Portfolio-wide</span>
+          <span class="rule-triggers"><strong>4</strong> triggers · 30d</span>
+          <div class="toggle-switch on"></div>
+        </div>
+
+        <!-- CREATE RULE INLINE -->
+        <div class="rule-create-card design-note" data-note="Rule builder: plain-English sentence structure">
+          <div class="rule-create-head">
+            <div>
+              <div class="rule-create-eyebrow">New alert rule</div>
+              <div class="rule-create-title">Alert me when...</div>
+            </div>
+          </div>
+
+          <div class="rule-builder">
+            <span class="chunk">Alert me when</span>
+            <button class="rule-builder-select">
+              median ADR
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5l3 3 3-3" stroke-linecap="round"/></svg>
+            </button>
+            <span class="chunk">for nearby comps</span>
+            <button class="rule-builder-select">
+              changes by
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5l3 3 3-3" stroke-linecap="round"/></svg>
+            </button>
+            <button class="rule-builder-select">
+              5%
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5l3 3 3-3" stroke-linecap="round"/></svg>
+            </button>
+            <span class="chunk">or more, for</span>
+            <button class="rule-builder-select">
+              all watched properties
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5l3 3 3-3" stroke-linecap="round"/></svg>
+            </button>
+            <span class="chunk">.</span>
+          </div>
+
+          <div style="font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.18em; margin-top: 12px; margin-bottom: 10px;">Or start from a template</div>
+
+          <div class="trigger-templates">
+            <button class="trigger-template">
+              <div class="trigger-template-head">
+                <span class="trigger-template-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3v5c0 3.5-2.5 6.5-6 7-3.5-.5-6-3.5-6-7V4l6-3z"/></svg></span>
+                <span class="trigger-template-name">Regulatory change</span>
+              </div>
+              <div class="trigger-template-desc">STR permit rules, HOA overlays, ordinance updates</div>
+            </button>
+            <button class="trigger-template">
+              <div class="trigger-template-head">
+                <span class="trigger-template-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 13l5-5 3 3 5-5M14 3h-3M14 3v3"/></svg></span>
+                <span class="trigger-template-name">Price movement</span>
+              </div>
+              <div class="trigger-template-desc">Zestimate or listing price shifts beyond threshold</div>
+            </button>
+            <button class="trigger-template">
+              <div class="trigger-template-head">
+                <span class="trigger-template-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg></span>
+                <span class="trigger-template-name">New comps nearby</span>
+              </div>
+              <div class="trigger-template-desc">Fresh STR or sale comps within radius</div>
+            </button>
+            <button class="trigger-template">
+              <div class="trigger-template-head">
+                <span class="trigger-template-icon"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg></span>
+                <span class="trigger-template-name">Verdict confidence drop</span>
+              </div>
+              <div class="trigger-template-desc">When re-run lowers confidence for a property</div>
+            </button>
+            <button class="trigger-template">
+              <div class="trigger-template-head">
+                <span class="trigger-template-icon"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg></span>
+                <span class="trigger-template-name">Scheduled re-verdict</span>
+              </div>
+              <div class="trigger-template-desc">Auto-run verdicts on a cadence</div>
+            </button>
+            <button class="trigger-template">
+              <div class="trigger-template-head">
+                <span class="trigger-template-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 4h10M3 8h10M3 12h6"/></svg></span>
+                <span class="trigger-template-name">Custom rule</span>
+              </div>
+              <div class="trigger-template-desc">Build your own condition from scratch</div>
+            </button>
+          </div>
+
+          <div class="rule-delivery">
+            <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.14em; align-self: center;">Deliver via</span>
+            <button class="delivery-toggle active">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12"/></svg>
+              In-app
+            </button>
+            <button class="delivery-toggle active">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M14 5L8 10 2 5"/></svg>
+              Email
+            </button>
+            <button class="delivery-toggle">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="1" width="10" height="14" rx="2"/><circle cx="8" cy="12" r="0.5" fill="currentColor"/></svg>
+              Mobile push
+            </button>
+          </div>
+
+          <div class="rule-create-actions">
+            <button class="btn-ghost">Cancel</button>
+            <button class="btn-primary">Create rule</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SETTINGS VIEW -->
+      <div id="view-settings">
+
+        <div class="settings-card">
+
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <span class="settings-section-title">Email delivery</span>
+              <span class="settings-section-sub">jeremy@routeware.com</span>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-body">
+                <div class="settings-row-label">Send alerts via email</div>
+                <div class="settings-row-desc">Turn off to disable all email alerts from DwellVerdict</div>
+              </div>
+              <div class="toggle-switch on"></div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-body">
+                <div class="settings-row-label">Batch emails</div>
+                <div class="settings-row-desc">Send one digest email per day instead of individual alerts</div>
+              </div>
+              <div class="toggle-switch"></div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-body">
+                <div class="settings-row-label">Quiet hours</div>
+                <div class="settings-row-desc">Suppress emails 9pm – 7am in your timezone</div>
+              </div>
+              <div class="toggle-switch on"></div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <span class="settings-section-title">In-app notifications</span>
+              <span class="settings-section-sub">Real-time</span>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-body">
+                <div class="settings-row-label">Show banner for new alerts</div>
+                <div class="settings-row-desc">Sidebar badge appears instantly when new alerts arrive</div>
+              </div>
+              <div class="toggle-switch on"></div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-body">
+                <div class="settings-row-label">Browser push notifications</div>
+                <div class="settings-row-desc">Show desktop alerts when browser is open</div>
+              </div>
+              <div class="toggle-switch"></div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <span class="settings-section-title">Severity filters</span>
+              <span class="settings-section-sub">What triggers a notification</span>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-body">
+                <div class="settings-row-label">Critical (regulatory bans, verdict flips)</div>
+                <div class="settings-row-desc">Always deliver. Cannot be disabled.</div>
+              </div>
+              <div class="toggle-switch on" style="opacity:0.5; cursor:not-allowed;"></div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-body">
+                <div class="settings-row-label">Warnings (cap utilization, HOA changes)</div>
+                <div class="settings-row-desc">Material changes that may affect verdicts over time</div>
+              </div>
+              <div class="toggle-switch on"></div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-body">
+                <div class="settings-row-label">Opportunities (new comps, price moves)</div>
+                <div class="settings-row-desc">Signals that may warrant re-running a verdict</div>
+              </div>
+              <div class="toggle-switch on"></div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-body">
+                <div class="settings-row-label">Info (weekly digests, scheduled re-runs)</div>
+                <div class="settings-row-desc">Routine summaries and scheduled events</div>
+              </div>
+              <div class="toggle-switch"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+<script>
+function setView(view) {
+  document.body.classList.remove('show-rules', 'show-settings');
+  if (view === 'rules') document.body.classList.add('show-rules');
+  if (view === 'settings') document.body.classList.add('show-settings');
+  document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Welcome</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7;
+    --paper-warm: #f5f2ec;
+    --paper-deep: #ebe6da;
+    --card-ink: #ffffff;
+    --ink: #1c1917;
+    --ink-70: #44403c;
+    --ink-muted: #78716c;
+    --ink-subtle: #a8a29e;
+    --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f;
+    --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08);
+    --terracotta-wash: rgba(197, 90, 63, 0.04);
+    --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07);
+    --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Geist', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; }
+
+  .onboarding-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .onboarding-top {
+    padding: 28px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .logo-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-wordmark {
+    font-family: 'Geist', sans-serif;
+    font-weight: 800;
+    font-size: 24px;
+    letter-spacing: -0.045em;
+    line-height: 1;
+  }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+
+  .step-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .step-dots {
+    display: flex;
+    gap: 6px;
+  }
+  .step-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--hairline-strong);
+  }
+  .step-dot.active { background: var(--terracotta); }
+  .step-dot.complete { background: var(--buy); }
+
+  .onboarding-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 40px 48px;
+  }
+
+  .welcome-block {
+    max-width: 740px;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 56px;
+  }
+  .welcome-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 6px 14px;
+    background: var(--terracotta-soft);
+    border: 1px solid var(--terracotta-border);
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .welcome-eyebrow .dot {
+    width: 5px; height: 5px;
+    background: var(--terracotta);
+    border-radius: 50%;
+  }
+  .welcome-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 52px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: 14px;
+  }
+  .welcome-sub {
+    font-size: 17px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+
+  .intent-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 940px;
+    width: 100%;
+  }
+
+  .intent-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 32px 24px 28px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    font-family: inherit;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .intent-card:hover {
+    border-color: var(--ink);
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px -20px rgba(28, 25, 23, 0.15);
+  }
+  .intent-card.selected {
+    border-color: var(--terracotta);
+    box-shadow: 0 0 0 3px var(--terracotta-soft);
+  }
+  .intent-card.selected::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 22px; height: 22px;
+    background: var(--terracotta);
+    border-radius: 50%;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='white' d='M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z'/></svg>");
+    background-size: 14px;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .intent-icon {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    background: var(--paper-warm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-70);
+    margin-bottom: 4px;
+  }
+  .intent-icon svg {
+    width: 24px; height: 24px;
+  }
+  .intent-card.selected .intent-icon {
+    background: var(--terracotta-soft);
+    color: var(--terracotta);
+  }
+
+  .intent-title {
+    font-family: 'Geist', sans-serif;
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .intent-desc {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+  }
+
+  .intent-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline);
+  }
+  .intent-tag {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 3px 8px;
+    background: var(--paper-warm);
+    border-radius: 10px;
+  }
+
+  .onboarding-footer {
+    padding: 32px 40px;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .skip-link {
+    font-size: 13.5px;
+    color: var(--ink-muted);
+    text-decoration: none;
+    background: transparent;
+    padding: 8px 0;
+  }
+  .skip-link:hover { color: var(--ink); }
+
+  .btn-continue {
+    padding: 12px 24px;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+  .btn-continue:hover { background: #2d2825; }
+  .btn-continue svg { width: 14px; height: 14px; }
+  .btn-continue:disabled {
+    background: var(--hairline-strong);
+    color: var(--ink-muted);
+    cursor: not-allowed;
+  }
+
+  .design-note { position: relative; }
+  .design-note::before {
+    content: attr(data-note);
+    position: absolute;
+    right: 14px;
+    top: -11px;
+    background: #2563eb;
+    color: white;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    padding: 4px 9px;
+    border-radius: 10px;
+    letter-spacing: 0.06em;
+    z-index: 5;
+    opacity: 0.92;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 20px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 50;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="onboarding-shell">
+
+  <div class="onboarding-top">
+    <div class="logo-lockup">
+      <svg width="26" height="26" viewBox="0 0 52 52" fill="none">
+        <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+        <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+    </div>
+    <div class="step-progress">
+      <span>Step 01 / 02</span>
+      <span class="step-dots">
+        <span class="step-dot active"></span>
+        <span class="step-dot"></span>
+      </span>
+    </div>
+  </div>
+
+  <main class="onboarding-main">
+
+    <div class="welcome-block design-note" data-note="Segment user for relevant experience">
+      <div class="welcome-eyebrow">
+        <span class="dot"></span>
+        Welcome, Jeremy
+      </div>
+      <h1 class="welcome-headline">What brings you to DwellVerdict?</h1>
+      <p class="welcome-sub">
+        We'll tune your experience and highlight the evidence that matters most for how you evaluate properties. You can change this anytime.
+      </p>
+    </div>
+
+    <div class="intent-grid">
+
+      <button class="intent-card">
+        <div class="intent-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M13 9h1M9 13h1M13 13h1M9 17h1M13 17h1" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="intent-title">I'm an investor</div>
+        <div class="intent-desc">I buy property for rental income or appreciation. I need revenue projections, comps, and regulatory clarity.</div>
+        <div class="intent-tags">
+          <span class="intent-tag">Revenue-first</span>
+          <span class="intent-tag">Comps</span>
+          <span class="intent-tag">DSCR</span>
+        </div>
+      </button>
+
+      <button class="intent-card selected">
+        <div class="intent-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1V11z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="intent-title">I'm shopping for a home</div>
+        <div class="intent-desc">I'm buying to live in. I need to understand schools, walkability, location quality, and regulatory constraints.</div>
+        <div class="intent-tags">
+          <span class="intent-tag">Location</span>
+          <span class="intent-tag">Schools</span>
+          <span class="intent-tag">Walkability</span>
+        </div>
+      </button>
+
+      <button class="intent-card">
+        <div class="intent-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="intent-title">I'm an agent or advisor</div>
+        <div class="intent-desc">I help clients make property decisions. I need verdicts I can share, brief-style exports, and multi-property comparisons.</div>
+        <div class="intent-tags">
+          <span class="intent-tag">Shareable briefs</span>
+          <span class="intent-tag">Compare</span>
+          <span class="intent-tag">White-label</span>
+        </div>
+      </button>
+
+    </div>
+
+  </main>
+
+  <div class="onboarding-footer">
+    <button class="skip-link">Skip for now</button>
+    <button class="btn-continue">
+      Continue
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 3l5 5-5 5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>
