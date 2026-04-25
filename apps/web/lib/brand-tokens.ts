@@ -45,6 +45,19 @@ export const brandColors = {
   passBorder: 'rgba(196, 61, 61, 0.25)',
 } as const;
 
+/**
+ * Contact-role gradient backgrounds (mockup #14).
+ * Used by Avatar's `role` variant. Linear gradients are not expressible
+ * as a single HSL token, so they live here as canonical CSS strings.
+ */
+export const contactRoleGradients = {
+  agent: 'linear-gradient(135deg, #c55a3f, #a8472f)',
+  lender: 'linear-gradient(135deg, #0e9467, #0a6e4e)',
+  inspector: 'linear-gradient(135deg, #c77a14, #9d6010)',
+  title: 'linear-gradient(135deg, #44403c, #1c1917)',
+  default: 'linear-gradient(135deg, #1c1917, #44403c)',
+} as const;
+
 export const brandTypography = {
   fontSans: "'Geist', -apple-system, BlinkMacSystemFont, sans-serif",
   fontMono: "'Geist Mono', ui-monospace, monospace",
@@ -56,3 +69,4 @@ export const brandTypography = {
 } as const;
 
 export type BrandColor = keyof typeof brandColors;
+export type ContactRoleGradient = keyof typeof contactRoleGradients;
