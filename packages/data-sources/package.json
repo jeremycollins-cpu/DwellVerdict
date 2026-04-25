@@ -24,7 +24,7 @@
   "scripts": {
     "lint": "echo \"(no-op) data-sources lint\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@dwellverdict/db": "workspace:*",
