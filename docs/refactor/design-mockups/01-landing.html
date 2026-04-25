@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Landing</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7;
+    --paper-warm: #f5f2ec;
+    --paper-deep: #ebe6da;
+    --card-ink: #ffffff;
+    --ink: #1c1917;
+    --ink-70: #44403c;
+    --ink-muted: #78716c;
+    --ink-subtle: #a8a29e;
+    --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f;
+    --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08);
+    --terracotta-wash: rgba(197, 90, 63, 0.04);
+    --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07);
+    --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467;
+    --watch: #c77a14;
+    --pass: #c43d3d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Geist', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+
+  /* ─── NAV ─── */
+  nav.topnav {
+    padding: 22px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid transparent;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(250, 250, 247, 0.85);
+    backdrop-filter: saturate(180%) blur(10px);
+  }
+  .logo-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-mark { flex-shrink: 0; }
+  .logo-wordmark {
+    font-family: 'Geist', sans-serif;
+    font-weight: 800;
+    font-size: 28px;
+    letter-spacing: -0.045em;
+    line-height: 1;
+  }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    font-size: 14px;
+    color: var(--ink-70);
+  }
+  .nav-links a:hover { color: var(--ink); }
+  .btn-ghost-nav {
+    padding: 8px 16px;
+    font-size: 14px;
+    color: var(--ink-70);
+    border-radius: 5px;
+    background: transparent;
+    transition: color 0.12s;
+  }
+  .btn-ghost-nav:hover { color: var(--ink); }
+  .btn-primary-nav {
+    padding: 9px 18px;
+    font-size: 14px;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 5px;
+    font-weight: 500;
+  }
+  .btn-primary-nav:hover { background: #2d2825; }
+
+  /* ─── HERO ─── */
+  .hero {
+    padding: 96px 48px 80px;
+    max-width: 1280px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 6px 14px;
+    background: var(--terracotta-soft);
+    border: 1px solid var(--terracotta-border);
+    border-radius: 100px;
+    margin-bottom: 24px;
+  }
+  .hero-eyebrow .dot {
+    width: 5px; height: 5px;
+    background: var(--terracotta);
+    border-radius: 50%;
+  }
+
+  .hero-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 72px;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    line-height: 1.05;
+    margin-bottom: 24px;
+    max-width: 940px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .hero-headline em {
+    font-style: italic;
+    color: var(--terracotta);
+  }
+  .hero-sub {
+    font-size: 19px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+    max-width: 620px;
+    margin: 0 auto 40px;
+  }
+  .hero-cta-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .btn-primary-lg {
+    padding: 14px 28px;
+    font-size: 15px;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 6px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+  .btn-primary-lg:hover { background: #2d2825; }
+  .btn-primary-lg svg { width: 15px; height: 15px; }
+  .btn-secondary-lg {
+    padding: 14px 24px;
+    font-size: 15px;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .btn-secondary-lg:hover { border-color: var(--ink); }
+
+  .hero-trust-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-top: 16px;
+  }
+  .hero-trust-row .sep {
+    width: 4px; height: 4px;
+    background: var(--ink-faint);
+    border-radius: 50%;
+  }
+
+  /* ─── HERO DEMO ─── */
+  .hero-demo {
+    max-width: 1120px;
+    margin: 80px auto 0;
+    padding: 0 48px;
+  }
+  .demo-frame {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 40px 80px -40px rgba(28, 25, 23, 0.25), 0 0 0 1px rgba(28, 25, 23, 0.02);
+    position: relative;
+  }
+  .demo-frame::before {
+    content: '';
+    position: absolute;
+    inset: -40px -40px 0 -40px;
+    background: radial-gradient(ellipse at top, rgba(197, 90, 63, 0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .demo-browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--paper);
+  }
+  .demo-browser-bar .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--ink-faint);
+  }
+  .demo-browser-bar .url {
+    margin-left: 12px;
+    flex: 1;
+    background: var(--paper-warm);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.01em;
+  }
+  .demo-content {
+    padding: 36px;
+    min-height: 480px;
+    background: var(--paper);
+  }
+  .demo-verdict {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--buy);
+    border-radius: 10px;
+    padding: 24px 28px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    max-width: 800px;
+    margin: 0 auto 20px;
+  }
+  .demo-dial {
+    width: 100px; height: 100px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .demo-dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .demo-dial-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .demo-dial-pct {
+    font-family: 'Geist', sans-serif;
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .demo-dial-tag {
+    font-family: 'Geist Mono', monospace;
+    font-size: 8px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    margin-top: 3px;
+  }
+  .demo-verdict-body { flex: 1; }
+  .demo-verdict-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--buy);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .demo-verdict-badge .dot {
+    width: 5px; height: 5px;
+    background: var(--buy);
+    border-radius: 50%;
+  }
+  .demo-verdict-word {
+    font-size: 34px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    line-height: 1.05;
+    margin-bottom: 6px;
+  }
+  .demo-verdict-sub {
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+  .demo-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .demo-metric {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .demo-metric .label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-bottom: 6px;
+  }
+  .demo-metric .val {
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .demo-metric .val.buy { color: var(--buy); }
+  .demo-metric .val.watch { color: var(--watch); }
+
+  /* ─── SECTION WRAPPER ─── */
+  section.block {
+    padding: 96px 48px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .block-header {
+    text-align: center;
+    max-width: 680px;
+    margin: 0 auto 56px;
+  }
+  .block-eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 16px;
+  }
+  .block-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 44px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.15;
+    margin-bottom: 16px;
+  }
+  .block-sub {
+    font-size: 17px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+  }
+
+  /* ─── HOW IT WORKS ─── */
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .how-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 32px 28px;
+    transition: border-color 0.15s;
+  }
+  .how-card:hover { border-color: var(--hairline-strong); }
+  .how-step {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 12px;
+  }
+  .how-title {
+    font-family: 'Geist', sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 10px;
+    line-height: 1.25;
+  }
+  .how-desc {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+  }
+
+  /* ─── ANATOMY OF A VERDICT ─── */
+  .anatomy {
+    background: var(--paper-warm);
+    padding: 96px 48px;
+  }
+  .anatomy-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: center;
+  }
+  .anatomy-text h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 44px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.15;
+    margin-bottom: 20px;
+  }
+  .anatomy-text p {
+    font-size: 16px;
+    color: var(--ink-70);
+    line-height: 1.65;
+    margin-bottom: 16px;
+  }
+  .anatomy-text strong { color: var(--ink); font-weight: 500; }
+  .anatomy-checklist {
+    list-style: none;
+    padding: 0;
+    margin-top: 24px;
+  }
+  .anatomy-checklist li {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--hairline);
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 15px;
+    color: var(--ink-70);
+    line-height: 1.5;
+  }
+  .anatomy-checklist li:last-child { border-bottom: none; }
+  .anatomy-checklist .check {
+    color: var(--buy);
+    margin-top: 3px;
+  }
+  .anatomy-checklist .check svg { width: 14px; height: 14px; }
+  .anatomy-visual {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 28px;
+  }
+  .anatomy-domain {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .anatomy-domain:last-child { border-bottom: none; }
+  .anatomy-domain-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: var(--paper-warm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-70);
+    flex-shrink: 0;
+  }
+  .anatomy-domain-icon svg { width: 16px; height: 16px; }
+  .anatomy-domain-body { flex: 1; min-width: 0; }
+  .anatomy-domain-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .anatomy-domain-desc {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    line-height: 1.45;
+  }
+  .anatomy-domain-chip {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 4px 9px;
+    border-radius: 10px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .anatomy-domain-chip.buy {
+    background: rgba(14, 148, 103, 0.08);
+    color: var(--buy);
+    border: 1px solid rgba(14, 148, 103, 0.25);
+  }
+  .anatomy-domain-chip.watch {
+    background: rgba(199, 122, 20, 0.08);
+    color: var(--watch);
+    border: 1px solid rgba(199, 122, 20, 0.25);
+  }
+
+  /* ─── TESTIMONIAL/QUOTE ─── */
+  .quote-section {
+    padding: 96px 48px;
+    max-width: 940px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .quote-text {
+    font-family: 'Instrument Serif', serif;
+    font-size: 36px;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.35;
+    letter-spacing: -0.015em;
+    margin-bottom: 24px;
+  }
+  .quote-text::before, .quote-text::after {
+    content: '"';
+    color: var(--terracotta);
+  }
+  .quote-attr {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
+
+  /* ─── PRICING PREVIEW ─── */
+  .pricing-preview {
+    padding: 96px 48px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .pricing-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .pricing-card.featured {
+    border-color: var(--terracotta);
+    box-shadow: 0 0 0 3px var(--terracotta-soft);
+    position: relative;
+  }
+  .pricing-card.featured::before {
+    content: 'Most popular';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--terracotta);
+    color: white;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-weight: 500;
+  }
+  .pricing-tier {
+    font-size: 13px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-family: 'Geist Mono', monospace;
+    font-weight: 500;
+  }
+  .pricing-price {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .pricing-price .amt {
+    font-size: 44px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .pricing-price .period {
+    font-size: 14px;
+    color: var(--ink-muted);
+  }
+  .pricing-desc {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .pricing-features {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: 1px solid var(--hairline);
+    padding-top: 20px;
+    flex: 1;
+  }
+  .pricing-features li {
+    display: grid;
+    grid-template-columns: 16px 1fr;
+    gap: 10px;
+    font-size: 13.5px;
+    color: var(--ink-70);
+    line-height: 1.4;
+    align-items: flex-start;
+  }
+  .pricing-features .check {
+    color: var(--buy);
+    margin-top: 3px;
+  }
+  .pricing-features .check svg { width: 12px; height: 12px; }
+  .pricing-cta {
+    padding: 12px 16px;
+    text-align: center;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 14px;
+    border: 1px solid var(--hairline-strong);
+    color: var(--ink);
+    background: transparent;
+    transition: all 0.12s;
+  }
+  .pricing-cta:hover { border-color: var(--ink); }
+  .pricing-cta.primary {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .pricing-cta.primary:hover { background: #2d2825; }
+
+  /* ─── FINAL CTA ─── */
+  .final-cta {
+    padding: 112px 48px;
+    text-align: center;
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .final-cta .inner {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .final-cta-eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 16px;
+  }
+  .final-cta h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 56px;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 20px;
+  }
+  .final-cta h2 em {
+    font-style: italic;
+    color: var(--terracotta);
+  }
+  .final-cta p {
+    font-size: 17px;
+    color: rgba(250, 250, 247, 0.7);
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+  .final-cta .btn-primary-lg {
+    background: var(--terracotta);
+    color: white;
+  }
+  .final-cta .btn-primary-lg:hover { background: var(--terracotta-deep); }
+
+  /* ─── FOOTER ─── */
+  footer {
+    padding: 48px 48px 32px;
+    background: var(--paper);
+    border-top: 1px solid var(--hairline);
+  }
+  .footer-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .footer-top {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--hairline);
+    margin-bottom: 24px;
+  }
+  .footer-brand .logo-wordmark { font-size: 22px; }
+  .footer-brand p {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+    max-width: 300px;
+  }
+  .footer-col h5 {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+  .footer-col a {
+    display: block;
+    font-size: 13px;
+    color: var(--ink-70);
+    padding: 3px 0;
+  }
+  .footer-col a:hover { color: var(--terracotta); }
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-subtle);
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── DESIGN NOTES ─── */
+  .design-note { position: relative; }
+  .design-note::before {
+    content: attr(data-note);
+    position: absolute;
+    right: 14px;
+    top: -11px;
+    background: #2563eb;
+    color: white;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    padding: 4px 9px;
+    border-radius: 10px;
+    letter-spacing: 0.06em;
+    z-index: 5;
+    opacity: 0.92;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  body.notes-hidden .design-note::before { display: none; }
+
+  .toggle-notes {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 20px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 50;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body class="notes-hidden">
+
+<!-- NAV -->
+<nav class="topnav design-note" data-note="Locked logo from PR">
+  <div class="logo-lockup">
+    <svg class="logo-mark" width="30" height="30" viewBox="0 0 52 52" fill="none">
+      <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+      <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+  </div>
+  <div class="nav-links">
+    <a href="#">How it works</a>
+    <a href="#">Pricing</a>
+    <a href="#">Blog</a>
+    <button class="btn-ghost-nav">Sign in</button>
+    <button class="btn-primary-nav">Get your first verdict</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero design-note" data-note="Carfax positioning, serif hero, verb-driven">
+  <div class="hero-eyebrow">
+    <span class="dot"></span>
+    <span>Carfax for homes</span>
+  </div>
+  <h1 class="hero-headline">Every home you look at deserves a <em>verdict</em>.</h1>
+  <p class="hero-sub">
+    Paste any address. Get an AI-generated report on whether to buy, watch, or pass — grounded in regulatory rules, comparable properties, revenue estimates, and location signals. The record follows the home.
+  </p>
+  <div class="hero-cta-row">
+    <button class="btn-primary-lg">
+      Get your first verdict free
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 3l5 5-5 5" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button class="btn-secondary-lg">See how it works</button>
+  </div>
+  <div class="hero-trust-row">
+    <span>No credit card</span>
+    <span class="sep"></span>
+    <span>3 free verdicts/month</span>
+    <span class="sep"></span>
+    <span>Takes 30 seconds</span>
+  </div>
+</section>
+
+<!-- HERO DEMO -->
+<div class="hero-demo design-note" data-note="Glimpse of the product before user signs up">
+  <div class="demo-frame">
+    <div class="demo-browser-bar">
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="url">dwellverdict.com/app/properties/295-bend-ave-kings-beach-ca</span>
+    </div>
+    <div class="demo-content">
+      <div class="demo-verdict">
+        <div class="demo-dial">
+          <svg viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(28,25,23,0.08)" stroke-width="4"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#0e9467" stroke-width="4" stroke-dasharray="261 326" stroke-linecap="round"/>
+          </svg>
+          <div class="demo-dial-center">
+            <div class="demo-dial-pct">80</div>
+            <div class="demo-dial-tag">Confidence</div>
+          </div>
+        </div>
+        <div class="demo-verdict-body">
+          <div class="demo-verdict-badge">
+            <span class="dot"></span>
+            Verdict · Buy
+          </div>
+          <div class="demo-verdict-word">Move forward.</div>
+          <div class="demo-verdict-sub">Permitted STR, strong comps at $525 median ADR, walkable waterfront. Watch HOA overlay.</div>
+        </div>
+      </div>
+      <div class="demo-metrics">
+        <div class="demo-metric">
+          <div class="label">Revenue</div>
+          <div class="val buy">$68.2K</div>
+        </div>
+        <div class="demo-metric">
+          <div class="label">Occupancy</div>
+          <div class="val buy">67%</div>
+        </div>
+        <div class="demo-metric">
+          <div class="label">Regulatory</div>
+          <div class="val buy">Permitted</div>
+        </div>
+        <div class="demo-metric">
+          <div class="label">Location</div>
+          <div class="val watch">62/100</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="block">
+  <div class="block-header">
+    <div class="block-eyebrow">How it works</div>
+    <h2 class="block-headline">Three steps. One verdict.</h2>
+    <p class="block-sub">
+      Built to mirror how experienced investors actually think. No spreadsheets. No fragmented tools. Just the answer.
+    </p>
+  </div>
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-step">Step 01</div>
+      <div class="how-title">Paste any address.</div>
+      <div class="how-desc">Type, paste from Zillow, or drop a listing URL. Works for any U.S. residential property — single family, condo, STR, long-term rental.</div>
+    </div>
+    <div class="how-card">
+      <div class="how-step">Step 02</div>
+      <div class="how-title">Watch the verdict form.</div>
+      <div class="how-desc">Our AI pulls regulatory rules, comparable properties, revenue projections, and location signals — all grounded in cited sources. Usually under 30 seconds.</div>
+    </div>
+    <div class="how-card">
+      <div class="how-step">Step 03</div>
+      <div class="how-title">Make the call.</div>
+      <div class="how-desc">BUY, WATCH, or PASS with a confidence score. Every claim is traceable. Ask Scout — our AI assistant — to stress-test the analysis.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ANATOMY -->
+<section class="anatomy design-note" data-note="Editorial moment — serif + long form">
+  <div class="anatomy-inner">
+    <div class="anatomy-text">
+      <h2>Anatomy of a verdict.</h2>
+      <p>
+        Every DwellVerdict is built on <strong>four evidence domains</strong>. We don't just spit out a number — we show our work.
+      </p>
+      <p>
+        Each verdict cites its sources, flags its confidence level, and tells you explicitly what would move the rating. If the data is weak in one domain, we say so. If it's strong, we show you why.
+      </p>
+      <ul class="anatomy-checklist">
+        <li>
+          <span class="check">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg>
+          </span>
+          <span>Every source cited. Click through to verify.</span>
+        </li>
+        <li>
+          <span class="check">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg>
+          </span>
+          <span>Confidence scored per domain. Know when to trust it.</span>
+        </li>
+        <li>
+          <span class="check">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg>
+          </span>
+          <span>Re-run any verdict. The record follows the home.</span>
+        </li>
+        <li>
+          <span class="check">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg>
+          </span>
+          <span>Share verdicts with advisors, lenders, or partners.</span>
+        </li>
+      </ul>
+    </div>
+    <div class="anatomy-visual">
+      <div class="anatomy-domain">
+        <div class="anatomy-domain-icon">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3v5c0 3.5-2.5 6.5-6 7-3.5-.5-6-3.5-6-7V4l6-3z"/></svg>
+        </div>
+        <div class="anatomy-domain-body">
+          <div class="anatomy-domain-title">Regulatory</div>
+          <div class="anatomy-domain-desc">STR permits, zoning, HOA overlays, ordinance tracking</div>
+        </div>
+        <span class="anatomy-domain-chip buy">Permitted</span>
+      </div>
+      <div class="anatomy-domain">
+        <div class="anatomy-domain-icon">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg>
+        </div>
+        <div class="anatomy-domain-body">
+          <div class="anatomy-domain-title">Comparable Properties</div>
+          <div class="anatomy-domain-desc">Real comps within 1 mile · ADR · occupancy · revenue</div>
+        </div>
+        <span class="anatomy-domain-chip buy">15 comps</span>
+      </div>
+      <div class="anatomy-domain">
+        <div class="anatomy-domain-icon">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg>
+        </div>
+        <div class="anatomy-domain-body">
+          <div class="anatomy-domain-title">Revenue Projection</div>
+          <div class="anatomy-domain-desc">Comp-weighted annual revenue · seasonality · uplift</div>
+        </div>
+        <span class="anatomy-domain-chip buy">$68.2K</span>
+      </div>
+      <div class="anatomy-domain">
+        <div class="anatomy-domain-icon">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 00-5 5c0 4.5 5 9 5 9s5-4.5 5-9a5 5 0 00-5-5zm0 7a2 2 0 110-4 2 2 0 010 4z"/></svg>
+        </div>
+        <div class="anatomy-domain-body">
+          <div class="anatomy-domain-title">Location Signal</div>
+          <div class="anatomy-domain-desc">Walk score · amenities · nearby listings · seasonality</div>
+        </div>
+        <span class="anatomy-domain-chip watch">Mixed</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUOTE -->
+<section class="quote-section">
+  <div class="quote-text">
+    Finally. A tool that thinks about property like I do — with verdicts, not dashboards.
+  </div>
+  <div class="quote-attr">Early design partner · 14-unit STR portfolio · Colorado</div>
+</section>
+
+<!-- PRICING PREVIEW -->
+<section class="pricing-preview design-note" data-note="3-tier structure — Full Report killed">
+  <div class="block-header">
+    <div class="block-eyebrow">Pricing</div>
+    <h2 class="block-headline">Start free. Upgrade when the stakes get real.</h2>
+    <p class="block-sub">
+      Every plan includes the full verdict architecture. Paid tiers unlock deeper evidence, unlimited runs, and tools for managing a portfolio.
+    </p>
+  </div>
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <div class="pricing-tier">Free</div>
+      <div class="pricing-price">
+        <span class="amt">$0</span>
+        <span class="period">/ forever</span>
+      </div>
+      <div class="pricing-desc">For casual home shoppers and first-time evaluators.</div>
+      <ul class="pricing-features">
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>3 verdicts per month</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Regulatory + Location evidence</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Ask Scout (20 questions / mo)</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Save up to 5 properties</span></li>
+      </ul>
+      <button class="pricing-cta">Start free</button>
+    </div>
+    <div class="pricing-card featured">
+      <div class="pricing-tier">Pro</div>
+      <div class="pricing-price">
+        <span class="amt">$79</span>
+        <span class="period">/ month</span>
+      </div>
+      <div class="pricing-desc">For active investors underwriting multiple properties.</div>
+      <ul class="pricing-features">
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Unlimited verdicts</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Full evidence — all 4 domains</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Comp revenue + occupancy data</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Unlimited Ask Scout</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Export briefs (PDF)</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>50 saved properties</span></li>
+      </ul>
+      <button class="pricing-cta primary">Start 14-day trial</button>
+    </div>
+    <div class="pricing-card">
+      <div class="pricing-tier">Portfolio</div>
+      <div class="pricing-price">
+        <span class="amt">$199</span>
+        <span class="period">/ month</span>
+      </div>
+      <div class="pricing-desc">For portfolios, teams, and professional investors.</div>
+      <ul class="pricing-features">
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Everything in Pro</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Portfolio dashboard + aggregate analytics</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Compare up to 10 properties</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>PMS integrations (Guesty, Hospitable)</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Unlimited saved properties</span></li>
+        <li><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span><span>Team seats (3 included)</span></li>
+      </ul>
+      <button class="pricing-cta">Talk to sales</button>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final-cta">
+  <div class="inner">
+    <div class="final-cta-eyebrow">The verdict is in</div>
+    <h2>Your next home decision shouldn't be a <em>guess</em>.</h2>
+    <p>Get your first verdict free. No credit card. Works for any U.S. residential property.</p>
+    <button class="btn-primary-lg">
+      Get your first verdict
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 3l5 5-5 5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="logo-lockup">
+          <svg class="logo-mark" width="24" height="24" viewBox="0 0 52 52" fill="none">
+            <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+            <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+        </div>
+        <p>The verdict platform for real estate decisions. Carfax for homes.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Product</h5>
+        <a href="#">How it works</a>
+        <a href="#">Pricing</a>
+        <a href="#">Integrations</a>
+        <a href="#">Changelog</a>
+      </div>
+      <div class="footer-col">
+        <h5>Company</h5>
+        <a href="#">About</a>
+        <a href="#">Blog</a>
+        <a href="#">Careers</a>
+        <a href="#">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h5>Legal</h5>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Disclaimer</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 DwellVerdict</span>
+      <span>Made in Oregon · Portland, USA</span>
+    </div>
+  </div>
+</footer>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

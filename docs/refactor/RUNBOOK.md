@@ -186,7 +186,7 @@ This is the order. Don't deviate without good reason.
 
 ### Phase 1 — Foundation
 - [x] **M1.1** — Brand tokens + design system primitives (PROMPT_01 already in your repo) — shipped commit 5004560
-- [x] **M1.2** — Onboarding schema migration (PROMPT_02 already in your repo) — shipped (merge SHA pending)
+- [x] **M1.2** — Onboarding schema migration (PROMPT_02 already in your repo) — shipped (commit 8b66f4e)
 - [ ] **M1.3** — Sidebar shell into authenticated layout — next
 
 ### Phase 2 — Public surfaces

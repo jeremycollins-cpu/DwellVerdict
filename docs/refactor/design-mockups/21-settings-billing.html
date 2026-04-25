@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Settings · Billing &amp; Integrations</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7; --paper-warm: #f5f2ec; --paper-deep: #ebe6da;
+    --sidebar-bg: #f7f5f0; --card-ink: #ffffff;
+    --ink: #1c1917; --ink-70: #44403c; --ink-muted: #78716c; --ink-subtle: #a8a29e; --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f; --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08); --terracotta-wash: rgba(197, 90, 63, 0.04); --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07); --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467; --buy-soft: rgba(14, 148, 103, 0.08); --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14; --watch-soft: rgba(199, 122, 20, 0.08); --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d; --pass-soft: rgba(196, 61, 61, 0.08); --pass-border: rgba(196, 61, 61, 0.25);
+    --sidebar-w: 232px;
+    --settings-nav-w: 200px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Geist', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  a { color: inherit; text-decoration: none; }
+
+  .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+  .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--hairline); padding: 22px 18px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { padding: 4px 8px 22px 8px; border-bottom: 1px solid var(--hairline); margin-bottom: 16px; }
+  .logo-lockup { display: inline-flex; align-items: center; gap: 8px; }
+  .logo-wordmark { font-weight: 800; font-size: 22px; letter-spacing: -0.045em; line-height: 1; }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+  .nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 14px 10px 6px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; position: relative; transition: all 0.12s; }
+  .nav-item:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .nav-item.active { background: var(--terracotta-soft); color: var(--terracotta); font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--terracotta); border-radius: 0 2px 2px 0; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 10px; background: var(--ink); color: var(--paper); padding: 1px 6px; border-radius: 8px; letter-spacing: 0.04em; }
+  .nav-item .badge.accent { background: var(--terracotta); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #1c1917, #44403c); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .sidebar-user { flex: 1; }
+  .sidebar-user .name { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+  .sidebar-user .plan { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .main-col { display: flex; flex-direction: column; min-width: 0; }
+  .settings-page-top { background: rgba(250,250,247,0.88); backdrop-filter: saturate(180%) blur(10px); border-bottom: 1px solid var(--hairline); padding: 18px 32px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; }
+  .settings-breadcrumb { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); letter-spacing: 0.06em; display: inline-flex; align-items: center; gap: 8px; }
+  .settings-breadcrumb a { color: var(--ink-muted); transition: color 0.12s; }
+  .settings-breadcrumb a:hover { color: var(--terracotta); }
+  .settings-breadcrumb .sep { color: var(--ink-faint); }
+  .settings-breadcrumb .current { color: var(--ink); font-weight: 500; }
+
+  .settings-shell { display: grid; grid-template-columns: var(--settings-nav-w) 1fr; flex: 1; min-height: 0; }
+  .settings-nav { border-right: 1px solid var(--hairline); padding: 24px 16px; background: var(--paper); overflow-y: auto; }
+  .settings-nav-section { margin-bottom: 18px; }
+  .settings-nav-section:last-child { margin-bottom: 0; }
+  .settings-nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 0 10px 8px 10px; font-weight: 500; }
+  .settings-nav-link { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; transition: all 0.12s; }
+  .settings-nav-link:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .settings-nav-link.active { background: var(--card-ink); color: var(--ink); font-weight: 500; border: 1px solid var(--hairline); }
+  .settings-nav-link svg { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.6; }
+  .settings-nav-link.active svg { opacity: 1; color: var(--terracotta); }
+
+  .settings-content {
+    padding: 36px 44px 44px 44px;
+    max-width: 880px;
+    width: 100%;
+  }
+
+  .settings-headline { font-size: 28px; font-weight: 500; letter-spacing: -0.025em; color: var(--ink); line-height: 1.1; margin-bottom: 6px; }
+  .settings-sub { font-size: 14px; color: var(--ink-muted); line-height: 1.55; margin-bottom: 32px; max-width: 580px; }
+
+  .btn-ghost { background: transparent; border: 1px solid var(--hairline-strong); padding: 8px 14px; border-radius: 5px; font-size: 12.5px; color: var(--ink-70); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-ghost svg { width: 13px; height: 13px; }
+  .btn-primary { background: var(--ink); color: var(--paper); padding: 9px 18px; border-radius: 5px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
+  .btn-primary:hover { background: #2d2825; }
+  .btn-primary svg { width: 13px; height: 13px; }
+  .btn-connect { background: var(--terracotta); color: white; padding: 7px 14px; border-radius: 5px; font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-connect:hover { background: var(--terracotta-deep); }
+  .btn-connect svg { width: 12px; height: 12px; }
+
+  /* PLAN HERO CARD */
+  .plan-hero {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 24px 28px;
+    border-left: 3px solid var(--terracotta);
+    padding-left: 25px;
+    background: linear-gradient(180deg, var(--terracotta-wash) 0%, var(--card-ink) 60%);
+    margin-bottom: 22px;
+  }
+  .plan-hero-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  .plan-hero-body { flex: 1; }
+  .plan-eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .plan-name {
+    font-family: 'Geist', sans-serif;
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.024em;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+  .plan-name .price {
+    font-family: 'Geist Mono', monospace;
+    font-size: 14px;
+    color: var(--ink-muted);
+    margin-left: 6px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+  .plan-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+  .plan-status .sep { width: 3px; height: 3px; background: var(--ink-faint); border-radius: 50%; }
+  .plan-status strong { color: var(--ink); font-weight: 500; }
+  .plan-actions { display: flex; gap: 8px; flex-direction: column; }
+
+  /* USAGE STATS ROW */
+  .usage-strip {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--hairline);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+  }
+  .usage-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .usage-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+  }
+  .usage-big {
+    font-family: 'Geist', sans-serif;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .usage-big sub {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin-left: 4px;
+    font-weight: 400;
+    vertical-align: baseline;
+  }
+  .usage-bar {
+    height: 4px;
+    background: var(--hairline);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .usage-bar-fill {
+    height: 100%;
+    background: var(--terracotta);
+    border-radius: 2px;
+  }
+  .usage-meta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+    margin-top: 4px;
+  }
+
+  /* SECTION HEADING */
+  .section-rule { display: flex; align-items: center; gap: 14px; padding: 28px 0 4px 0; }
+  .section-label { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.18em; font-weight: 500; white-space: nowrap; }
+  .section-rule-line { height: 1px; background: var(--hairline); flex: 1; }
+
+  /* PAYMENT METHOD CARD */
+  .form-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 18px 22px;
+  }
+  .payment-row {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .card-brand {
+    width: 48px; height: 32px;
+    border-radius: 5px;
+    background: linear-gradient(135deg, #1a1f71, #0e1750);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Geist', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+  .payment-info { min-width: 0; }
+  .payment-cardnum {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+  }
+  .payment-meta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.02em;
+  }
+
+  /* INVOICES TABLE */
+  .invoices {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .invoice-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 100px auto auto;
+    gap: 14px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--hairline);
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .invoice-row:last-child { border-bottom: none; }
+  .invoice-row:hover { background: var(--paper); }
+  .invoice-date {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+  .invoice-name {
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .invoice-amt {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    text-align: right;
+  }
+  .invoice-status-chip {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+    text-align: center;
+  }
+  .invoice-status-chip.paid { color: var(--buy); background: var(--buy-soft); border: 1px solid var(--buy-border); }
+  .invoice-row-action {
+    background: transparent;
+    color: var(--ink-muted);
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+  }
+  .invoice-row-action:hover { background: var(--paper-warm); color: var(--ink); }
+  .invoice-row-action svg { width: 13px; height: 13px; }
+
+  /* INTEGRATIONS GRID */
+  .integration-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .integration-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: all 0.12s;
+  }
+  .integration-card:hover { border-color: var(--hairline-strong); }
+
+  .int-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .int-logo {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-family: 'Geist', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    letter-spacing: -0.02em;
+  }
+  .int-logo.hospitable { background: linear-gradient(135deg, #c55a3f, #a8472f); }
+  .int-logo.airbnb { background: linear-gradient(135deg, #ff5a5f, #e1474c); }
+  .int-logo.vrbo { background: linear-gradient(135deg, #0e9467, #0a6e4e); }
+  .int-logo.guesty { background: linear-gradient(135deg, #2563eb, #1e40af); }
+  .int-logo.zillow { background: linear-gradient(135deg, #006aff, #0050d6); }
+  .int-logo.redfin { background: linear-gradient(135deg, #a02021, #7d191a); }
+  .int-logo.airdna { background: linear-gradient(135deg, #44403c, #1c1917); }
+  .int-logo.census { background: linear-gradient(135deg, #5d6d7e, #3d4a57); }
+
+  .int-card-info { flex: 1; min-width: 0; }
+  .int-card-name {
+    font-family: 'Geist', sans-serif;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.012em;
+    line-height: 1.2;
+  }
+  .int-card-tag {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+  .int-card-status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--ink-faint);
+    flex-shrink: 0;
+  }
+  .int-card-status-dot.connected {
+    background: var(--buy);
+    box-shadow: 0 0 0 3px var(--buy-soft);
+  }
+  .int-card-status-dot.attention {
+    background: var(--watch);
+    box-shadow: 0 0 0 3px var(--watch-soft);
+  }
+
+  .int-card-desc {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+  }
+
+  .int-card-foot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+  .int-card-foot strong { color: var(--ink); font-weight: 500; }
+  .int-card-foot .sep { width: 2px; height: 2px; background: var(--ink-faint); border-radius: 50%; }
+  .int-card-foot-action {
+    margin-left: auto;
+    background: transparent;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    cursor: pointer;
+    padding: 0;
+    font-weight: 500;
+  }
+  .int-card-foot-action.muted { color: var(--ink-muted); }
+  .int-card-foot-action:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* DESIGN NOTES */
+  .design-note { position: relative; }
+  .design-note::before { content: attr(data-note); position: absolute; right: 14px; top: -11px; background: #2563eb; color: white; font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 500; padding: 4px 9px; border-radius: 10px; letter-spacing: 0.06em; z-index: 5; opacity: 0.92; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; border: none; padding: 11px 18px; border-radius: 20px; font-family: 'Geist Mono', monospace; font-size: 10px; cursor: pointer; letter-spacing: 0.14em; text-transform: uppercase; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; font-weight: 500; }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-lockup">
+        <svg width="24" height="24" viewBox="0 0 52 52" fill="none">
+          <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+          <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+      </div>
+    </div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/></svg><span>Dashboard</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg><span>Properties</span><span class="badge accent">3</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg><span>Verdicts</span><span class="badge">12</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="10" rx="1"/><path d="M2 7h12M6 2v4M10 2v4"/></svg><span>Compare</span></div>
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg><span>Portfolio</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Briefs</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg><span>Alerts</span><span class="badge accent">2</span></div>
+    <div class="nav-section-label">Account</div>
+    <div class="nav-item active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/></svg><span>Settings</span></div>
+    <div class="sidebar-footer">
+      <div class="avatar">JC</div>
+      <div class="sidebar-user">
+        <div class="name">Jeremy Collins</div>
+        <div class="plan">Pro · $40/mo</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="settings-page-top">
+      <div class="settings-breadcrumb">
+        <a href="#">Settings</a>
+        <span class="sep">/</span>
+        <span class="current">Billing &amp; integrations</span>
+      </div>
+    </div>
+
+    <div class="settings-shell">
+      <aside class="settings-nav">
+        <div class="settings-nav-section">
+          <div class="settings-nav-section-label">Account</div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M3 14a5 5 0 0110 0"/></svg>
+            Profile
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg>
+            Investor profile
+          </div>
+        </div>
+        <div class="settings-nav-section">
+          <div class="settings-nav-section-label">Billing &amp; integrations</div>
+          <div class="settings-nav-link active">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1"/><path d="M2 7h12"/></svg>
+            Billing
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/><circle cx="8" cy="8" r="2"/></svg>
+            PMS integration
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2a8 8 0 010 12"/></svg>
+            Data sources
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h10M3 10h10M5 3v10M11 3v10"/></svg>
+            Export &amp; API
+          </div>
+        </div>
+        <div class="settings-nav-section">
+          <div class="settings-nav-section-label">Preferences</div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a5 5 0 0110 0v4l1 2H2l1-2V7z"/></svg>
+            Notifications
+          </div>
+          <div class="settings-nav-link">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
+            Appearance
+          </div>
+        </div>
+      </aside>
+
+      <div class="settings-content">
+
+        <h1 class="settings-headline">Billing &amp; integrations</h1>
+        <p class="settings-sub">
+          Plan, payment, invoices, and the connected services that feed your verdicts. Stripe handles all payments — we never store card details.
+        </p>
+
+        <!-- PLAN HERO -->
+        <div class="plan-hero design-note" data-note="Plan + usage at a glance · $40 Pro tier">
+          <div class="plan-hero-row">
+            <div class="plan-hero-body">
+              <div class="plan-eyebrow">Current plan</div>
+              <h2 class="plan-name">Pro<span class="price">· $40/month</span></h2>
+              <div class="plan-status">
+                <span><strong>Active</strong> · renews May 15, 2026</span>
+                <span class="sep"></span>
+                <span>Visa •• 4242</span>
+                <span class="sep"></span>
+                <span>5 mo on Pro</span>
+              </div>
+            </div>
+            <div class="plan-actions">
+              <button class="btn-primary">Manage plan</button>
+              <button class="btn-ghost">Cancel plan</button>
+            </div>
+          </div>
+
+          <div class="usage-strip">
+            <div class="usage-cell">
+              <span class="usage-label">Verdicts this period</span>
+              <span class="usage-big">7<sub>of unlimited</sub></span>
+              <span class="usage-meta">Generated since Apr 15</span>
+            </div>
+            <div class="usage-cell">
+              <span class="usage-label">Scout messages today</span>
+              <span class="usage-big">14<sub>of 30</sub></span>
+              <div class="usage-bar"><div class="usage-bar-fill" style="width: 47%;"></div></div>
+              <span class="usage-meta">Resets midnight PT</span>
+            </div>
+            <div class="usage-cell">
+              <span class="usage-label">Briefs generated</span>
+              <span class="usage-big">7<sub>this month</sub></span>
+              <span class="usage-meta">No monthly limit</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAYMENT METHOD -->
+        <div class="section-rule">
+          <span class="section-label">Payment method</span>
+          <span class="section-rule-line"></span>
+        </div>
+
+        <div class="form-card design-note" data-note="Card on file · managed by Stripe">
+          <div class="payment-row">
+            <div class="card-brand">VISA</div>
+            <div class="payment-info">
+              <div class="payment-cardnum">•• •• •• 4242</div>
+              <div class="payment-meta">Expires 09/2028 · Jeremy Collins</div>
+            </div>
+            <button class="btn-ghost">Update card</button>
+          </div>
+        </div>
+
+        <!-- INVOICES -->
+        <div class="section-rule">
+          <span class="section-label">Recent invoices</span>
+          <span class="section-rule-line"></span>
+        </div>
+
+        <div class="invoices design-note" data-note="Last 5 invoices · download PDF per invoice">
+
+          <div class="invoice-row">
+            <span class="invoice-date">04.15.2026</span>
+            <span class="invoice-name">Pro plan · April 2026</span>
+            <span class="invoice-amt">$40.00</span>
+            <span class="invoice-status-chip paid">Paid</span>
+            <button class="invoice-row-action" title="Download PDF">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 14h12"/></svg>
+            </button>
+          </div>
+
+          <div class="invoice-row">
+            <span class="invoice-date">03.15.2026</span>
+            <span class="invoice-name">Pro plan · March 2026</span>
+            <span class="invoice-amt">$40.00</span>
+            <span class="invoice-status-chip paid">Paid</span>
+            <button class="invoice-row-action">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 14h12"/></svg>
+            </button>
+          </div>
+
+          <div class="invoice-row">
+            <span class="invoice-date">02.15.2026</span>
+            <span class="invoice-name">Pro plan · February 2026</span>
+            <span class="invoice-amt">$40.00</span>
+            <span class="invoice-status-chip paid">Paid</span>
+            <button class="invoice-row-action">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 14h12"/></svg>
+            </button>
+          </div>
+
+          <div class="invoice-row">
+            <span class="invoice-date">01.15.2026</span>
+            <span class="invoice-name">Pro plan · January 2026</span>
+            <span class="invoice-amt">$40.00</span>
+            <span class="invoice-status-chip paid">Paid</span>
+            <button class="invoice-row-action">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 14h12"/></svg>
+            </button>
+          </div>
+
+          <div class="invoice-row">
+            <span class="invoice-date">12.15.2025</span>
+            <span class="invoice-name">DwellVerdict plan · December 2025 (upgraded mid-cycle)</span>
+            <span class="invoice-amt">$32.00</span>
+            <span class="invoice-status-chip paid">Paid</span>
+            <button class="invoice-row-action">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 14h12"/></svg>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- PMS INTEGRATIONS -->
+        <div class="section-rule">
+          <span class="section-label">PMS integrations</span>
+          <span class="section-rule-line"></span>
+        </div>
+
+        <div class="integration-grid design-note" data-note="Property management systems · revenue + bookings sync">
+
+          <div class="integration-card">
+            <div class="int-card-top">
+              <div class="int-logo hospitable">H</div>
+              <div class="int-card-info">
+                <div class="int-card-name">Hospitable</div>
+                <div class="int-card-tag">PMS · revenue + reservations</div>
+              </div>
+              <span class="int-card-status-dot connected"></span>
+            </div>
+            <div class="int-card-desc">
+              Syncs reservations, revenue, and occupancy. 2.5% of revenue per property pricing.
+            </div>
+            <div class="int-card-foot">
+              <span><strong>1 property</strong> connected</span>
+              <span class="sep"></span>
+              <span>last sync 4 min ago</span>
+              <button class="int-card-foot-action">Manage</button>
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="int-card-top">
+              <div class="int-logo airbnb">Ab</div>
+              <div class="int-card-info">
+                <div class="int-card-name">Airbnb</div>
+                <div class="int-card-tag">Booking platform · indirect via Hospitable</div>
+              </div>
+              <span class="int-card-status-dot connected"></span>
+            </div>
+            <div class="int-card-desc">
+              Receives Airbnb reservations through Hospitable's channel manager. No direct setup needed.
+            </div>
+            <div class="int-card-foot">
+              <span><strong>Active</strong> · via Hospitable</span>
+              <span class="sep"></span>
+              <span>14 reservations</span>
+              <button class="int-card-foot-action muted">Routed</button>
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="int-card-top">
+              <div class="int-logo vrbo">V</div>
+              <div class="int-card-info">
+                <div class="int-card-name">Vrbo</div>
+                <div class="int-card-tag">Booking platform · indirect via Hospitable</div>
+              </div>
+              <span class="int-card-status-dot connected"></span>
+            </div>
+            <div class="int-card-desc">
+              Receives Vrbo reservations through Hospitable's channel manager.
+            </div>
+            <div class="int-card-foot">
+              <span><strong>Active</strong> · via Hospitable</span>
+              <span class="sep"></span>
+              <span>3 reservations</span>
+              <button class="int-card-foot-action muted">Routed</button>
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="int-card-top">
+              <div class="int-logo guesty">G</div>
+              <div class="int-card-info">
+                <div class="int-card-name">Guesty</div>
+                <div class="int-card-tag">PMS alternative</div>
+              </div>
+              <span class="int-card-status-dot"></span>
+            </div>
+            <div class="int-card-desc">
+              Larger-portfolio PMS. Connect if you have an existing Guesty account.
+            </div>
+            <div class="int-card-foot">
+              <span>Not connected</span>
+              <button class="int-card-foot-action">
+                <button class="btn-connect" style="margin-left: auto;">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2v8M2 6h8"/></svg>
+                  Connect
+                </button>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- DATA SOURCES -->
+        <div class="section-rule">
+          <span class="section-label">Data sources</span>
+          <span class="section-rule-line"></span>
+        </div>
+
+        <div class="integration-grid design-note" data-note="Free + paid sources · feed verdicts">
+
+          <div class="integration-card">
+            <div class="int-card-top">
+              <div class="int-logo zillow">Z</div>
+              <div class="int-card-info">
+                <div class="int-card-name">Zillow</div>
+                <div class="int-card-tag">Listings · Zestimates · sale history</div>
+              </div>
+              <span class="int-card-status-dot connected"></span>
+            </div>
+            <div class="int-card-desc">
+              Public listing scrape. No login required. Used in every verdict for property baseline data.
+            </div>
+            <div class="int-card-foot">
+              <span><strong>Active</strong></span>
+              <span class="sep"></span>
+              <span>cached 6h</span>
+              <button class="int-card-foot-action">Settings</button>
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="int-card-top">
+              <div class="int-logo redfin">R</div>
+              <div class="int-card-info">
+                <div class="int-card-name">Redfin</div>
+                <div class="int-card-tag">Sale comps · price history</div>
+              </div>
+              <span class="int-card-status-dot connected"></span>
+            </div>
+            <div class="int-card-desc">
+              Comp data for the area surrounding each property. Cross-referenced against Zillow.
+            </div>
+            <div class="int-card-foot">
+              <span><strong>Active</strong></span>
+              <span class="sep"></span>
+              <span>cached 24h</span>
+              <button class="int-card-foot-action">Settings</button>
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="int-card-top">
+              <div class="int-logo airdna">Ad</div>
+              <div class="int-card-info">
+                <div class="int-card-name">AirDNA</div>
+                <div class="int-card-tag">STR comps · ADR · occupancy</div>
+              </div>
+              <span class="int-card-status-dot attention"></span>
+            </div>
+            <div class="int-card-desc">
+              Premium STR comp data. Connect your AirDNA Pro account for richer revenue projections.
+            </div>
+            <div class="int-card-foot">
+              <span>Free tier active</span>
+              <span class="sep"></span>
+              <span>limited to 5 comps</span>
+              <button class="btn-connect" style="margin-left: auto;">
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2v8M2 6h8"/></svg>
+                Connect Pro
+              </button>
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="int-card-top">
+              <div class="int-logo census">C</div>
+              <div class="int-card-info">
+                <div class="int-card-name">US Census + FEMA</div>
+                <div class="int-card-tag">Demographics · flood zones · risk</div>
+              </div>
+              <span class="int-card-status-dot connected"></span>
+            </div>
+            <div class="int-card-desc">
+              Public APIs. Always on. Used for location signal and risk overlays.
+            </div>
+            <div class="int-card-foot">
+              <span><strong>Always active</strong></span>
+              <span class="sep"></span>
+              <span>cached 30d</span>
+              <button class="int-card-foot-action muted">System</button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

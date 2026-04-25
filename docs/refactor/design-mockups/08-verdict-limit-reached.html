@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Limit Reached</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7;
+    --paper-warm: #f5f2ec;
+    --paper-deep: #ebe6da;
+    --card-ink: #ffffff;
+    --ink: #1c1917;
+    --ink-70: #44403c;
+    --ink-muted: #78716c;
+    --ink-subtle: #a8a29e;
+    --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f;
+    --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08);
+    --terracotta-wash: rgba(197, 90, 63, 0.04);
+    --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07);
+    --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467;
+    --buy-soft: rgba(14, 148, 103, 0.08);
+    --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14;
+    --watch-soft: rgba(199, 122, 20, 0.08);
+    --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Geist', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; }
+
+  .shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .top {
+    padding: 28px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-muted);
+    background: transparent;
+  }
+  .back-btn:hover { color: var(--ink); }
+  .back-btn svg { width: 14px; height: 14px; }
+
+  .logo-lockup { display: inline-flex; align-items: center; gap: 10px; }
+  .logo-wordmark {
+    font-family: 'Geist', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.045em;
+    line-height: 1;
+  }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+
+  .usage-hint {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--terracotta);
+    letter-spacing: 0.1em;
+    padding: 6px 12px;
+    background: var(--terracotta-soft);
+    border: 1px solid var(--terracotta-border);
+    border-radius: 100px;
+  }
+  .usage-hint strong { font-weight: 500; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 72px 40px 48px;
+  }
+
+  /* LIMIT HERO */
+  .limit-hero {
+    max-width: 720px;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .limit-ring {
+    width: 132px; height: 132px;
+    margin: 0 auto 28px;
+    position: relative;
+  }
+  .limit-ring svg {
+    width: 100%; height: 100%;
+    transform: rotate(-90deg);
+  }
+  .limit-ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .limit-ring-num {
+    font-family: 'Geist', sans-serif;
+    font-size: 38px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .limit-ring-max {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-top: 4px;
+  }
+
+  .limit-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 6px 14px;
+    background: var(--terracotta-soft);
+    border: 1px solid var(--terracotta-border);
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .limit-eyebrow .dot {
+    width: 5px; height: 5px;
+    background: var(--terracotta);
+    border-radius: 50%;
+  }
+
+  .limit-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 52px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: 14px;
+  }
+  .limit-headline em {
+    color: var(--terracotta);
+    font-style: italic;
+  }
+  .limit-sub {
+    font-size: 17px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  /* USAGE RECAP */
+  .usage-recap {
+    max-width: 720px;
+    width: 100%;
+    margin-bottom: 36px;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .usage-recap-head {
+    padding: 14px 22px;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .usage-recap-title {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+  }
+  .usage-recap-reset {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-70);
+    letter-spacing: 0.08em;
+  }
+  .usage-recap-reset strong { color: var(--ink); font-weight: 500; }
+
+  .usage-recap-item {
+    padding: 14px 22px;
+    display: grid;
+    grid-template-columns: 36px 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .usage-recap-item:last-child { border-bottom: none; }
+  .recap-num {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-subtle);
+    letter-spacing: 0.1em;
+    font-weight: 500;
+  }
+  .recap-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .recap-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .recap-addr {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+  }
+  .recap-chip {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    padding: 3px 9px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .recap-chip.buy { background: var(--buy-soft); color: var(--buy); border: 1px solid var(--buy-border); }
+  .recap-chip.watch { background: var(--watch-soft); color: var(--watch); border: 1px solid var(--watch-border); }
+  .recap-chip.pass { background: rgba(196, 61, 61, 0.08); color: var(--pass); border: 1px solid rgba(196, 61, 61, 0.25); }
+  .recap-date {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    letter-spacing: 0.06em;
+  }
+
+  /* UPGRADE SECTION */
+  .upgrade-section {
+    max-width: 720px;
+    width: 100%;
+    background: linear-gradient(135deg, var(--ink) 0%, #2d2825 100%);
+    border-radius: 14px;
+    padding: 36px 40px;
+    color: var(--paper);
+    position: relative;
+    overflow: hidden;
+  }
+  .upgrade-section::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(197, 90, 63, 0.25) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .upgrade-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 2;
+  }
+  .upgrade-tier-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .upgrade-tier-name {
+    font-family: 'Instrument Serif', serif;
+    font-size: 32px;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    color: white;
+    line-height: 1.1;
+  }
+  .upgrade-price {
+    text-align: right;
+  }
+  .upgrade-price .amt {
+    font-size: 44px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    color: white;
+    line-height: 1;
+  }
+  .upgrade-price .period {
+    font-size: 13px;
+    color: rgba(250, 250, 247, 0.6);
+    margin-top: 2px;
+    font-family: 'Geist Mono', monospace;
+  }
+
+  .upgrade-features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 20px;
+    margin-bottom: 28px;
+    position: relative;
+    z-index: 2;
+  }
+  .upgrade-feature {
+    display: grid;
+    grid-template-columns: 16px 1fr;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 13.5px;
+    color: rgba(250, 250, 247, 0.9);
+    line-height: 1.5;
+  }
+  .upgrade-feature .check {
+    color: var(--terracotta);
+    margin-top: 3px;
+  }
+  .upgrade-feature .check svg { width: 12px; height: 12px; }
+
+  .upgrade-cta-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    z-index: 2;
+  }
+  .btn-upgrade {
+    background: var(--terracotta);
+    color: white;
+    padding: 14px 28px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    transition: background 0.15s;
+  }
+  .btn-upgrade:hover { background: var(--terracotta-deep); }
+  .btn-upgrade svg { width: 15px; height: 15px; }
+
+  .upgrade-trial-note {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: rgba(250, 250, 247, 0.55);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    text-align: center;
+  }
+  .upgrade-trial-note strong { color: white; font-weight: 500; }
+
+  /* SECONDARY OPTIONS */
+  .secondary-options {
+    max-width: 720px;
+    width: 100%;
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .secondary-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .secondary-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .secondary-desc {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+  .secondary-link {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-top: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    padding: 0;
+  }
+  .secondary-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  .design-note { position: relative; }
+  .design-note::before {
+    content: attr(data-note);
+    position: absolute;
+    right: 14px;
+    top: -11px;
+    background: #2563eb;
+    color: white;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    padding: 4px 9px;
+    border-radius: 10px;
+    letter-spacing: 0.06em;
+    z-index: 5;
+    opacity: 0.92;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 20px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 50;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="shell">
+
+  <div class="top">
+    <button class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10 3L5 8l5 5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Back to dashboard</span>
+    </button>
+    <div class="logo-lockup">
+      <svg width="22" height="22" viewBox="0 0 52 52" fill="none">
+        <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+        <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+    </div>
+    <div class="usage-hint"><strong>3 of 3</strong> verdicts used · Resets June 1</div>
+  </div>
+
+  <main class="main">
+
+    <!-- HERO -->
+    <div class="limit-hero design-note" data-note="Hard paywall — full-page · not apologetic">
+
+      <div class="limit-ring">
+        <svg viewBox="0 0 140 140">
+          <circle cx="70" cy="70" r="60" fill="none" stroke="rgba(197, 90, 63, 0.12)" stroke-width="6"/>
+          <circle cx="70" cy="70" r="60" fill="none" stroke="#c55a3f" stroke-width="6" stroke-dasharray="377 377" stroke-linecap="round"/>
+        </svg>
+        <div class="limit-ring-center">
+          <span class="limit-ring-num">3</span>
+          <span class="limit-ring-max">of 3 used</span>
+        </div>
+      </div>
+
+      <div class="limit-eyebrow">
+        <span class="dot"></span>
+        Monthly limit reached
+      </div>
+
+      <h1 class="limit-headline">You've used all 3 free verdicts <em>this month.</em></h1>
+      <p class="limit-sub">
+        Your free plan resets June 1 with 3 new verdicts. Or upgrade to Pro now for unlimited verdicts and the full evidence suite.
+      </p>
+
+    </div>
+
+    <!-- USAGE RECAP -->
+    <div class="usage-recap design-note" data-note="Shows what they already generated">
+      <div class="usage-recap-head">
+        <span class="usage-recap-title">Your verdicts this month</span>
+        <span class="usage-recap-reset">Resets · <strong>June 1 · 7 days</strong></span>
+      </div>
+
+      <div class="usage-recap-item">
+        <span class="recap-num">01</span>
+        <div class="recap-body">
+          <span class="recap-name">295 Bend Ave</span>
+          <span class="recap-addr">Kings Beach, CA</span>
+        </div>
+        <span class="recap-chip watch"><span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;margin-right:4px;"></span>Watch · 50</span>
+        <span class="recap-date">04.24.26</span>
+      </div>
+
+      <div class="usage-recap-item">
+        <span class="recap-num">02</span>
+        <div class="recap-body">
+          <span class="recap-name">1244 Cypress Point Dr</span>
+          <span class="recap-addr">Pebble Beach, CA</span>
+        </div>
+        <span class="recap-chip buy"><span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;margin-right:4px;"></span>Buy · 82</span>
+        <span class="recap-date">04.23.26</span>
+      </div>
+
+      <div class="usage-recap-item">
+        <span class="recap-num">03</span>
+        <div class="recap-body">
+          <span class="recap-name">8873 Forest Hill Rd</span>
+          <span class="recap-addr">Aspen, CO</span>
+        </div>
+        <span class="recap-chip pass"><span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;margin-right:4px;"></span>Pass · 28</span>
+        <span class="recap-date">04.12.26</span>
+      </div>
+    </div>
+
+    <!-- UPGRADE SECTION -->
+    <div class="upgrade-section design-note" data-note="Premium dark panel — biggest CTA on page">
+
+      <div class="upgrade-header">
+        <div>
+          <div class="upgrade-tier-label">Recommended upgrade</div>
+          <div class="upgrade-tier-name">DwellVerdict Pro</div>
+        </div>
+        <div class="upgrade-price">
+          <div class="amt">$79</div>
+          <div class="period">per month</div>
+        </div>
+      </div>
+
+      <div class="upgrade-features">
+        <div class="upgrade-feature">
+          <span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span>
+          <span>Unlimited verdicts every month</span>
+        </div>
+        <div class="upgrade-feature">
+          <span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span>
+          <span>Full evidence — all 4 domains</span>
+        </div>
+        <div class="upgrade-feature">
+          <span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span>
+          <span>Comp ADR, revenue, occupancy</span>
+        </div>
+        <div class="upgrade-feature">
+          <span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span>
+          <span>Export briefs + PDFs</span>
+        </div>
+        <div class="upgrade-feature">
+          <span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span>
+          <span>Save up to 50 properties</span>
+        </div>
+        <div class="upgrade-feature">
+          <span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span>
+          <span>Unlimited Ask Scout conversations</span>
+        </div>
+      </div>
+
+      <div class="upgrade-cta-row">
+        <button class="btn-upgrade">
+          Start 14-day free trial
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 3l5 5-5 5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="upgrade-trial-note">
+          <strong>No credit card required.</strong> Cancel anytime.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECONDARY OPTIONS -->
+    <div class="secondary-options">
+      <div class="secondary-card">
+        <div class="secondary-title">Need more than Pro?</div>
+        <div class="secondary-desc">Portfolio tier adds multi-user access, PMS integrations, and aggregate analytics. $199/mo.</div>
+        <button class="secondary-link">
+          See Portfolio
+          <span>→</span>
+        </button>
+      </div>
+      <div class="secondary-card">
+        <div class="secondary-title">Happy to wait?</div>
+        <div class="secondary-desc">Your free verdicts reset June 1. Explore your existing verdicts — or review Scout's analysis.</div>
+        <button class="secondary-link">
+          Return to dashboard
+          <span>→</span>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

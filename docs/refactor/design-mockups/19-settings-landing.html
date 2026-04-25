@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Settings</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7; --paper-warm: #f5f2ec; --paper-deep: #ebe6da;
+    --sidebar-bg: #f7f5f0; --card-ink: #ffffff;
+    --ink: #1c1917; --ink-70: #44403c; --ink-muted: #78716c; --ink-subtle: #a8a29e; --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f; --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08); --terracotta-wash: rgba(197, 90, 63, 0.04); --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07); --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467; --buy-soft: rgba(14, 148, 103, 0.08); --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14; --watch-soft: rgba(199, 122, 20, 0.08); --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d; --pass-soft: rgba(196, 61, 61, 0.08); --pass-border: rgba(196, 61, 61, 0.25);
+    --sidebar-w: 232px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Geist', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  a { color: inherit; text-decoration: none; }
+
+  .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+  .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--hairline); padding: 22px 18px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { padding: 4px 8px 22px 8px; border-bottom: 1px solid var(--hairline); margin-bottom: 16px; }
+  .logo-lockup { display: inline-flex; align-items: center; gap: 8px; }
+  .logo-wordmark { font-weight: 800; font-size: 22px; letter-spacing: -0.045em; line-height: 1; }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+  .nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 14px 10px 6px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; position: relative; transition: all 0.12s; }
+  .nav-item:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .nav-item.active { background: var(--terracotta-soft); color: var(--terracotta); font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--terracotta); border-radius: 0 2px 2px 0; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 10px; background: var(--ink); color: var(--paper); padding: 1px 6px; border-radius: 8px; letter-spacing: 0.04em; }
+  .nav-item .badge.accent { background: var(--terracotta); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #1c1917, #44403c); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .sidebar-user { flex: 1; }
+  .sidebar-user .name { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+  .sidebar-user .plan { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .main-col { display: flex; flex-direction: column; min-width: 0; }
+  .page-top { background: rgba(250,250,247,0.88); backdrop-filter: saturate(180%) blur(10px); border-bottom: 1px solid var(--hairline); padding: 18px 32px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 20px; }
+  .page-title-block { flex: 1; }
+  .page-title { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: var(--ink); line-height: 1.15; margin-bottom: 2px; }
+  .page-sub { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); letter-spacing: 0.02em; }
+
+  .content-wrap { padding: 32px 32px 40px; max-width: 980px; margin: 0 auto; width: 100%; }
+
+  /* USER HEADER CARD */
+  .user-header {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 24px 28px;
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    gap: 18px;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .user-avatar-big {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1c1917, #44403c);
+    color: var(--paper);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Geist', sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .user-info { min-width: 0; }
+  .user-name {
+    font-family: 'Geist', sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.022em;
+    color: var(--ink);
+    margin-bottom: 2px;
+    line-height: 1.15;
+  }
+  .user-email {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-muted);
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+  }
+  .user-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .user-plan-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    padding: 4px 10px;
+    background: var(--terracotta-soft);
+    border: 1px solid var(--terracotta-border);
+    border-radius: 12px;
+    font-weight: 500;
+  }
+  .user-meta-text {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.02em;
+  }
+
+  .btn-ghost { background: transparent; border: 1px solid var(--hairline-strong); padding: 8px 14px; border-radius: 5px; font-size: 12.5px; color: var(--ink-70); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-ghost svg { width: 13px; height: 13px; }
+  .btn-primary { background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
+  .btn-primary:hover { background: #2d2825; }
+  .btn-primary svg { width: 13px; height: 13px; }
+
+  /* SECTION HEADING */
+  .section-rule {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 0 4px 0;
+    margin-top: 8px;
+  }
+  .section-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .section-rule-line { height: 1px; background: var(--hairline); flex: 1; }
+
+  /* SETTINGS CARDS GRID */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .setting-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 18px 20px;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 132px;
+  }
+  .setting-card:hover {
+    border-color: var(--hairline-strong);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -6px rgba(28,25,23,0.06);
+  }
+  .setting-card.attention {
+    border-left: 3px solid var(--terracotta);
+    padding-left: 17px;
+  }
+
+  .setting-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .setting-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--paper-warm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-70);
+    flex-shrink: 0;
+  }
+  .setting-icon svg { width: 15px; height: 15px; }
+  .setting-card.attention .setting-icon {
+    background: var(--terracotta-soft);
+    color: var(--terracotta);
+  }
+  .setting-name {
+    font-family: 'Geist', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.012em;
+    flex: 1;
+  }
+  .setting-arrow {
+    color: var(--ink-faint);
+    flex-shrink: 0;
+  }
+  .setting-arrow svg { width: 13px; height: 13px; }
+  .setting-card:hover .setting-arrow { color: var(--terracotta); }
+
+  .setting-desc {
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+
+  .setting-state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--hairline);
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+  .setting-state strong { color: var(--ink); font-weight: 500; }
+  .setting-state .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--buy);
+    flex-shrink: 0;
+  }
+  .setting-state .dot.warn { background: var(--watch); box-shadow: 0 0 0 3px var(--watch-soft); }
+  .setting-state .dot.muted { background: var(--ink-faint); }
+  .setting-state .sep { width: 2px; height: 2px; background: var(--ink-faint); border-radius: 50%; }
+
+  /* DANGER ZONE */
+  .danger-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-top: 12px;
+  }
+  .danger-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--hairline);
+    align-items: center;
+  }
+  .danger-row:first-child { padding-top: 4px; }
+  .danger-row:last-child { border-bottom: none; padding-bottom: 4px; }
+  .danger-row-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .danger-row-label {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .danger-row-desc {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--pass-border);
+    padding: 7px 13px;
+    border-radius: 5px;
+    font-size: 12.5px;
+    color: var(--pass);
+    font-weight: 500;
+    transition: all 0.12s;
+  }
+  .btn-danger:hover {
+    background: var(--pass-soft);
+    border-color: var(--pass);
+  }
+
+  /* DESIGN NOTES */
+  .design-note { position: relative; }
+  .design-note::before { content: attr(data-note); position: absolute; right: 14px; top: -11px; background: #2563eb; color: white; font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 500; padding: 4px 9px; border-radius: 10px; letter-spacing: 0.06em; z-index: 5; opacity: 0.92; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; border: none; padding: 11px 18px; border-radius: 20px; font-family: 'Geist Mono', monospace; font-size: 10px; cursor: pointer; letter-spacing: 0.14em; text-transform: uppercase; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; font-weight: 500; }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-lockup">
+        <svg width="24" height="24" viewBox="0 0 52 52" fill="none">
+          <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+          <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+      </div>
+    </div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/></svg><span>Dashboard</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg><span>Properties</span><span class="badge accent">3</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg><span>Verdicts</span><span class="badge">12</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="10" rx="1"/><path d="M2 7h12M6 2v4M10 2v4"/></svg><span>Compare</span></div>
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg><span>Portfolio</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Briefs</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg><span>Alerts</span><span class="badge accent">2</span></div>
+    <div class="nav-section-label">Account</div>
+    <div class="nav-item active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/></svg><span>Settings</span></div>
+    <div class="sidebar-footer">
+      <div class="avatar">JC</div>
+      <div class="sidebar-user">
+        <div class="name">Jeremy Collins</div>
+        <div class="plan">Pro · $40/mo</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="page-top">
+      <div class="page-title-block">
+        <div class="page-title">Settings</div>
+        <div class="page-sub">Account · billing · integrations · notifications</div>
+      </div>
+    </div>
+
+    <div class="content-wrap">
+
+      <!-- USER HEADER -->
+      <div class="user-header design-note" data-note="User identity at a glance · plan + subscription state">
+        <div class="user-avatar-big">JC</div>
+        <div class="user-info">
+          <div class="user-name">Jeremy Collins</div>
+          <div class="user-email">jeremy@routeware.com</div>
+          <div class="user-meta">
+            <span class="user-plan-chip">Pro · $40/mo</span>
+            <span class="user-meta-text">Renews May 15, 2026</span>
+          </div>
+        </div>
+        <button class="btn-ghost">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 6L13 6M3 10L13 10"/></svg>
+          Switch organization
+        </button>
+      </div>
+
+      <!-- ACCOUNT SECTION -->
+      <div class="section-rule">
+        <span class="section-label">Account</span>
+        <span class="section-rule-line"></span>
+      </div>
+
+      <div class="settings-grid design-note" data-note="Each card surfaces current state · click into the detail view">
+
+        <div class="setting-card">
+          <div class="setting-card-top">
+            <div class="setting-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M3 14a5 5 0 0110 0"/></svg>
+            </div>
+            <span class="setting-name">Profile</span>
+            <span class="setting-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></span>
+          </div>
+          <div class="setting-desc">Name, email, password, two-factor authentication</div>
+          <div class="setting-state">
+            <span class="dot"></span>
+            <strong>2FA enabled</strong>
+            <span class="sep"></span>
+            <span>last login 2 hrs ago</span>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-card-top">
+            <div class="setting-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg>
+            </div>
+            <span class="setting-name">Investor profile</span>
+            <span class="setting-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></span>
+          </div>
+          <div class="setting-desc">Strategy, target markets, deal preferences — used to personalize Scout</div>
+          <div class="setting-state">
+            <span class="dot"></span>
+            <strong>Investor</strong>
+            <span class="sep"></span>
+            <span>STR-focused · CA + CO</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- BILLING + INTEGRATIONS SECTION -->
+      <div class="section-rule">
+        <span class="section-label">Billing &amp; integrations</span>
+        <span class="section-rule-line"></span>
+      </div>
+
+      <div class="settings-grid">
+
+        <div class="setting-card">
+          <div class="setting-card-top">
+            <div class="setting-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1"/><path d="M2 7h12"/></svg>
+            </div>
+            <span class="setting-name">Billing</span>
+            <span class="setting-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></span>
+          </div>
+          <div class="setting-desc">Plan, payment method, invoices, usage</div>
+          <div class="setting-state">
+            <span class="dot"></span>
+            <strong>Pro · $40/mo</strong>
+            <span class="sep"></span>
+            <span>Visa •• 4242 · renews May 15</span>
+          </div>
+        </div>
+
+        <div class="setting-card attention">
+          <div class="setting-card-top">
+            <div class="setting-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/><circle cx="8" cy="8" r="2"/></svg>
+            </div>
+            <span class="setting-name">PMS integration</span>
+            <span class="setting-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></span>
+          </div>
+          <div class="setting-desc">Connect Hospitable, Airbnb, Vrbo, or Hostaway for revenue and bookings sync</div>
+          <div class="setting-state">
+            <span class="dot warn"></span>
+            <strong>1 of 3 connected</strong>
+            <span class="sep"></span>
+            <span>Hospitable · 2 properties unlinked</span>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-card-top">
+            <div class="setting-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2a8 8 0 010 12M8 2a8 8 0 000 12"/></svg>
+            </div>
+            <span class="setting-name">Data sources</span>
+            <span class="setting-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></span>
+          </div>
+          <div class="setting-desc">Zillow, Redfin, AirDNA, Census, FEMA — control which signals power your verdicts</div>
+          <div class="setting-state">
+            <span class="dot"></span>
+            <strong>8 active sources</strong>
+            <span class="sep"></span>
+            <span>2 paused</span>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-card-top">
+            <div class="setting-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h10M3 10h10M5 3v10M11 3v10"/></svg>
+            </div>
+            <span class="setting-name">Export &amp; API</span>
+            <span class="setting-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></span>
+          </div>
+          <div class="setting-desc">Generate API keys, manage webhooks, bulk-export verdicts</div>
+          <div class="setting-state">
+            <span class="dot muted"></span>
+            <strong>No API keys</strong>
+            <span class="sep"></span>
+            <span>Pro tier · ready when needed</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- NOTIFICATIONS + PREFERENCES -->
+      <div class="section-rule">
+        <span class="section-label">Preferences</span>
+        <span class="section-rule-line"></span>
+      </div>
+
+      <div class="settings-grid">
+
+        <div class="setting-card">
+          <div class="setting-card-top">
+            <div class="setting-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a5 5 0 0110 0v4l1 2H2l1-2V7z"/></svg>
+            </div>
+            <span class="setting-name">Notifications</span>
+            <span class="setting-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></span>
+          </div>
+          <div class="setting-desc">Email, in-app, browser push — control what reaches you and when</div>
+          <div class="setting-state">
+            <span class="dot"></span>
+            <strong>Email + in-app</strong>
+            <span class="sep"></span>
+            <span>Quiet hours 9pm–7am PT</span>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-card-top">
+            <div class="setting-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
+            </div>
+            <span class="setting-name">Appearance</span>
+            <span class="setting-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></span>
+          </div>
+          <div class="setting-desc">Theme, density, accessibility, language</div>
+          <div class="setting-state">
+            <span class="dot muted"></span>
+            <strong>Light · default density</strong>
+            <span class="sep"></span>
+            <span>Dark mode in beta</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- DANGER ZONE -->
+      <div class="section-rule">
+        <span class="section-label">Account actions</span>
+        <span class="section-rule-line"></span>
+      </div>
+
+      <div class="danger-card design-note" data-note="Destructive actions · de-emphasized but accessible">
+
+        <div class="danger-row">
+          <div class="danger-row-body">
+            <div class="danger-row-label">Export all data</div>
+            <div class="danger-row-desc">Download a complete archive of your verdicts, properties, briefs, conversations, and notes as JSON + PDF.</div>
+          </div>
+          <button class="btn-ghost">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 14h12"/></svg>
+            Request export
+          </button>
+        </div>
+
+        <div class="danger-row">
+          <div class="danger-row-body">
+            <div class="danger-row-label">Pause subscription</div>
+            <div class="danger-row-desc">Pause your Pro plan for up to 90 days. Verdicts and properties stay safe; new generations halt.</div>
+          </div>
+          <button class="btn-ghost">Pause plan</button>
+        </div>
+
+        <div class="danger-row">
+          <div class="danger-row-body">
+            <div class="danger-row-label">Delete account</div>
+            <div class="danger-row-desc">Permanently delete your account, all properties, verdicts, briefs, and conversation history. Cannot be undone.</div>
+          </div>
+          <button class="btn-danger">Delete account</button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

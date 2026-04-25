@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Verdicts</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7; --paper-warm: #f5f2ec; --paper-deep: #ebe6da;
+    --sidebar-bg: #f7f5f0; --card-ink: #ffffff;
+    --ink: #1c1917; --ink-70: #44403c; --ink-muted: #78716c; --ink-subtle: #a8a29e; --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f; --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08); --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07); --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467; --buy-soft: rgba(14, 148, 103, 0.08); --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14; --watch-soft: rgba(199, 122, 20, 0.08); --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d; --pass-soft: rgba(196, 61, 61, 0.08); --pass-border: rgba(196, 61, 61, 0.25);
+    --sidebar-w: 232px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Geist', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  a { color: inherit; text-decoration: none; }
+
+  .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--hairline); padding: 22px 18px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { padding: 4px 8px 22px 8px; border-bottom: 1px solid var(--hairline); margin-bottom: 16px; }
+  .logo-lockup { display: inline-flex; align-items: center; gap: 8px; }
+  .logo-wordmark { font-family: 'Geist', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.045em; line-height: 1; }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+  .nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 14px 10px 6px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; position: relative; transition: all 0.12s; }
+  .nav-item:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .nav-item.active { background: var(--terracotta-soft); color: var(--terracotta); font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--terracotta); border-radius: 0 2px 2px 0; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 10px; background: var(--ink); color: var(--paper); padding: 1px 6px; border-radius: 8px; letter-spacing: 0.04em; }
+  .nav-item .badge.accent { background: var(--terracotta); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #1c1917, #44403c); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .sidebar-user { flex: 1; }
+  .sidebar-user .name { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+  .sidebar-user .plan { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .main-col { display: flex; flex-direction: column; min-width: 0; }
+  .page-top { background: rgba(250,250,247,0.88); backdrop-filter: saturate(180%) blur(10px); border-bottom: 1px solid var(--hairline); padding: 18px 32px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 20px; }
+  .page-title-block { flex: 1; }
+  .page-title { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: var(--ink); line-height: 1.15; margin-bottom: 2px; }
+  .page-sub { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); letter-spacing: 0.02em; }
+  .btn-primary { background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
+  .btn-primary:hover { background: #2d2825; }
+  .btn-primary svg { width: 13px; height: 13px; }
+
+  .content-wrap { padding: 24px 32px 40px; max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 20px; }
+
+  /* GLANCE TILES */
+  .glance-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .glance-tile { background: var(--card-ink); border: 1px solid var(--hairline); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+  .glance-tile.accent { border-left: 3px solid var(--terracotta); padding-left: 13px; }
+  .glance-label { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.14em; }
+  .glance-value { display: flex; align-items: baseline; gap: 6px; }
+  .glance-big { font-size: 22px; font-weight: 500; letter-spacing: -0.025em; color: var(--ink); line-height: 1; }
+  .glance-big.buy { color: var(--buy); } .glance-big.watch { color: var(--watch); } .glance-big.pass { color: var(--pass); }
+  .glance-sub { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); }
+
+  /* FILTER BAR */
+  .filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .search-input { flex: 1; max-width: 300px; display: flex; align-items: center; background: var(--card-ink); border: 1px solid var(--hairline-strong); border-radius: 6px; padding: 8px 12px; gap: 8px; transition: all 0.15s; }
+  .search-input:focus-within { border-color: var(--ink); }
+  .search-input svg { width: 14px; height: 14px; color: var(--ink-muted); }
+  .search-input input { flex: 1; border: none; outline: none; font-family: inherit; font-size: 13px; background: transparent; color: var(--ink); }
+  .search-input input::placeholder { color: var(--ink-faint); }
+  .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--card-ink); border: 1px solid var(--hairline-strong); border-radius: 6px; font-size: 12.5px; color: var(--ink-70); cursor: pointer; transition: all 0.12s; }
+  .filter-chip:hover { border-color: var(--ink); color: var(--ink); }
+  .filter-chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .filter-chip .count { font-family: 'Geist Mono', monospace; font-size: 10px; opacity: 0.7; }
+  .filter-spacer { flex: 1; }
+  .sort-select { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--card-ink); border: 1px solid var(--hairline-strong); border-radius: 6px; font-size: 12.5px; color: var(--ink-70); cursor: pointer; transition: all 0.12s; }
+  .sort-select:hover { border-color: var(--ink); color: var(--ink); }
+  .sort-select svg { width: 11px; height: 11px; color: var(--ink-muted); }
+  .group-toggle { display: inline-flex; background: var(--card-ink); border: 1px solid var(--hairline-strong); border-radius: 6px; padding: 2px; }
+  .group-toggle button { padding: 6px 10px; border-radius: 4px; background: transparent; color: var(--ink-muted); display: inline-flex; align-items: center; gap: 6px; font-size: 12px; transition: all 0.12s; }
+  .group-toggle button.active { background: var(--paper-warm); color: var(--ink); }
+  .group-toggle button svg { width: 12px; height: 12px; }
+
+  /* GROUPED DATE VIEW */
+  .group-section { display: flex; flex-direction: column; gap: 10px; }
+  .group-header { display: flex; align-items: center; gap: 14px; padding: 8px 0 4px 0; }
+  .group-label { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.18em; font-weight: 500; white-space: nowrap; }
+  .group-rule { height: 1px; background: var(--hairline); flex: 1; }
+  .group-count { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-subtle); letter-spacing: 0.08em; }
+
+  .verdict-list { display: flex; flex-direction: column; gap: 8px; }
+  .verdict-row { background: var(--card-ink); border: 1px solid var(--hairline); border-radius: 10px; padding: 14px 18px; display: grid; grid-template-columns: 44px 1fr 110px 130px 110px 80px 32px; gap: 16px; align-items: center; cursor: pointer; transition: all 0.12s; }
+  .verdict-row:hover { border-color: var(--hairline-strong); transform: translateY(-1px); box-shadow: 0 4px 12px -4px rgba(28,25,23,0.08); }
+  .verdict-row.emphasis { border-left: 3px solid var(--terracotta); padding-left: 15px; }
+
+  .row-thumb { width: 42px; height: 42px; border-radius: 6px; background: linear-gradient(135deg, #9eb6c9 0%, #7a8a7a 50%, #5a6f4d 100%); flex-shrink: 0; position: relative; overflow: hidden; }
+  .row-thumb::after { content: ''; position: absolute; bottom: 20%; left: 25%; right: 25%; height: 45%; background: linear-gradient(180deg, #6b4a2e 0%, #513723 100%); border-top-left-radius: 3px; border-top-right-radius: 3px; opacity: 0.85; }
+  .row-thumb.mountain { background: linear-gradient(135deg, #b8a88a 0%, #8a7a5a 50%, #5a4a3a 100%); }
+  .row-thumb.coastal { background: linear-gradient(135deg, #a8c0d0 0%, #7a9aa8 50%, #4a6070 100%); }
+  .row-thumb.aspen { background: linear-gradient(135deg, #d0d0c8 0%, #8a8a85 50%, #5a5a55 100%); }
+
+  .row-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .row-addr-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .row-address { font-size: 14px; font-weight: 500; color: var(--ink); letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-run-badge { font-family: 'Geist Mono', monospace; font-size: 9.5px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.14em; padding: 2px 7px; background: var(--paper-warm); border-radius: 10px; flex-shrink: 0; }
+  .row-run-badge.current { color: var(--terracotta); background: var(--terracotta-soft); }
+  .row-meta-line { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--ink-muted); font-family: 'Geist Mono', monospace; letter-spacing: 0.01em; }
+  .row-meta-line .sep { width: 2px; height: 2px; background: var(--ink-faint); border-radius: 50%; }
+
+  .row-signal { display: inline-flex; align-items: center; gap: 6px; font-family: 'Geist Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em; padding: 4px 10px; border-radius: 12px; font-weight: 500; justify-self: start; }
+  .row-signal .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .row-signal.buy { background: var(--buy-soft); color: var(--buy); border: 1px solid var(--buy-border); }
+  .row-signal.buy .dot { background: var(--buy); }
+  .row-signal.watch { background: var(--watch-soft); color: var(--watch); border: 1px solid var(--watch-border); }
+  .row-signal.watch .dot { background: var(--watch); }
+  .row-signal.pass { background: var(--pass-soft); color: var(--pass); border: 1px solid var(--pass-border); }
+  .row-signal.pass .dot { background: var(--pass); }
+
+  .row-confidence { display: flex; align-items: center; gap: 8px; }
+  .confidence-ring { width: 28px; height: 28px; flex-shrink: 0; }
+  .confidence-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .confidence-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .confidence-value { font-family: 'Geist Mono', monospace; font-size: 13px; font-weight: 500; color: var(--ink); line-height: 1; }
+  .confidence-delta { font-family: 'Geist Mono', monospace; font-size: 9.5px; color: var(--ink-subtle); letter-spacing: 0.04em; }
+  .confidence-delta.up { color: var(--buy); }
+  .confidence-delta.down { color: var(--pass); }
+
+  .row-evidence { display: flex; align-items: center; gap: 4px; }
+  .ev-pill { width: 24px; height: 16px; border-radius: 2px; background: var(--hairline-strong); }
+  .ev-pill.complete { background: var(--buy); }
+  .ev-pill.locked { background: var(--paper-warm); border: 1px dashed var(--hairline-strong); height: 14px; }
+
+  .row-date { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); letter-spacing: 0.04em; text-align: right; }
+  .row-action { width: 28px; height: 28px; border-radius: 4px; background: transparent; color: var(--ink-muted); display: inline-flex; align-items: center; justify-content: center; }
+  .row-action:hover { background: var(--paper-warm); color: var(--ink); }
+  .row-action svg { width: 14px; height: 14px; }
+
+  /* DESIGN NOTES */
+  .design-note { position: relative; }
+  .design-note::before { content: attr(data-note); position: absolute; right: 14px; top: -11px; background: #2563eb; color: white; font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 500; padding: 4px 9px; border-radius: 10px; letter-spacing: 0.06em; z-index: 5; opacity: 0.92; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; border: none; padding: 11px 18px; border-radius: 20px; font-family: 'Geist Mono', monospace; font-size: 10px; cursor: pointer; letter-spacing: 0.14em; text-transform: uppercase; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; font-weight: 500; }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-lockup">
+        <svg width="24" height="24" viewBox="0 0 52 52" fill="none">
+          <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+          <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+      </div>
+    </div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/></svg><span>Dashboard</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg><span>Properties</span><span class="badge accent">3</span></div>
+    <div class="nav-item active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg><span>Verdicts</span><span class="badge">12</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="10" rx="1"/><path d="M2 7h12M6 2v4M10 2v4"/></svg><span>Compare</span></div>
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg><span>Portfolio</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Briefs</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg><span>Alerts</span><span class="badge accent">2</span></div>
+    <div class="nav-section-label">Account</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/></svg><span>Settings</span></div>
+    <div class="sidebar-footer">
+      <div class="avatar">JC</div>
+      <div class="sidebar-user">
+        <div class="name">Jeremy Collins</div>
+        <div class="plan">Pro · $40/mo</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="page-top">
+      <div class="page-title-block">
+        <div class="page-title">Verdicts</div>
+        <div class="page-sub">12 verdicts across 3 properties · 7 runs in April</div>
+      </div>
+      <button class="btn-primary">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v12M2 8h12" stroke-linecap="round"/></svg>
+        New verdict
+      </button>
+    </div>
+
+    <div class="content-wrap">
+      <div class="glance-row design-note" data-note="Verdict-centric metrics (not property-centric)">
+        <div class="glance-tile accent">
+          <span class="glance-label">Total verdicts</span>
+          <div class="glance-value"><span class="glance-big">12</span><span class="glance-sub">all time</span></div>
+        </div>
+        <div class="glance-tile">
+          <span class="glance-label">Buy signals</span>
+          <div class="glance-value"><span class="glance-big buy">3</span><span class="glance-sub">25%</span></div>
+        </div>
+        <div class="glance-tile">
+          <span class="glance-label">Watch signals</span>
+          <div class="glance-value"><span class="glance-big watch">6</span><span class="glance-sub">50%</span></div>
+        </div>
+        <div class="glance-tile">
+          <span class="glance-label">Pass signals</span>
+          <div class="glance-value"><span class="glance-big pass">3</span><span class="glance-sub">25%</span></div>
+        </div>
+        <div class="glance-tile">
+          <span class="glance-label">Avg confidence</span>
+          <div class="glance-value"><span class="glance-big">54</span><span class="glance-sub">+3 vs Mar</span></div>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <div class="search-input">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="7" cy="7" r="5"/><path d="M14 14l-3-3" stroke-linecap="round"/></svg>
+          <input type="text" placeholder="Search address, city, or verdict summary..." />
+        </div>
+        <button class="filter-chip active">All <span class="count">12</span></button>
+        <button class="filter-chip"><span style="width:6px;height:6px;border-radius:50%;background:var(--buy);"></span>Buy <span class="count">3</span></button>
+        <button class="filter-chip"><span style="width:6px;height:6px;border-radius:50%;background:var(--watch);"></span>Watch <span class="count">6</span></button>
+        <button class="filter-chip"><span style="width:6px;height:6px;border-radius:50%;background:var(--pass);"></span>Pass <span class="count">3</span></button>
+        <div class="filter-spacer"></div>
+        <button class="sort-select">Most recent first<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 5l3 3 3-3" stroke-linecap="round"/></svg></button>
+        <div class="group-toggle">
+          <button class="active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 4h10M3 8h10M3 12h6"/></svg>Date</button>
+          <button><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="2" width="12" height="5" rx="1"/><rect x="2" y="9" width="12" height="5" rx="1"/></svg>Property</button>
+        </div>
+      </div>
+
+      <div class="group-section">
+        <div class="group-header">
+          <span class="group-label">Today · April 24</span>
+          <span class="group-rule"></span>
+          <span class="group-count">1 verdict</span>
+        </div>
+        <div class="verdict-list">
+          <div class="verdict-row emphasis design-note" data-note="Re-verdict gets emphasis treatment">
+            <div class="row-thumb mountain"></div>
+            <div class="row-main">
+              <div class="row-addr-line">
+                <span class="row-address">295 Bend Ave, Kings Beach, CA</span>
+                <span class="row-run-badge current">Run 02 · current</span>
+              </div>
+              <div class="row-meta-line">
+                <span>Regulatory cleared · Comps locked</span>
+                <span class="sep"></span>
+                <span>7 sources cited · 28s</span>
+              </div>
+            </div>
+            <span class="row-signal watch"><span class="dot"></span>Watch</span>
+            <div class="row-confidence">
+              <div class="confidence-ring"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="rgba(28,25,23,0.08)" stroke-width="2.5"/><circle cx="16" cy="16" r="13" fill="none" stroke="var(--watch)" stroke-width="2.5" stroke-dasharray="41 82" stroke-linecap="round"/></svg></div>
+              <div class="confidence-text"><span class="confidence-value">50</span><span class="confidence-delta up">+8 vs #01</span></div>
+            </div>
+            <div class="row-evidence">
+              <span class="ev-pill complete"></span><span class="ev-pill complete"></span><span class="ev-pill locked"></span><span class="ev-pill locked"></span>
+            </div>
+            <span class="row-date">08:42</span>
+            <button class="row-action"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+        </div>
+
+        <div class="group-header">
+          <span class="group-label">Yesterday · April 23</span>
+          <span class="group-rule"></span>
+          <span class="group-count">2 verdicts</span>
+        </div>
+        <div class="verdict-list">
+          <div class="verdict-row">
+            <div class="row-thumb coastal"></div>
+            <div class="row-main">
+              <div class="row-addr-line">
+                <span class="row-address">1244 Cypress Point Dr, Pebble Beach, CA</span>
+                <span class="row-run-badge current">Run 01 · current</span>
+              </div>
+              <div class="row-meta-line">
+                <span>STR permitted · 12 comps · $525 median ADR</span>
+                <span class="sep"></span>
+                <span>9 sources</span>
+              </div>
+            </div>
+            <span class="row-signal buy"><span class="dot"></span>Buy</span>
+            <div class="row-confidence">
+              <div class="confidence-ring"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="rgba(28,25,23,0.08)" stroke-width="2.5"/><circle cx="16" cy="16" r="13" fill="none" stroke="var(--buy)" stroke-width="2.5" stroke-dasharray="67 82" stroke-linecap="round"/></svg></div>
+              <div class="confidence-text"><span class="confidence-value">82</span><span class="confidence-delta">initial</span></div>
+            </div>
+            <div class="row-evidence">
+              <span class="ev-pill complete"></span><span class="ev-pill complete"></span><span class="ev-pill locked"></span><span class="ev-pill locked"></span>
+            </div>
+            <span class="row-date">04.23</span>
+            <button class="row-action"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+          <div class="verdict-row">
+            <div class="row-thumb mountain"></div>
+            <div class="row-main">
+              <div class="row-addr-line">
+                <span class="row-address">41 Maywood Ct, Roseville, CA</span>
+                <span class="row-run-badge">Run 03 · superseded</span>
+              </div>
+              <div class="row-meta-line">
+                <span>STR restricted · owner-occupied only</span>
+                <span class="sep"></span>
+                <span>5 sources</span>
+              </div>
+            </div>
+            <span class="row-signal watch"><span class="dot"></span>Watch</span>
+            <div class="row-confidence">
+              <div class="confidence-ring"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="rgba(28,25,23,0.08)" stroke-width="2.5"/><circle cx="16" cy="16" r="13" fill="none" stroke="var(--watch)" stroke-width="2.5" stroke-dasharray="48 82" stroke-linecap="round"/></svg></div>
+              <div class="confidence-text"><span class="confidence-value">58</span><span class="confidence-delta up">+12 vs #02</span></div>
+            </div>
+            <div class="row-evidence">
+              <span class="ev-pill complete"></span><span class="ev-pill complete"></span><span class="ev-pill locked"></span><span class="ev-pill locked"></span>
+            </div>
+            <span class="row-date">04.23</span>
+            <button class="row-action"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+        </div>
+
+        <div class="group-header">
+          <span class="group-label">Earlier this week</span>
+          <span class="group-rule"></span>
+          <span class="group-count">3 verdicts</span>
+        </div>
+        <div class="verdict-list">
+          <div class="verdict-row">
+            <div class="row-thumb aspen"></div>
+            <div class="row-main">
+              <div class="row-addr-line">
+                <span class="row-address">8873 Forest Hill Rd, Aspen, CO</span>
+                <span class="row-run-badge current">Run 01 · current</span>
+              </div>
+              <div class="row-meta-line">
+                <span>STR ban active · no clear BUY path</span>
+                <span class="sep"></span>
+                <span>6 sources</span>
+              </div>
+            </div>
+            <span class="row-signal pass"><span class="dot"></span>Pass</span>
+            <div class="row-confidence">
+              <div class="confidence-ring"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="rgba(28,25,23,0.08)" stroke-width="2.5"/><circle cx="16" cy="16" r="13" fill="none" stroke="var(--pass)" stroke-width="2.5" stroke-dasharray="23 82" stroke-linecap="round"/></svg></div>
+              <div class="confidence-text"><span class="confidence-value">28</span><span class="confidence-delta">initial</span></div>
+            </div>
+            <div class="row-evidence">
+              <span class="ev-pill complete"></span><span class="ev-pill complete"></span><span class="ev-pill locked"></span><span class="ev-pill locked"></span>
+            </div>
+            <span class="row-date">04.12</span>
+            <button class="row-action"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+          <div class="verdict-row">
+            <div class="row-thumb mountain"></div>
+            <div class="row-main">
+              <div class="row-addr-line">
+                <span class="row-address">295 Bend Ave, Kings Beach, CA</span>
+                <span class="row-run-badge">Run 01 · superseded</span>
+              </div>
+              <div class="row-meta-line">
+                <span>First verdict · data gaps in comp quality</span>
+                <span class="sep"></span>
+                <span>5 sources</span>
+              </div>
+            </div>
+            <span class="row-signal watch"><span class="dot"></span>Watch</span>
+            <div class="row-confidence">
+              <div class="confidence-ring"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="rgba(28,25,23,0.08)" stroke-width="2.5"/><circle cx="16" cy="16" r="13" fill="none" stroke="var(--watch)" stroke-width="2.5" stroke-dasharray="34 82" stroke-linecap="round"/></svg></div>
+              <div class="confidence-text"><span class="confidence-value">42</span><span class="confidence-delta">initial</span></div>
+            </div>
+            <div class="row-evidence">
+              <span class="ev-pill complete"></span><span class="ev-pill complete"></span><span class="ev-pill locked"></span><span class="ev-pill locked"></span>
+            </div>
+            <span class="row-date">04.18</span>
+            <button class="row-action"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Generating Verdict</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7;
+    --paper-warm: #f5f2ec;
+    --paper-deep: #ebe6da;
+    --card-ink: #ffffff;
+    --ink: #1c1917;
+    --ink-70: #44403c;
+    --ink-muted: #78716c;
+    --ink-subtle: #a8a29e;
+    --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08);
+    --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07);
+    --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467;
+    --buy-soft: rgba(14, 148, 103, 0.08);
+    --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14;
+    --watch-soft: rgba(199, 122, 20, 0.08);
+    --watch-border: rgba(199, 122, 20, 0.25);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Geist', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; }
+
+  .gen-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .gen-top {
+    padding: 28px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .logo-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-wordmark {
+    font-family: 'Geist', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.045em;
+    line-height: 1;
+  }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+
+  .cancel-btn {
+    font-size: 13px;
+    color: var(--ink-muted);
+    background: transparent;
+    padding: 6px 10px;
+  }
+  .cancel-btn:hover { color: var(--ink); }
+
+  .gen-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 56px 40px 48px;
+  }
+
+  /* ─── PROPERTY CARD (small, top) ─── */
+  .property-mini {
+    max-width: 720px;
+    width: 100%;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 36px;
+  }
+  .property-mini-thumb {
+    width: 40px; height: 40px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #9eb6c9 0%, #7a8a7a 50%, #5a6f4d 100%);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .property-mini-thumb::after {
+    content: '';
+    position: absolute;
+    bottom: 20%;
+    left: 25%;
+    right: 25%;
+    height: 45%;
+    background: linear-gradient(180deg, #6b4a2e 0%, #513723 100%);
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    opacity: 0.85;
+  }
+  .property-mini-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .property-mini-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin-bottom: 2px;
+  }
+  .property-mini-addr {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+  }
+  .property-mini-meta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  /* ─── GENERATING HEADLINE ─── */
+  .gen-headline {
+    max-width: 720px;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .gen-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 6px 14px;
+    background: var(--terracotta-soft);
+    border: 1px solid var(--terracotta-border);
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .gen-eyebrow .spinner-dot {
+    width: 6px; height: 6px;
+    background: var(--terracotta);
+    border-radius: 50%;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  .gen-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 40px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.15;
+    margin-bottom: 10px;
+  }
+  .gen-sub {
+    font-size: 15px;
+    color: var(--ink-muted);
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.55;
+  }
+
+  /* ─── STREAM EVIDENCE TRACK ─── */
+  .stream-track {
+    max-width: 720px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stream-step {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* State: pending (not started) */
+  .stream-step.pending {
+    opacity: 0.4;
+  }
+
+  /* State: active (currently streaming) */
+  .stream-step.active {
+    border-color: var(--terracotta);
+    box-shadow: 0 0 0 3px var(--terracotta-soft);
+  }
+  .stream-step.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--terracotta);
+    animation: activeBarPulse 2s ease-in-out infinite;
+  }
+  @keyframes activeBarPulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  /* State: complete */
+  .stream-step.complete {
+    border-color: var(--buy-border);
+  }
+
+  .stream-icon {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    background: var(--paper-warm);
+    color: var(--ink-70);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .stream-icon svg { width: 18px; height: 18px; }
+
+  .stream-step.active .stream-icon {
+    background: var(--terracotta-soft);
+    color: var(--terracotta);
+  }
+  .stream-step.complete .stream-icon {
+    background: var(--buy-soft);
+    color: var(--buy);
+  }
+
+  .stream-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .stream-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    margin-bottom: 2px;
+  }
+  .stream-desc {
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.45;
+    min-height: 19px;
+  }
+  .stream-desc .typing {
+    display: inline-block;
+    width: 2px;
+    height: 12px;
+    background: var(--terracotta);
+    vertical-align: middle;
+    margin-left: 2px;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  .stream-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .stream-chip {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    padding: 4px 9px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .stream-chip.pending {
+    color: var(--ink-subtle);
+    background: var(--paper-warm);
+  }
+  .stream-chip.active {
+    color: var(--terracotta);
+    background: var(--terracotta-soft);
+    border: 1px solid var(--terracotta-border);
+  }
+  .stream-chip.complete {
+    color: var(--buy);
+    background: var(--buy-soft);
+    border: 1px solid var(--buy-border);
+  }
+  .stream-time {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-subtle);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  /* Mini spinner */
+  .mini-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--terracotta-soft);
+    border-top-color: var(--terracotta);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .mini-check svg { width: 14px; height: 14px; color: var(--buy); }
+
+  /* ─── PROGRESS BAR (fine-grained) ─── */
+  .progress-bar {
+    max-width: 720px;
+    width: 100%;
+    margin-top: 32px;
+    padding: 0 4px;
+  }
+  .progress-track {
+    height: 4px;
+    background: var(--hairline-strong);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 62%;
+    background: var(--terracotta);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .progress-label strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ─── SOURCES CARD (shown below progress) ─── */
+  .sources-live {
+    max-width: 720px;
+    width: 100%;
+    margin-top: 32px;
+    padding: 20px 24px;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+  }
+  .sources-live-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sources-live-title {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+  }
+  .sources-live-count {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    letter-spacing: 0.1em;
+  }
+  .sources-live-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .source-live-row {
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: fadeInUp 0.3s ease;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .source-live-row::before {
+    content: '↗';
+    color: var(--ink-subtle);
+    font-size: 11px;
+  }
+  .source-live-row .url {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+  }
+  .source-live-row.new {
+    color: var(--terracotta);
+  }
+  .source-live-row.new .url {
+    color: var(--terracotta);
+  }
+
+  .design-note { position: relative; }
+  .design-note::before {
+    content: attr(data-note);
+    position: absolute;
+    right: 14px;
+    top: -11px;
+    background: #2563eb;
+    color: white;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    padding: 4px 9px;
+    border-radius: 10px;
+    letter-spacing: 0.06em;
+    z-index: 5;
+    opacity: 0.92;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 20px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 50;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="gen-shell">
+
+  <div class="gen-top">
+    <div class="logo-lockup">
+      <svg width="22" height="22" viewBox="0 0 52 52" fill="none">
+        <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+        <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+    </div>
+    <button class="cancel-btn">Cancel</button>
+  </div>
+
+  <main class="gen-main">
+
+    <!-- PROPERTY BEING EVALUATED -->
+    <div class="property-mini">
+      <div class="property-mini-thumb"></div>
+      <div class="property-mini-body">
+        <div class="property-mini-name">295 Bend Ave</div>
+        <div class="property-mini-addr">Kings Beach, CA 96143 · North Lake Tahoe</div>
+      </div>
+      <div class="property-mini-meta">Run 01 · 04.24.26</div>
+    </div>
+
+    <!-- HEADLINE -->
+    <div class="gen-headline design-note" data-note="Premium AI feel — live, progressive">
+      <div class="gen-eyebrow">
+        <span class="spinner-dot"></span>
+        <span>Generating verdict · ~18 seconds remaining</span>
+      </div>
+      <h1 class="gen-title">Reading the evidence.</h1>
+      <p class="gen-sub">
+        We check four domains: regulatory rules, comparable properties, revenue projections, and location signals. Each grounded in cited sources.
+      </p>
+    </div>
+
+    <!-- STREAM TRACK -->
+    <div class="stream-track design-note" data-note="Streams in order as Sonnet finishes each domain">
+
+      <!-- COMPLETE: Regulatory -->
+      <div class="stream-step complete">
+        <div class="stream-icon">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3v5c0 3.5-2.5 6.5-6 7-3.5-.5-6-3.5-6-7V4l6-3z"/></svg>
+        </div>
+        <div class="stream-body">
+          <div class="stream-title">Regulatory Status</div>
+          <div class="stream-desc">Placer County · Permitted STR · 1,443 of 3,900 cap active · HOA overlay pending</div>
+        </div>
+        <div class="stream-status">
+          <span class="mini-check">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg>
+          </span>
+          <span class="stream-chip complete">Complete</span>
+          <span class="stream-time">4.2s</span>
+        </div>
+      </div>
+
+      <!-- COMPLETE: Location -->
+      <div class="stream-step complete">
+        <div class="stream-icon">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 00-5 5c0 4.5 5 9 5 9s5-4.5 5-9a5 5 0 00-5-5zm0 7a2 2 0 110-4 2 2 0 010 4z"/></svg>
+        </div>
+        <div class="stream-body">
+          <div class="stream-title">Location Signal</div>
+          <div class="stream-desc">Walk 37 · Car-dependent · Nearby rating 4.56★ · Stateline Trail 0.7mi</div>
+        </div>
+        <div class="stream-status">
+          <span class="mini-check">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg>
+          </span>
+          <span class="stream-chip complete">Complete</span>
+          <span class="stream-time">3.8s</span>
+        </div>
+      </div>
+
+      <!-- ACTIVE: Comps -->
+      <div class="stream-step active">
+        <div class="stream-icon">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg>
+        </div>
+        <div class="stream-body">
+          <div class="stream-title">Comparable Properties</div>
+          <div class="stream-desc">Found 15 comps within 1.2 miles · Analyzing ADR distribution<span class="typing"></span></div>
+        </div>
+        <div class="stream-status">
+          <span class="mini-spinner"></span>
+          <span class="stream-chip active">Analyzing</span>
+          <span class="stream-time">8.1s</span>
+        </div>
+      </div>
+
+      <!-- PENDING: Revenue -->
+      <div class="stream-step pending">
+        <div class="stream-icon">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg>
+        </div>
+        <div class="stream-body">
+          <div class="stream-title">Revenue Projection</div>
+          <div class="stream-desc">Waiting for comp data · Pro-gated evidence</div>
+        </div>
+        <div class="stream-status">
+          <span class="stream-chip pending">Pending</span>
+          <span class="stream-time">—</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- PROGRESS BAR -->
+    <div class="progress-bar">
+      <div class="progress-track">
+        <div class="progress-fill"></div>
+      </div>
+      <div class="progress-label">
+        <span><strong>02 of 04</strong> domains complete</span>
+        <span>~62% · 18s remaining</span>
+      </div>
+    </div>
+
+    <!-- LIVE SOURCES -->
+    <div class="sources-live design-note" data-note="Citations appear in real time">
+      <div class="sources-live-head">
+        <span class="sources-live-title">Sources cited so far</span>
+        <span class="sources-live-count">+5 in last 6s</span>
+      </div>
+      <div class="sources-live-list">
+        <div class="source-live-row new">
+          <span class="url">airdna.co/market/ca-placer-county-short-term-rental</span>
+        </div>
+        <div class="source-live-row">
+          <span class="url">placer.ca.gov/6109/Short-Term-Rental-Program</span>
+        </div>
+        <div class="source-live-row">
+          <span class="url">bnbcalc.com/blog/short-term-rental/Placer</span>
+        </div>
+        <div class="source-live-row">
+          <span class="url">data-nifc.opendata.arcgis.com/datasets/us-wildfires</span>
+        </div>
+        <div class="source-live-row">
+          <span class="url">openstreetmap.org/query?lat=39.2388&lon=-120.0261</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+</body>
+</html>

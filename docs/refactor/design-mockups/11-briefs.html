@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Briefs</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7; --paper-warm: #f5f2ec; --paper-deep: #ebe6da;
+    --sidebar-bg: #f7f5f0; --card-ink: #ffffff;
+    --ink: #1c1917; --ink-70: #44403c; --ink-muted: #78716c; --ink-subtle: #a8a29e; --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f; --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08); --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07); --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467; --buy-soft: rgba(14, 148, 103, 0.08); --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14; --watch-soft: rgba(199, 122, 20, 0.08); --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d; --pass-soft: rgba(196, 61, 61, 0.08); --pass-border: rgba(196, 61, 61, 0.25);
+    --sidebar-w: 232px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Geist', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  a { color: inherit; text-decoration: none; }
+
+  .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--hairline); padding: 22px 18px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { padding: 4px 8px 22px 8px; border-bottom: 1px solid var(--hairline); margin-bottom: 16px; }
+  .logo-lockup { display: inline-flex; align-items: center; gap: 8px; }
+  .logo-wordmark { font-weight: 800; font-size: 22px; letter-spacing: -0.045em; line-height: 1; }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+  .nav-section-label { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-subtle); text-transform: uppercase; letter-spacing: 0.18em; padding: 14px 10px 6px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-70); cursor: pointer; position: relative; transition: all 0.12s; }
+  .nav-item:hover { background: rgba(28,25,23,0.04); color: var(--ink); }
+  .nav-item.active { background: var(--terracotta-soft); color: var(--terracotta); font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--terracotta); border-radius: 0 2px 2px 0; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 10px; background: var(--ink); color: var(--paper); padding: 1px 6px; border-radius: 8px; letter-spacing: 0.04em; }
+  .nav-item .badge.accent { background: var(--terracotta); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #1c1917, #44403c); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .sidebar-user { flex: 1; }
+  .sidebar-user .name { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+  .sidebar-user .plan { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .main-col { display: flex; flex-direction: column; min-width: 0; }
+  .page-top { background: rgba(250,250,247,0.88); backdrop-filter: saturate(180%) blur(10px); border-bottom: 1px solid var(--hairline); padding: 18px 32px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 20px; }
+  .page-title-block { flex: 1; }
+  .page-title { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: var(--ink); line-height: 1.15; margin-bottom: 2px; }
+  .page-sub { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-muted); letter-spacing: 0.02em; }
+  .btn-ghost { background: transparent; border: 1px solid var(--hairline-strong); padding: 7px 13px; border-radius: 5px; font-size: 12px; color: var(--ink-70); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-ghost svg { width: 13px; height: 13px; }
+  .btn-primary { background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
+  .btn-primary:hover { background: #2d2825; }
+  .btn-primary svg { width: 13px; height: 13px; }
+
+  .content-wrap { padding: 24px 32px 40px; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+  /* VIEW TOGGLE */
+  .view-state-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .state-pill {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    padding: 7px 14px;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 100px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.15s;
+  }
+  .state-pill:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+  .state-pill.active {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  /* STATE A — BRIEFS LIST */
+  #state-list { display: block; }
+  #state-templates { display: none; }
+  #state-preview { display: none; }
+  body.show-templates #state-list { display: none; }
+  body.show-templates #state-templates { display: block; }
+  body.show-preview #state-list { display: none; }
+  body.show-preview #state-preview { display: block; }
+
+  .brief-list-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .search-input { flex: 1; max-width: 340px; display: flex; align-items: center; background: var(--card-ink); border: 1px solid var(--hairline-strong); border-radius: 6px; padding: 8px 12px; gap: 8px; }
+  .search-input:focus-within { border-color: var(--ink); }
+  .search-input svg { width: 14px; height: 14px; color: var(--ink-muted); }
+  .search-input input { flex: 1; border: none; outline: none; font-family: inherit; font-size: 13px; background: transparent; color: var(--ink); }
+  .search-input input::placeholder { color: var(--ink-faint); }
+  .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--card-ink); border: 1px solid var(--hairline-strong); border-radius: 6px; font-size: 12.5px; color: var(--ink-70); cursor: pointer; transition: all 0.12s; }
+  .filter-chip:hover { border-color: var(--ink); color: var(--ink); }
+  .filter-chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .filter-chip .count { font-family: 'Geist Mono', monospace; font-size: 10px; opacity: 0.7; }
+  .filter-spacer { flex: 1; }
+
+  .briefs-table {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .briefs-head-row {
+    display: grid;
+    grid-template-columns: 44px 2fr 130px 1fr 110px 100px 36px;
+    gap: 16px;
+    padding: 12px 20px;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--hairline);
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .brief-row {
+    display: grid;
+    grid-template-columns: 44px 2fr 130px 1fr 110px 100px 36px;
+    gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--hairline);
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .brief-row:last-child { border-bottom: none; }
+  .brief-row:hover { background: var(--paper); }
+
+  .brief-icon-wrap {
+    width: 38px; height: 44px;
+    background: var(--paper-warm);
+    border: 1px solid var(--hairline);
+    border-radius: 5px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .brief-icon-wrap::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 8px; height: 8px;
+    background: var(--paper);
+    border-left: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .brief-icon-wrap svg {
+    width: 16px; height: 16px;
+    color: var(--ink-muted);
+    margin-top: 6px;
+  }
+  .brief-icon-wrap.terracotta { border-color: var(--terracotta-border); background: var(--terracotta-soft); }
+  .brief-icon-wrap.terracotta svg { color: var(--terracotta); }
+
+  .brief-name-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+  .brief-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .brief-meta-sub {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.01em;
+  }
+
+  .template-chip {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-70);
+    background: var(--paper-warm);
+    padding: 3px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    justify-self: start;
+    font-weight: 500;
+  }
+  .template-chip.offer { color: var(--buy); background: var(--buy-soft); border: 1px solid var(--buy-border); }
+  .template-chip.summary { color: var(--ink); background: var(--paper-warm); }
+  .template-chip.portfolio { color: var(--terracotta); background: var(--terracotta-soft); border: 1px solid var(--terracotta-border); }
+
+  .brief-property {
+    font-size: 12.5px;
+    color: var(--ink-70);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .brief-audience {
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+
+  .brief-date {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+  }
+
+  .row-action { width: 28px; height: 28px; border-radius: 4px; background: transparent; color: var(--ink-muted); display: inline-flex; align-items: center; justify-content: center; }
+  .row-action:hover { background: var(--paper-warm); color: var(--ink); }
+  .row-action svg { width: 14px; height: 14px; }
+
+  /* STATE B — TEMPLATE PICKER */
+  .picker-intro {
+    max-width: 640px;
+    margin: 8px 0 32px;
+  }
+  .picker-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 36px;
+    font-weight: 400;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+    line-height: 1.15;
+    margin-bottom: 10px;
+  }
+  .picker-sub {
+    font-size: 15px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+  }
+
+  .template-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-bottom: 32px;
+  }
+  .template-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.15s;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .template-card:hover {
+    border-color: var(--hairline-strong);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -12px rgba(28,25,23,0.1);
+  }
+  .template-card.selected {
+    border-color: var(--terracotta);
+    box-shadow: 0 0 0 3px var(--terracotta-soft);
+  }
+
+  .template-preview {
+    aspect-ratio: 8.5 / 11;
+    background: var(--paper-warm);
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .template-preview::before {
+    content: '';
+    position: absolute;
+    inset: 18% 14% 14% 14%;
+    background: white;
+    border: 1px solid var(--hairline);
+    box-shadow: 0 4px 12px -4px rgba(28,25,23,0.08);
+  }
+  /* Single verdict preview (stylized) */
+  .preview-svg {
+    position: absolute;
+    inset: 18% 14% 14% 14%;
+    display: flex;
+    flex-direction: column;
+    padding: 10% 12%;
+    gap: 5%;
+  }
+  .preview-line {
+    background: var(--hairline-strong);
+    border-radius: 1px;
+  }
+  .preview-line.title { height: 8%; width: 60%; background: var(--ink); }
+  .preview-line.subtitle { height: 4%; width: 40%; background: var(--ink-muted); }
+  .preview-line.paragraph { height: 3%; width: 100%; background: var(--hairline-strong); }
+  .preview-line.paragraph.short { width: 70%; }
+  .preview-badge {
+    height: 8%;
+    width: 24%;
+    background: var(--buy);
+    border-radius: 100px;
+    margin-top: 5%;
+  }
+  .preview-badge.watch { background: var(--watch); }
+  .preview-badge.pass { background: var(--pass); }
+  .preview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3%;
+    margin-top: 4%;
+  }
+  .preview-grid-cell {
+    height: 30px;
+    background: var(--paper-warm);
+    border-radius: 2px;
+  }
+  .preview-chart {
+    height: 26%;
+    margin-top: 6%;
+    background: linear-gradient(180deg, var(--buy-soft), transparent);
+    border-bottom: 2px solid var(--buy);
+    border-radius: 2px 2px 0 0;
+  }
+
+  .template-body {
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .template-name {
+    font-family: 'Geist', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .template-desc {
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+  }
+  .template-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .template-meta-row .dot {
+    width: 3px; height: 3px;
+    background: var(--ink-faint);
+    border-radius: 50%;
+  }
+
+  .picker-details {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 24px 28px;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 32px;
+  }
+  .picker-form h3 {
+    font-family: 'Geist', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+  .form-field { margin-bottom: 14px; }
+  .form-label {
+    display: block;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-bottom: 5px;
+    font-weight: 500;
+  }
+  .form-select, .form-input {
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 5px;
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-select:focus, .form-input:focus {
+    border-color: var(--ink);
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .form-toggle-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .form-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 5px;
+    font-size: 12.5px;
+  }
+  .form-toggle-label { color: var(--ink-70); }
+  .toggle-switch {
+    width: 28px; height: 16px;
+    border-radius: 100px;
+    background: var(--hairline-strong);
+    position: relative;
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+  .toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 12px; height: 12px;
+    background: white;
+    border-radius: 50%;
+    transition: left 0.15s;
+  }
+  .toggle-switch.on {
+    background: var(--terracotta);
+  }
+  .toggle-switch.on::after {
+    left: 14px;
+  }
+
+  .picker-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .picker-actions .btn-primary {
+    justify-content: center;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+
+  .estimate-card {
+    padding: 16px;
+    background: var(--paper-warm);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    margin-top: 16px;
+  }
+  .estimate-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ink-70);
+    padding: 4px 0;
+  }
+  .estimate-row.total {
+    border-top: 1px solid var(--hairline);
+    margin-top: 8px;
+    padding-top: 10px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .estimate-row .mono {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+  }
+
+  /* STATE C — PREVIEW */
+  .preview-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+  }
+
+  .preview-frame {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .preview-frame-top {
+    padding: 14px 20px;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.06em;
+  }
+  .preview-frame-top-left {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .page-nav-btn {
+    width: 24px; height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--ink-muted);
+    background: transparent;
+  }
+  .page-nav-btn:hover { background: var(--card-ink); color: var(--ink); }
+  .page-nav-btn svg { width: 12px; height: 12px; }
+
+  .preview-page {
+    padding: 60px 72px;
+    aspect-ratio: 8.5 / 11;
+    background: white;
+    max-width: 800px;
+    margin: 32px auto;
+    box-shadow: 0 8px 32px -12px rgba(28,25,23,0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .preview-letterhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .preview-logo-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .preview-logo-wordmark {
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.045em;
+    line-height: 1;
+  }
+  .preview-logo-wordmark .dwell { color: var(--ink); }
+  .preview-logo-wordmark .verdict { color: var(--terracotta); }
+  .preview-date {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.08em;
+    text-align: right;
+  }
+
+  .preview-property-hero {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .preview-property-eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .preview-property-addr {
+    font-family: 'Instrument Serif', serif;
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+  .preview-property-city {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-muted);
+    letter-spacing: 0.02em;
+  }
+
+  .preview-verdict-card {
+    padding: 20px 24px;
+    background: var(--paper-warm);
+    border-left: 3px solid var(--watch);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .preview-dial {
+    width: 60px; height: 60px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .preview-dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .preview-dial-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Geist', sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .preview-verdict-body { flex: 1; min-width: 0; }
+  .preview-verdict-badge {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--watch);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .preview-verdict-headline {
+    font-family: 'Geist', sans-serif;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+  .preview-verdict-summary {
+    font-size: 13px;
+    color: var(--ink-70);
+    line-height: 1.55;
+  }
+
+  .preview-section {
+    padding-top: 12px;
+  }
+  .preview-section-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--hairline);
+    font-weight: 500;
+  }
+  .preview-prose p {
+    font-size: 13.5px;
+    color: var(--ink-70);
+    line-height: 1.7;
+    margin-bottom: 10px;
+  }
+  .preview-prose p:last-child { margin-bottom: 0; }
+  .preview-prose strong { color: var(--ink); font-weight: 500; }
+
+  .preview-evidence-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .preview-evidence-tile {
+    padding: 12px 14px;
+    background: var(--paper-warm);
+    border-radius: 4px;
+    border-left: 2px solid var(--hairline-strong);
+  }
+  .preview-evidence-tile.buy { border-left-color: var(--buy); }
+  .preview-evidence-tile.watch { border-left-color: var(--watch); }
+  .preview-ev-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-bottom: 4px;
+  }
+  .preview-ev-val {
+    font-family: 'Geist', sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .preview-ev-sub {
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+
+  /* PREVIEW SIDEBAR */
+  .preview-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .aside-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .aside-head {
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .aside-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--hairline);
+    font-size: 12.5px;
+  }
+  .aside-meta-row:last-child { border-bottom: none; }
+  .aside-meta-k {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .aside-meta-v {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .preview-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .preview-actions .btn-primary {
+    justify-content: center;
+    padding: 11px 16px;
+    font-size: 13.5px;
+  }
+  .preview-actions .btn-ghost {
+    justify-content: center;
+    padding: 10px 16px;
+  }
+
+  /* DESIGN NOTES */
+  .design-note { position: relative; }
+  .design-note::before { content: attr(data-note); position: absolute; right: 14px; top: -11px; background: #2563eb; color: white; font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 500; padding: 4px 9px; border-radius: 10px; letter-spacing: 0.06em; z-index: 5; opacity: 0.92; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+  body.notes-hidden .design-note::before { display: none; }
+  .toggle-notes { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; border: none; padding: 11px 18px; border-radius: 20px; font-family: 'Geist Mono', monospace; font-size: 10px; cursor: pointer; letter-spacing: 0.14em; text-transform: uppercase; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; font-weight: 500; }
+
+  /* STATE TOGGLE FIXED TOP */
+  .state-toggle-fixed {
+    position: fixed;
+    top: 84px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    border-radius: 100px;
+    padding: 4px;
+    display: flex;
+    gap: 2px;
+    z-index: 40;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+  .state-toggle-fixed button {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: rgba(250,250,247,0.6);
+    padding: 6px 14px;
+    background: transparent;
+    border-radius: 100px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .state-toggle-fixed button.active {
+    background: var(--terracotta);
+    color: white;
+  }
+</style>
+</head>
+<body class="notes-hidden">
+
+<div class="state-toggle-fixed">
+  <button class="active" onclick="setState('list')">Briefs List</button>
+  <button onclick="setState('templates')">Template Picker</button>
+  <button onclick="setState('preview')">Preview</button>
+</div>
+
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-lockup">
+        <svg width="24" height="24" viewBox="0 0 52 52" fill="none">
+          <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+          <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+      </div>
+    </div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/></svg><span>Dashboard</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 7h6M5 10h4"/></svg><span>Properties</span><span class="badge accent">3</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg><span>Verdicts</span><span class="badge">12</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="10" rx="1"/><path d="M2 7h12M6 2v4M10 2v4"/></svg><span>Compare</span></div>
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg><span>Portfolio</span></div>
+    <div class="nav-item active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Briefs</span></div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v0.5"/></svg><span>Alerts</span><span class="badge accent">2</span></div>
+    <div class="nav-section-label">Account</div>
+    <div class="nav-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/></svg><span>Settings</span></div>
+    <div class="sidebar-footer">
+      <div class="avatar">JC</div>
+      <div class="sidebar-user">
+        <div class="name">Jeremy Collins</div>
+        <div class="plan">Pro · $40/mo</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="page-top">
+      <div class="page-title-block">
+        <div class="page-title">Briefs</div>
+        <div class="page-sub">7 briefs generated · 3 templates · Last: April 24</div>
+      </div>
+      <button class="btn-primary">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v12M2 8h12" stroke-linecap="round"/></svg>
+        Generate brief
+      </button>
+    </div>
+
+    <div class="content-wrap">
+
+      <!-- STATE A — BRIEFS LIST -->
+      <div id="state-list">
+        <div class="brief-list-controls">
+          <div class="search-input">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="7" cy="7" r="5"/><path d="M14 14l-3-3" stroke-linecap="round"/></svg>
+            <input type="text" placeholder="Search brief name, property..." />
+          </div>
+          <button class="filter-chip active">All <span class="count">7</span></button>
+          <button class="filter-chip">Single verdict <span class="count">4</span></button>
+          <button class="filter-chip">Offer letter <span class="count">2</span></button>
+          <button class="filter-chip">Portfolio <span class="count">1</span></button>
+          <div class="filter-spacer"></div>
+        </div>
+
+        <div class="briefs-table design-note" data-note="Table of every generated brief">
+          <div class="briefs-head-row">
+            <span></span>
+            <span>Brief name</span>
+            <span>Template</span>
+            <span>Property</span>
+            <span>Audience</span>
+            <span>Generated</span>
+            <span></span>
+          </div>
+
+          <div class="brief-row">
+            <div class="brief-icon-wrap terracotta">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h8l3 3v9H3V2zm8 0v3h3"/></svg>
+            </div>
+            <div class="brief-name-cell">
+              <span class="brief-name">Cypress Point — Offer Letter Draft</span>
+              <span class="brief-meta-sub">4 pages · Signature fields included · PDF ready</span>
+            </div>
+            <span class="template-chip offer">Offer letter</span>
+            <span class="brief-property">1244 Cypress Point Dr</span>
+            <span class="brief-audience">Seller's agent</span>
+            <span class="brief-date">04.24.26</span>
+            <button class="row-action">
+              <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+            </button>
+          </div>
+
+          <div class="brief-row">
+            <div class="brief-icon-wrap">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h8l3 3v9H3V2zm8 0v3h3"/></svg>
+            </div>
+            <div class="brief-name-cell">
+              <span class="brief-name">295 Bend Ave — Verdict Snapshot</span>
+              <span class="brief-meta-sub">6 pages · Full evidence · Sources cited</span>
+            </div>
+            <span class="template-chip summary">Single verdict</span>
+            <span class="brief-property">295 Bend Ave</span>
+            <span class="brief-audience">Lender review</span>
+            <span class="brief-date">04.24.26</span>
+            <button class="row-action">
+              <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+            </button>
+          </div>
+
+          <div class="brief-row">
+            <div class="brief-icon-wrap terracotta">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h8l3 3v9H3V2zm8 0v3h3"/></svg>
+            </div>
+            <div class="brief-name-cell">
+              <span class="brief-name">Lake Tahoe Portfolio Summary — Q2</span>
+              <span class="brief-meta-sub">12 pages · 3 properties · Aggregate analytics</span>
+            </div>
+            <span class="template-chip portfolio">Portfolio</span>
+            <span class="brief-property">3 properties</span>
+            <span class="brief-audience">Advisor review</span>
+            <span class="brief-date">04.23.26</span>
+            <button class="row-action">
+              <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+            </button>
+          </div>
+
+          <div class="brief-row">
+            <div class="brief-icon-wrap">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h8l3 3v9H3V2zm8 0v3h3"/></svg>
+            </div>
+            <div class="brief-name-cell">
+              <span class="brief-name">1244 Cypress Point — Verdict Snapshot</span>
+              <span class="brief-meta-sub">5 pages · BUY signal · Comps table</span>
+            </div>
+            <span class="template-chip summary">Single verdict</span>
+            <span class="brief-property">1244 Cypress Point Dr</span>
+            <span class="brief-audience">Personal file</span>
+            <span class="brief-date">04.23.26</span>
+            <button class="row-action">
+              <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+            </button>
+          </div>
+
+          <div class="brief-row">
+            <div class="brief-icon-wrap">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h8l3 3v9H3V2zm8 0v3h3"/></svg>
+            </div>
+            <div class="brief-name-cell">
+              <span class="brief-name">41 Maywood — Verdict Snapshot</span>
+              <span class="brief-meta-sub">4 pages · Run 03 · Sent to Kristy (advisor)</span>
+            </div>
+            <span class="template-chip summary">Single verdict</span>
+            <span class="brief-property">41 Maywood Ct</span>
+            <span class="brief-audience">Kristy McKnight</span>
+            <span class="brief-date">04.20.26</span>
+            <button class="row-action">
+              <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+            </button>
+          </div>
+
+          <div class="brief-row">
+            <div class="brief-icon-wrap terracotta">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h8l3 3v9H3V2zm8 0v3h3"/></svg>
+            </div>
+            <div class="brief-name-cell">
+              <span class="brief-name">41 Maywood — Offer at $785K</span>
+              <span class="brief-meta-sub">3 pages · Contingencies · 30-day close</span>
+            </div>
+            <span class="template-chip offer">Offer letter</span>
+            <span class="brief-property">41 Maywood Ct</span>
+            <span class="brief-audience">Listing agent</span>
+            <span class="brief-date">04.19.26</span>
+            <button class="row-action">
+              <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+            </button>
+          </div>
+
+          <div class="brief-row">
+            <div class="brief-icon-wrap">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h8l3 3v9H3V2zm8 0v3h3"/></svg>
+            </div>
+            <div class="brief-name-cell">
+              <span class="brief-name">Forest Hill — Verdict Snapshot</span>
+              <span class="brief-meta-sub">4 pages · PASS signal · Regulatory detail</span>
+            </div>
+            <span class="template-chip summary">Single verdict</span>
+            <span class="brief-property">8873 Forest Hill Rd</span>
+            <span class="brief-audience">Personal file</span>
+            <span class="brief-date">04.12.26</span>
+            <button class="row-action">
+              <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- STATE B — TEMPLATE PICKER -->
+      <div id="state-templates">
+
+        <div class="picker-intro design-note" data-note="Generate brief flow, step 1: template">
+          <h1 class="picker-headline">What kind of brief?</h1>
+          <p class="picker-sub">
+            Each template formats your verdict data for a specific audience. Pick one, customize the details, generate the PDF.
+          </p>
+        </div>
+
+        <div class="template-grid">
+
+          <div class="template-card selected">
+            <div class="template-preview">
+              <div class="preview-svg">
+                <div class="preview-line title"></div>
+                <div class="preview-line subtitle"></div>
+                <div class="preview-badge"></div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-line paragraph short"></div>
+                <div class="preview-grid">
+                  <div class="preview-grid-cell"></div>
+                  <div class="preview-grid-cell"></div>
+                  <div class="preview-grid-cell"></div>
+                  <div class="preview-grid-cell"></div>
+                </div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-line paragraph short"></div>
+              </div>
+            </div>
+            <div class="template-body">
+              <div class="template-name">Single verdict snapshot</div>
+              <div class="template-desc">A clean PDF of one verdict — signal, confidence, all four evidence domains, sources cited.</div>
+              <div class="template-meta-row">
+                <span>4-6 pages</span>
+                <span class="dot"></span>
+                <span>Best for: lenders, personal files</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="template-card">
+            <div class="template-preview">
+              <div class="preview-svg">
+                <div class="preview-line title"></div>
+                <div class="preview-line subtitle"></div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-line paragraph short"></div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-line paragraph short"></div>
+                <div style="height: 20%; margin-top: 8%; border-top: 1px solid var(--hairline-strong);"></div>
+                <div style="display: flex; gap: 8%; margin-top: 6%;">
+                  <div style="height: 20px; width: 30%; background: var(--ink);"></div>
+                  <div style="height: 20px; width: 30%; background: var(--ink);"></div>
+                </div>
+              </div>
+            </div>
+            <div class="template-body">
+              <div class="template-name">Offer letter draft</div>
+              <div class="template-desc">Populate a ready-to-send offer letter from the verdict. Includes contingencies, price, timeline, signature fields.</div>
+              <div class="template-meta-row">
+                <span>3-4 pages</span>
+                <span class="dot"></span>
+                <span>Best for: seller's agents</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="template-card">
+            <div class="template-preview">
+              <div class="preview-svg">
+                <div class="preview-line title"></div>
+                <div class="preview-line subtitle"></div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-chart"></div>
+                <div class="preview-grid">
+                  <div class="preview-grid-cell"></div>
+                  <div class="preview-grid-cell"></div>
+                </div>
+                <div class="preview-line paragraph"></div>
+                <div class="preview-line paragraph short"></div>
+                <div class="preview-grid">
+                  <div class="preview-grid-cell"></div>
+                  <div class="preview-grid-cell"></div>
+                </div>
+              </div>
+            </div>
+            <div class="template-body">
+              <div class="template-name">Portfolio summary</div>
+              <div class="template-desc">Aggregate summary across all your properties. Verdict distribution, revenue projections, regulatory risk dashboard.</div>
+              <div class="template-meta-row">
+                <span>10-15 pages</span>
+                <span class="dot"></span>
+                <span>Pro tier only</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="picker-details design-note" data-note="Customize the brief contents">
+          <div class="picker-form">
+            <h3>Configure brief</h3>
+
+            <div class="form-field">
+              <label class="form-label">Property</label>
+              <select class="form-select">
+                <option>1244 Cypress Point Dr, Pebble Beach</option>
+                <option>295 Bend Ave, Kings Beach</option>
+                <option>41 Maywood Ct, Roseville</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label class="form-label">Verdict run</label>
+                <select class="form-select">
+                  <option>Run 01 · current (Buy 82)</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Audience</label>
+                <select class="form-select">
+                  <option>Lender review</option>
+                  <option>Personal file</option>
+                  <option>Advisor · Kristy McKnight</option>
+                  <option>Custom...</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label">Brief name</label>
+              <input type="text" class="form-input" value="Cypress Point — Verdict Snapshot" />
+            </div>
+
+            <div class="form-field" style="margin-top: 18px;">
+              <label class="form-label">Include in brief</label>
+              <div class="form-toggle-row">
+                <div class="form-toggle">
+                  <span class="form-toggle-label">Verdict summary + confidence</span>
+                  <div class="toggle-switch on"></div>
+                </div>
+                <div class="form-toggle">
+                  <span class="form-toggle-label">All 4 evidence domains</span>
+                  <div class="toggle-switch on"></div>
+                </div>
+                <div class="form-toggle">
+                  <span class="form-toggle-label">Comp table (full, not snippet)</span>
+                  <div class="toggle-switch on"></div>
+                </div>
+                <div class="form-toggle">
+                  <span class="form-toggle-label">Scout narrative analysis</span>
+                  <div class="toggle-switch on"></div>
+                </div>
+                <div class="form-toggle">
+                  <span class="form-toggle-label">Sources + citations</span>
+                  <div class="toggle-switch on"></div>
+                </div>
+                <div class="form-toggle">
+                  <span class="form-toggle-label">Previous run history</span>
+                  <div class="toggle-switch"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="picker-actions">
+            <div class="aside-head" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">Estimate</div>
+            <div class="estimate-card">
+              <div class="estimate-row">
+                <span>Template</span>
+                <span class="mono">Verdict snapshot</span>
+              </div>
+              <div class="estimate-row">
+                <span>Estimated pages</span>
+                <span class="mono">5-6</span>
+              </div>
+              <div class="estimate-row">
+                <span>Generation time</span>
+                <span class="mono">~12s</span>
+              </div>
+              <div class="estimate-row total">
+                <span>Cost</span>
+                <span class="mono">Included in Pro</span>
+              </div>
+            </div>
+
+            <button class="btn-primary">
+              Generate brief
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3l5 5-5 5" stroke-linecap="round"/></svg>
+            </button>
+            <button class="btn-ghost" style="justify-content: center; padding: 10px 16px;">Save as draft</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- STATE C — PREVIEW -->
+      <div id="state-preview">
+        <div class="preview-layout">
+
+          <div class="preview-frame design-note" data-note="PDF preview rendered in-app">
+            <div class="preview-frame-top">
+              <div class="preview-frame-top-left">
+                <button class="page-nav-btn"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2L4 6l4 4" stroke-linecap="round"/></svg></button>
+                <span>Page 1 of 6</span>
+                <button class="page-nav-btn"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2l4 4-4 4" stroke-linecap="round"/></svg></button>
+              </div>
+              <span>8.5 × 11 · Letter</span>
+            </div>
+
+            <div class="preview-page">
+              <div class="preview-letterhead">
+                <div class="preview-logo-lockup">
+                  <svg width="20" height="20" viewBox="0 0 52 52" fill="none">
+                    <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+                    <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                  </svg>
+                  <span class="preview-logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+                </div>
+                <div class="preview-date">
+                  Generated 04.24.2026<br/>
+                  Prepared for Jeremy Collins
+                </div>
+              </div>
+
+              <div class="preview-property-hero">
+                <div class="preview-property-eyebrow">Verdict Snapshot · Run 02</div>
+                <h1 class="preview-property-addr">295 Bend Ave</h1>
+                <div class="preview-property-city">Kings Beach, CA 96143 · North Lake Tahoe</div>
+              </div>
+
+              <div class="preview-verdict-card">
+                <div class="preview-dial">
+                  <svg viewBox="0 0 60 60">
+                    <circle cx="30" cy="30" r="25" fill="none" stroke="rgba(28,25,23,0.08)" stroke-width="3"/>
+                    <circle cx="30" cy="30" r="25" fill="none" stroke="#c77a14" stroke-width="3" stroke-dasharray="78 157" stroke-linecap="round"/>
+                  </svg>
+                  <div class="preview-dial-center">50</div>
+                </div>
+                <div class="preview-verdict-body">
+                  <div class="preview-verdict-badge">Verdict · Watch</div>
+                  <div class="preview-verdict-headline">Hold off.</div>
+                  <div class="preview-verdict-summary">Regulatory-clear but revenue evidence is missing. Revisit with verified STR comps or connect PMS data to move this toward BUY.</div>
+                </div>
+              </div>
+
+              <div class="preview-section">
+                <div class="preview-section-label">Scout analysis</div>
+                <div class="preview-prose">
+                  <p>
+                    The property sits in a <strong>permitted STR jurisdiction</strong> under Placer County's county-wide program, which caps non-owner-occupied permits at 3,900 countywide. Placer is not currently at cap — 1,443 of 3,900 permits are active — so permit access is realistic on a 60-90 day timeline.
+                  </p>
+                  <p>
+                    The revenue case is incomplete. No Zestimate, no ADR benchmark, no comp revenue data has been unlocked. A BUY signal from our rubric requires at minimum 3 verified STR comps within 1 mile with ADR and occupancy resolved.
+                  </p>
+                </div>
+              </div>
+
+              <div class="preview-section">
+                <div class="preview-section-label">Evidence at a glance</div>
+                <div class="preview-evidence-grid">
+                  <div class="preview-evidence-tile buy">
+                    <div class="preview-ev-label">Regulatory</div>
+                    <div class="preview-ev-val">Permitted</div>
+                    <div class="preview-ev-sub">Placer County · 85% confidence</div>
+                  </div>
+                  <div class="preview-evidence-tile watch">
+                    <div class="preview-ev-label">Location</div>
+                    <div class="preview-ev-val">Walk 37</div>
+                    <div class="preview-ev-sub">Car-dependent · 78% confidence</div>
+                  </div>
+                  <div class="preview-evidence-tile">
+                    <div class="preview-ev-label">Comps</div>
+                    <div class="preview-ev-val">15 found</div>
+                    <div class="preview-ev-sub">$462 median ADR · Pro-unlocked</div>
+                  </div>
+                  <div class="preview-evidence-tile">
+                    <div class="preview-ev-label">Revenue</div>
+                    <div class="preview-ev-val">$68.2K</div>
+                    <div class="preview-ev-sub">Annual projection · Medium conf.</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- PREVIEW ASIDE -->
+          <div class="preview-aside">
+
+            <div class="aside-card">
+              <div class="aside-head">Brief details</div>
+              <div class="aside-meta-row">
+                <span class="aside-meta-k">Template</span>
+                <span class="aside-meta-v">Verdict snapshot</span>
+              </div>
+              <div class="aside-meta-row">
+                <span class="aside-meta-k">Property</span>
+                <span class="aside-meta-v">295 Bend Ave</span>
+              </div>
+              <div class="aside-meta-row">
+                <span class="aside-meta-k">Verdict run</span>
+                <span class="aside-meta-v">02 · current</span>
+              </div>
+              <div class="aside-meta-row">
+                <span class="aside-meta-k">Pages</span>
+                <span class="aside-meta-v">6</span>
+              </div>
+              <div class="aside-meta-row">
+                <span class="aside-meta-k">Audience</span>
+                <span class="aside-meta-v">Lender review</span>
+              </div>
+              <div class="aside-meta-row">
+                <span class="aside-meta-k">Generated</span>
+                <span class="aside-meta-v">12 seconds ago</span>
+              </div>
+            </div>
+
+            <div class="preview-actions">
+              <button class="btn-primary">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 14h12" stroke-linecap="round"/></svg>
+                Download PDF
+              </button>
+              <button class="btn-ghost">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 4L8 8 4 4m0 8l4-4 4 4"/></svg>
+                Share via link
+              </button>
+              <button class="btn-ghost">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12"/></svg>
+                Send via email
+              </button>
+              <button class="btn-ghost">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 3v10M10 3v10"/></svg>
+                Edit brief
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<button class="toggle-notes" onclick="document.body.classList.toggle('notes-hidden')">Toggle design notes</button>
+
+<script>
+function setState(state) {
+  document.body.classList.remove('show-templates', 'show-preview');
+  if (state === 'templates') document.body.classList.add('show-templates');
+  if (state === 'preview') document.body.classList.add('show-preview');
+  document.querySelectorAll('.state-toggle-fixed button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

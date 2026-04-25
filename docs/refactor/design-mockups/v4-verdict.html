@@ -1,0 +1,2134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DwellVerdict — Verdict v4 (Locked logo)</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7;
+    --paper-warm: #f5f2ec;
+    --paper-deep: #ebe6da;
+    --sidebar-bg: #f7f5f0;
+    --card-ink: #ffffff;
+    --ink: #1c1917;
+    --ink-70: #44403c;
+    --ink-muted: #78716c;
+    --ink-subtle: #a8a29e;
+    --ink-faint: #d6d3d1;
+    --terracotta: #c55a3f;
+    --terracotta-deep: #a8472f;
+    --terracotta-soft: rgba(197, 90, 63, 0.08);
+    --terracotta-wash: rgba(197, 90, 63, 0.04);
+    --terracotta-border: rgba(197, 90, 63, 0.3);
+    --hairline: rgba(28, 25, 23, 0.07);
+    --hairline-strong: rgba(28, 25, 23, 0.13);
+    --buy: #0e9467;
+    --buy-soft: rgba(14, 148, 103, 0.08);
+    --buy-border: rgba(14, 148, 103, 0.25);
+    --watch: #c77a14;
+    --watch-soft: rgba(199, 122, 20, 0.08);
+    --watch-border: rgba(199, 122, 20, 0.25);
+    --pass: #c43d3d;
+    --pass-soft: rgba(196, 61, 61, 0.08);
+    --pass-border: rgba(196, 61, 61, 0.25);
+
+    --sidebar-w: 232px;
+    --rightrail-w: 320px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .mono { font-family: 'Geist Mono', ui-monospace, monospace; }
+  .serif { font-family: 'Instrument Serif', 'Times New Roman', serif; }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* ─── APP SHELL ─── */
+  .app-shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) 1fr;
+    min-height: 100vh;
+  }
+
+  /* ─── LEFT SIDEBAR ─── */
+  .sidebar {
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--hairline);
+    padding: 22px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .sidebar-brand {
+    padding: 4px 8px 22px 8px;
+    border-bottom: 1px solid var(--hairline);
+    margin-bottom: 16px;
+  }
+
+  /* LOCKED LOGO — v4 */
+  .logo-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-mark {
+    flex-shrink: 0;
+  }
+  .logo-wordmark {
+    font-family: 'Geist', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.045em;
+    line-height: 1;
+    display: inline-flex;
+  }
+  .logo-wordmark .dwell { color: var(--ink); }
+  .logo-wordmark .verdict { color: var(--terracotta); }
+
+  .nav-section-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 14px 10px 6px 10px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 8px 10px;
+    border-radius: 5px;
+    font-size: 13px;
+    color: var(--ink-70);
+    font-weight: 400;
+    transition: all 0.12s;
+    cursor: pointer;
+    position: relative;
+  }
+  .nav-item:hover {
+    background: rgba(28, 25, 23, 0.04);
+    color: var(--ink);
+  }
+  .nav-item.active {
+    background: var(--terracotta-soft);
+    color: var(--terracotta);
+    font-weight: 500;
+  }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 20px;
+    background: var(--terracotta);
+    border-radius: 0 2px 2px 0;
+  }
+  .nav-item svg {
+    width: 16px; height: 16px;
+    flex-shrink: 0;
+  }
+  .nav-item .badge {
+    margin-left: auto;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1px 6px;
+    border-radius: 8px;
+    letter-spacing: 0.04em;
+  }
+  .nav-item .badge.accent {
+    background: var(--terracotta);
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1c1917, #44403c);
+    color: var(--paper);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .sidebar-user {
+    flex: 1;
+    min-width: 0;
+  }
+  .sidebar-user .name {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sidebar-user .plan {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ─── MAIN COLUMN ─── */
+  .main-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* ─── PROPERTY HEADER BAR ─── */
+  .property-header-bar {
+    background: var(--paper);
+    border-bottom: 1px solid var(--hairline);
+    padding: 18px 32px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: saturate(180%) blur(10px);
+    background: rgba(250, 250, 247, 0.88);
+  }
+  .property-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .back-btn {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline-strong);
+    background: var(--card-ink);
+    color: var(--ink-70);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.12s;
+  }
+  .back-btn:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+  .back-btn svg { width: 14px; height: 14px; }
+  .property-thumb {
+    width: 48px; height: 48px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #9eb6c9 0%, #7a8a7a 50%, #5a6f4d 100%);
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    border: 1px solid var(--hairline);
+  }
+  .property-thumb::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 30% 55%, rgba(94, 63, 43, 0.6) 0%, transparent 30%),
+      radial-gradient(circle at 65% 45%, rgba(74, 60, 45, 0.65) 0%, transparent 32%);
+  }
+  .property-thumb::after {
+    content: '';
+    position: absolute;
+    bottom: 20%;
+    left: 25%;
+    right: 25%;
+    height: 45%;
+    background: linear-gradient(180deg, #6b4a2e 0%, #513723 100%);
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    opacity: 0.8;
+  }
+  .property-header-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .property-name-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .property-name {
+    font-family: 'Geist', sans-serif;
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .status-chip .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--watch); }
+  .status-chip.buy .dot { background: var(--buy); }
+  .status-chip.watch .dot { background: var(--watch); }
+  .status-chip.pass .dot { background: var(--pass); }
+  .property-address-line {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-muted);
+    letter-spacing: 0.02em;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--hairline-strong);
+    padding: 7px 13px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: var(--ink-70);
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-ghost svg { width: 13px; height: 13px; }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 8px 14px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary:hover { background: #2d2825; }
+  .btn-primary svg { width: 13px; height: 13px; }
+  .btn-icon {
+    width: 34px; height: 34px;
+    border-radius: 5px;
+    border: 1px solid var(--hairline-strong);
+    background: var(--card-ink);
+    color: var(--ink-70);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-icon:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-icon svg { width: 15px; height: 15px; }
+
+  /* ─── LIFECYCLE TABS ─── */
+  .lifecycle-tabs {
+    background: var(--paper);
+    padding: 0 32px;
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--hairline);
+    position: sticky;
+    top: 85px;
+    z-index: 9;
+  }
+  .lifecycle-tab {
+    padding: 14px 2px;
+    margin-right: 28px;
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--ink-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    cursor: pointer;
+    transition: color 0.12s;
+  }
+  .lifecycle-tab:hover { color: var(--ink); }
+  .lifecycle-tab.active {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .lifecycle-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--terracotta);
+  }
+  .lifecycle-tab .tab-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--hairline-strong);
+  }
+  .lifecycle-tab.complete .tab-dot { background: var(--buy); }
+  .lifecycle-tab.active .tab-dot { background: var(--terracotta); }
+  .lifecycle-tab.locked {
+    color: var(--ink-subtle);
+  }
+  .lifecycle-tab.locked svg {
+    width: 11px; height: 11px;
+    margin-left: 3px;
+  }
+
+  /* ─── CONTENT + RIGHT RAIL GRID ─── */
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1fr var(--rightrail-w);
+    gap: 28px;
+    padding: 28px 32px;
+    min-width: 0;
+  }
+
+  .content-main {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-width: 0;
+  }
+
+  /* ─── VERDICT HERO ─── */
+  .verdict-hero {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--watch);
+    border-radius: 10px;
+    padding: 28px 32px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .dial {
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .dial-ring {
+    width: 100%; height: 100%;
+    transform: rotate(-90deg);
+  }
+  .dial-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .dial-pct {
+    font-family: 'Geist', sans-serif;
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .dial-tag {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    margin-top: 4px;
+  }
+  .verdict-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .verdict-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .verdict-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--watch);
+  }
+  .verdict-badge {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--watch);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+  }
+  .verdict-word {
+    font-family: 'Geist', sans-serif;
+    font-size: 38px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    line-height: 1.05;
+    margin-bottom: 8px;
+  }
+  .verdict-sub {
+    font-size: 13.5px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+    max-width: 520px;
+  }
+  .verdict-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: right;
+    flex-shrink: 0;
+    padding-left: 28px;
+    border-left: 1px solid var(--hairline);
+  }
+  .verdict-meta .k {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+  }
+  .verdict-meta .v {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ─── HERO METRICS STRIP ─── */
+  .hero-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .hero-metric {
+    padding: 20px 22px;
+    border-right: 1px solid var(--hairline);
+    min-height: 110px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .hero-metric:last-child { border-right: none; }
+  .metric-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .metric-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .metric-info {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--hairline-strong);
+    color: var(--ink-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-family: 'Geist Mono', monospace;
+    cursor: help;
+  }
+  .metric-big {
+    font-family: 'Geist', sans-serif;
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.028em;
+    color: var(--ink);
+    line-height: 1.05;
+  }
+  .metric-big.muted-lock {
+    color: var(--ink-faint);
+    font-weight: 400;
+    font-family: 'Geist Mono', monospace;
+    font-size: 24px;
+  }
+  .metric-support {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .strength-bar {
+    display: inline-flex;
+    gap: 2px;
+  }
+  .strength-bar .seg {
+    width: 8px; height: 4px;
+    border-radius: 1px;
+    background: var(--hairline-strong);
+  }
+  .strength-bar.medium .seg:nth-child(-n+3) { background: var(--watch); }
+  .strength-bar.strong .seg:nth-child(-n+5) { background: var(--buy); }
+  .strength-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .strength-label.positive { color: var(--buy); }
+  .strength-label.warning { color: var(--watch); }
+
+  .lock-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 500;
+  }
+  .lock-inline svg { width: 10px; height: 10px; }
+
+  /* ─── SECTION LABEL ─── */
+  .section-rule {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 4px 0 0 0;
+  }
+  .section-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    white-space: nowrap;
+  }
+  .section-rule .line {
+    height: 1px;
+    background: var(--hairline);
+    flex: 1;
+  }
+  .section-rule .count {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-subtle);
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── EVIDENCE GRID ─── */
+  .evidence-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+  .evidence-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s ease;
+  }
+  .evidence-card:hover { border-color: var(--hairline-strong); }
+  .evidence-head {
+    padding: 18px 22px 14px 22px;
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .evidence-head-left {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .evidence-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: var(--paper-warm);
+    color: var(--ink-70);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .evidence-icon svg { width: 14px; height: 14px; }
+  .evidence-title {
+    font-family: 'Geist', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .signal-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 12px;
+  }
+  .signal-chip .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .signal-chip.buy { color: var(--buy); background: var(--buy-soft); border: 1px solid var(--buy-border); }
+  .signal-chip.buy .dot { background: var(--buy); }
+  .signal-chip.watch { color: var(--watch); background: var(--watch-soft); border: 1px solid var(--watch-border); }
+  .signal-chip.watch .dot { background: var(--watch); }
+  .signal-chip.locked {
+    color: var(--terracotta);
+    background: var(--terracotta-wash);
+    border: 1px solid var(--terracotta-border);
+  }
+  .signal-chip.locked .dot { background: var(--terracotta); }
+
+  .evidence-body {
+    padding: 20px 22px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .evidence-primary {
+    margin-bottom: 14px;
+  }
+  .evidence-primary .big-num {
+    font-family: 'Geist', sans-serif;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.028em;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .evidence-primary .big-num.locked {
+    color: var(--ink-faint);
+    font-family: 'Geist Mono', monospace;
+    font-weight: 400;
+    font-size: 20px;
+  }
+  .evidence-primary .big-sub {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin-top: 3px;
+    font-family: 'Geist Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+
+  .evidence-footer {
+    padding: 12px 22px;
+    border-top: 1px solid var(--hairline);
+    background: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .evidence-confidence {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .evidence-link {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-70);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+  }
+  .evidence-link:hover { color: var(--terracotta); }
+
+  /* ─── COMPS CARD ─── */
+  .comp-histogram {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 48px;
+    margin: 12px 0 14px 0;
+  }
+  .comp-histogram .bar {
+    flex: 1;
+    background: var(--hairline-strong);
+    border-radius: 2px 2px 0 0;
+    min-height: 4px;
+    opacity: 0.55;
+  }
+  .comp-histogram .bar.active {
+    background: var(--ink-70);
+    opacity: 1;
+  }
+  .comp-histogram .bar.peak {
+    background: var(--ink);
+  }
+  .comp-histogram-scale {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-subtle);
+    margin-bottom: 14px;
+  }
+
+  .comp-table {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .comp-table-head {
+    display: grid;
+    grid-template-columns: 1fr 58px 44px 40px;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--paper-warm);
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .comp-row {
+    display: grid;
+    grid-template-columns: 1fr 58px 44px 40px;
+    gap: 10px;
+    padding: 8px 12px;
+    font-size: 12px;
+    align-items: center;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .comp-row:last-child { border-bottom: none; }
+  .comp-row .cname { color: var(--ink-70); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .comp-row .cadr { font-family: 'Geist Mono', monospace; color: var(--ink); text-align: right; font-weight: 500; font-size: 11px; }
+  .comp-row .cbd { font-family: 'Geist Mono', monospace; color: var(--ink-muted); text-align: right; font-size: 11px; }
+  .comp-row .crev { text-align: right; }
+  .locked-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-subtle);
+    padding: 2px 6px;
+    background: var(--paper-warm);
+    border-radius: 3px;
+  }
+  .locked-cell svg { width: 10px; height: 10px; }
+
+  .upgrade-strip {
+    margin: 14px 0 0 0;
+    padding: 12px 14px;
+    background: var(--terracotta-wash);
+    border: 1px solid var(--terracotta-border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .upgrade-strip-text {
+    font-size: 12px;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .upgrade-strip-text strong { font-weight: 500; }
+  .upgrade-strip-text .muted { color: var(--ink-muted); font-size: 11px; margin-left: 4px; }
+  .btn-upgrade-inline {
+    background: var(--terracotta);
+    color: white;
+    padding: 7px 12px;
+    border-radius: 4px;
+    font-family: 'Geist', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    border: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-upgrade-inline:hover { background: var(--terracotta-deep); }
+
+  /* ─── REVENUE CHART ─── */
+  .revenue-chart-locked {
+    position: relative;
+    height: 115px;
+    margin: 4px 0 14px 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--paper-warm) 0%, var(--paper) 100%);
+    border: 1px dashed var(--hairline-strong);
+  }
+  .revenue-chart-locked svg {
+    width: 100%; height: 100%;
+    display: block;
+    opacity: 0.4;
+    filter: blur(1.5px);
+  }
+  .chart-lock-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(250, 250, 247, 0.35);
+  }
+  .chart-lock-overlay .icon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--card-ink);
+    border: 1px solid var(--hairline-strong);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--terracotta);
+  }
+  .chart-lock-overlay .icon svg { width: 13px; height: 13px; }
+  .chart-lock-overlay .msg {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* ─── REGULATORY CARD ─── */
+  .reg-rules {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .reg-rules li {
+    font-size: 12.5px;
+    color: var(--ink-70);
+    padding: 9px 0;
+    border-bottom: 1px solid var(--hairline);
+    display: grid;
+    grid-template-columns: 16px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    line-height: 1.4;
+  }
+  .reg-rules li:last-child { border-bottom: none; }
+  .reg-rules .check {
+    color: var(--buy);
+    display: inline-flex;
+    justify-content: center;
+  }
+  .reg-rules .check svg { width: 12px; height: 12px; }
+  .reg-rules .warn { color: var(--watch); }
+  .reg-rules .warn svg { width: 12px; height: 12px; }
+  .reg-rules .qty {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .reg-rules .qty.muted { color: var(--ink-muted); }
+  .reg-progress {
+    margin-top: 14px;
+    padding: 11px 14px;
+    background: var(--buy-soft);
+    border: 1px solid var(--buy-border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .reg-progress-fill {
+    flex: 1;
+    height: 6px;
+    background: rgba(14, 148, 103, 0.15);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .reg-progress-fill .inner {
+    width: 37%;
+    height: 100%;
+    background: var(--buy);
+  }
+  .reg-progress-text {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-70);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .reg-progress-text strong {
+    font-weight: 500;
+    color: var(--buy);
+  }
+
+  /* ─── LOCATION CARD ─── */
+  .location-map {
+    width: 100%;
+    height: 140px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #e8ecef 0%, #d6dde3 100%);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    margin-bottom: 14px;
+  }
+  .location-map::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 40%, rgba(158, 182, 201, 0.55) 42%, rgba(158, 182, 201, 0.55) 100%);
+  }
+  .location-map::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 30% 35%, rgba(120, 140, 110, 0.35) 0%, transparent 18%),
+      radial-gradient(circle at 55% 55%, rgba(120, 140, 110, 0.3) 0%, transparent 14%),
+      radial-gradient(circle at 72% 40%, rgba(120, 140, 110, 0.28) 0%, transparent 12%);
+  }
+  .map-pin {
+    position: absolute;
+    width: 22px; height: 22px;
+    border-radius: 50% 50% 50% 0;
+    background: var(--terracotta);
+    transform: rotate(-45deg);
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    z-index: 3;
+  }
+  .map-pin.subject { left: 42%; top: 48%; }
+  .map-pin.comp {
+    width: 9px; height: 9px;
+    background: var(--ink);
+    border-width: 1.5px;
+    opacity: 0.85;
+  }
+  .map-pin.c1 { left: 28%; top: 38%; }
+  .map-pin.c2 { left: 55%; top: 32%; }
+  .map-pin.c3 { left: 62%; top: 58%; }
+  .map-pin.c4 { left: 35%; top: 65%; }
+  .map-pin.c5 { left: 70%; top: 45%; }
+  .map-pin.c6 { left: 48%; top: 28%; }
+  .map-pin.c7 { left: 25%; top: 58%; }
+  .map-scale {
+    position: absolute;
+    bottom: 8px;
+    right: 10px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: rgba(28, 25, 23, 0.55);
+    letter-spacing: 0.1em;
+    background: rgba(255,255,255,0.75);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .location-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--hairline);
+    padding-top: 12px;
+  }
+  .loc-stat { display: flex; flex-direction: column; gap: 2px; }
+  .loc-stat .k {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .loc-stat .v {
+    font-family: 'Geist Mono', monospace;
+    font-size: 14px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .loc-stat .v.warn { color: var(--watch); }
+
+  /* ─── NARRATIVE ─── */
+  .narrative-section {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 28px 30px;
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 32px;
+  }
+  .narrative-body h3 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    line-height: 1.3;
+    margin-bottom: 14px;
+  }
+  .narrative-body p {
+    font-size: 14px;
+    color: var(--ink-70);
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+  .narrative-body p:last-child { margin-bottom: 0; }
+  .narrative-body strong {
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .narrative-body em.data {
+    font-style: normal;
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--paper-warm);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .aside-col {
+    border-left: 1px solid var(--hairline);
+    padding-left: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .aside-block h4 {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+  .aside-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .aside-list li {
+    font-size: 12.5px;
+    color: var(--ink-70);
+    padding: 8px 0;
+    border-bottom: 1px solid var(--hairline);
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 8px;
+    align-items: flex-start;
+    line-height: 1.45;
+  }
+  .aside-list li:last-child { border-bottom: none; }
+  .aside-list .num {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    color: var(--ink-subtle);
+    margin-top: 2px;
+    letter-spacing: 0.1em;
+  }
+  .aside-list .plus {
+    color: var(--buy);
+    font-weight: 500;
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    margin-top: 1px;
+  }
+
+  /* ─── SOURCES ─── */
+  .sources-section {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 22px 26px;
+  }
+  .sources-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sources-title {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
+  .sources-meta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-subtle);
+    letter-spacing: 0.1em;
+  }
+  .sources-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px 24px;
+  }
+  .source-link {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    padding: 5px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .source-link::before {
+    content: '↗';
+    color: var(--ink-subtle);
+    font-size: 12px;
+  }
+  .source-link:hover { color: var(--terracotta); }
+
+  /* ─── RIGHT RAIL ─── */
+  .right-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  .rail-card {
+    background: var(--card-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 20px 22px;
+  }
+  .rail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .rail-title {
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .rail-title-with-icon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .rail-title-with-icon .avatar-scout {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--terracotta);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .rail-title-with-icon .avatar-scout svg { width: 11px; height: 11px; }
+  .rail-title-with-icon .avatar-scout::after {
+    content: '';
+    position: absolute;
+    bottom: 1px; right: 1px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--buy);
+    border: 1.5px solid var(--ink);
+  }
+  .rail-eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
+
+  .next-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--hairline);
+    cursor: pointer;
+    transition: background 0.12s;
+    margin: 0 -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+    border-radius: 5px;
+  }
+  .next-step:last-child { border-bottom: none; }
+  .next-step:hover { background: var(--paper-warm); }
+  .next-step-icon {
+    width: 30px; height: 30px;
+    border-radius: 6px;
+    background: var(--paper-warm);
+    color: var(--terracotta);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .next-step-icon svg { width: 14px; height: 14px; }
+  .next-step-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .next-step-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 2px;
+    letter-spacing: -0.005em;
+  }
+  .next-step-desc {
+    font-size: 12px;
+    color: var(--ink-muted);
+    line-height: 1.45;
+  }
+  .next-step-arrow {
+    color: var(--ink-subtle);
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .next-step-arrow svg { width: 14px; height: 14px; }
+
+  .scout-ask-input {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--paper);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    cursor: text;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .scout-ask-input:hover {
+    border-color: var(--ink);
+  }
+  .scout-ask-input .kbd {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    padding: 2px 5px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 3px;
+    background: var(--paper-warm);
+  }
+
+  .rail-suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 14px;
+  }
+  .rail-suggestion {
+    font-size: 12px;
+    color: var(--ink-70);
+    padding: 8px 10px;
+    border: 1px solid var(--hairline);
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--paper);
+    transition: all 0.12s;
+  }
+  .rail-suggestion:hover {
+    border-color: var(--ink);
+    background: var(--card-ink);
+  }
+  .rail-suggestion::before {
+    content: '→';
+    color: var(--ink-muted);
+    font-size: 11px;
+    font-family: 'Geist Mono', monospace;
+  }
+
+  /* Timeline */
+  .timeline-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .timeline-item {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--hairline);
+    align-items: flex-start;
+  }
+  .timeline-item:last-child { border-bottom: none; }
+  .timeline-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 5px;
+  }
+  .timeline-marker::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 2px solid var(--card-ink);
+    box-shadow: 0 0 0 1px var(--hairline-strong);
+  }
+  .timeline-body .date {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+  .timeline-body .action {
+    font-size: 12.5px;
+    color: var(--ink);
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+  .timeline-body .detail {
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    line-height: 1.45;
+  }
+
+  /* ─── v4 BADGE ─── */
+  .v4-badge {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 50;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- LEFT SIDEBAR with locked logo -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-lockup">
+        <svg class="logo-mark" width="24" height="24" viewBox="0 0 52 52" fill="none">
+          <path d="M 8 22 L 26 6 L 44 22 Q 44 46 26 46 L 8 46 Z" fill="#c55a3f"/>
+          <path d="M 15 31 L 22 38 L 36 24" stroke="#fafaf7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span class="logo-wordmark"><span class="dwell">dwell</span><span class="verdict">verdict</span></span>
+      </div>
+    </div>
+
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M2 6l6-4 6 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/>
+      </svg>
+      <span>Dashboard</span>
+    </div>
+    <div class="nav-item active">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="2" y="3" width="12" height="11" rx="1"/>
+        <path d="M5 7h6M5 10h4"/>
+      </svg>
+      <span>Properties</span>
+      <span class="badge accent">3</span>
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="8" cy="8" r="6"/>
+        <path d="M8 4v4l2.5 2.5"/>
+      </svg>
+      <span>Verdicts</span>
+      <span class="badge">12</span>
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="2" y="4" width="12" height="10" rx="1"/>
+        <path d="M2 7h12M6 2v4M10 2v4"/>
+      </svg>
+      <span>Compare</span>
+    </div>
+
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/>
+      </svg>
+      <span>Portfolio</span>
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 4h10M3 8h10M3 12h6"/>
+      </svg>
+      <span>Briefs</span>
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="8" cy="8" r="6"/>
+        <path d="M8 4v4M8 11v0.5"/>
+      </svg>
+      <span>Alerts</span>
+    </div>
+
+    <div class="nav-section-label">Account</div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="8" cy="8" r="2"/>
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/>
+      </svg>
+      <span>Settings</span>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="avatar">JC</div>
+      <div class="sidebar-user">
+        <div class="name">Jeremy Collins</div>
+        <div class="plan">Free · 12 / 25</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN COLUMN -->
+  <div class="main-col">
+
+    <!-- PROPERTY HEADER BAR -->
+    <div class="property-header-bar">
+      <div class="property-header-inner">
+        <button class="back-btn">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 3L5 8l5 5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="property-thumb"></div>
+        <div class="property-header-info">
+          <div class="property-name-row">
+            <span class="property-name">295 Bend Ave</span>
+            <span class="status-chip watch">
+              <span class="dot"></span>
+              Watch
+            </span>
+          </div>
+          <div class="property-address-line">Kings Beach, CA 96143 · North Lake Tahoe</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn-primary">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75">
+              <path d="M14 8c0 3.3-2.7 6-6 6S2 11.3 2 8s2.7-6 6-6c1.8 0 3.4.8 4.5 2" stroke-linecap="round"/>
+              <path d="M12.5 2v2.5H10" stroke-linecap="round"/>
+            </svg>
+            Re-run verdict
+          </button>
+          <button class="btn-icon" title="More actions">
+            <svg viewBox="0 0 16 16" fill="currentColor">
+              <circle cx="3" cy="8" r="1.5"/>
+              <circle cx="8" cy="8" r="1.5"/>
+              <circle cx="13" cy="8" r="1.5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIFECYCLE TABS -->
+    <div class="lifecycle-tabs">
+      <div class="lifecycle-tab complete">
+        <span class="tab-dot"></span>
+        <span>Finding</span>
+      </div>
+      <div class="lifecycle-tab active">
+        <span class="tab-dot"></span>
+        <span>Evaluating</span>
+      </div>
+      <div class="lifecycle-tab locked">
+        <span class="tab-dot"></span>
+        <span>Buying</span>
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg>
+      </div>
+      <div class="lifecycle-tab locked">
+        <span class="tab-dot"></span>
+        <span>Renovating</span>
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg>
+      </div>
+      <div class="lifecycle-tab locked">
+        <span class="tab-dot"></span>
+        <span>Managing</span>
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg>
+      </div>
+    </div>
+
+    <!-- CONTENT GRID -->
+    <div class="content-grid">
+
+      <!-- MAIN CONTENT -->
+      <div class="content-main">
+
+        <!-- VERDICT HERO -->
+        <div class="verdict-hero">
+          <div class="dial">
+            <svg class="dial-ring" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(28,25,23,0.08)" stroke-width="4"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--watch)" stroke-width="4"
+                      stroke-dasharray="163 326" stroke-linecap="round"/>
+            </svg>
+            <div class="dial-center">
+              <div class="dial-pct">50</div>
+              <div class="dial-tag">Confidence</div>
+            </div>
+          </div>
+          <div class="verdict-body">
+            <div class="verdict-badge-row">
+              <span class="verdict-dot"></span>
+              <span class="verdict-badge">Verdict · Watch</span>
+            </div>
+            <div class="verdict-word">Hold off.</div>
+            <div class="verdict-sub">Regulatory-clear but revenue evidence is missing. Revisit with verified STR comps or connect PMS data to move this toward BUY.</div>
+          </div>
+          <div class="verdict-meta">
+            <div><span class="k">Generated</span></div>
+            <div><span class="v">04.24.26</span></div>
+            <div style="margin-top: 8px;"><span class="k">Run #</span></div>
+            <div><span class="v">02</span></div>
+          </div>
+        </div>
+
+        <!-- HERO METRICS STRIP -->
+        <div class="hero-metrics">
+          <div class="hero-metric">
+            <div>
+              <div class="metric-head">
+                <span class="metric-label">Projected Revenue</span>
+                <span class="metric-info">i</span>
+              </div>
+              <div class="metric-big muted-lock">$ —</div>
+            </div>
+            <div class="metric-support">
+              <span class="lock-inline">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg>
+                Pro · $79/mo
+              </span>
+            </div>
+          </div>
+          <div class="hero-metric">
+            <div>
+              <div class="metric-head">
+                <span class="metric-label">Est. Occupancy</span>
+                <span class="metric-info">i</span>
+              </div>
+              <div class="metric-big muted-lock">— %</div>
+            </div>
+            <div class="metric-support">
+              <span class="lock-inline">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg>
+                Pro · $79/mo
+              </span>
+            </div>
+          </div>
+          <div class="hero-metric">
+            <div>
+              <div class="metric-head">
+                <span class="metric-label">Regulatory</span>
+                <span class="metric-info">i</span>
+              </div>
+              <div class="metric-big">Permitted</div>
+            </div>
+            <div class="metric-support">
+              <span class="strength-bar strong">
+                <span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span>
+              </span>
+              <span class="strength-label positive">Strong</span>
+            </div>
+          </div>
+          <div class="hero-metric">
+            <div>
+              <div class="metric-head">
+                <span class="metric-label">Location Score</span>
+                <span class="metric-info">i</span>
+              </div>
+              <div class="metric-big">37<span style="color: var(--ink-muted); font-size: 16px; font-family: 'Geist Mono', monospace; font-weight: 400;">/100</span></div>
+            </div>
+            <div class="metric-support">
+              <span class="strength-bar medium">
+                <span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span>
+              </span>
+              <span class="strength-label warning">Car-dependent</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- EVIDENCE HEADER -->
+        <div class="section-rule">
+          <span class="section-label">Evidence · Four Domains</span>
+          <span class="line"></span>
+          <span class="count">02 of 04 complete</span>
+        </div>
+
+        <!-- EVIDENCE GRID -->
+        <div class="evidence-grid">
+
+          <!-- COMPS -->
+          <div class="evidence-card">
+            <div class="evidence-head">
+              <div class="evidence-head-left">
+                <div class="evidence-icon">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg>
+                </div>
+                <div class="evidence-title">Comparable Properties</div>
+              </div>
+              <span class="signal-chip locked"><span class="dot"></span>Pro tier</span>
+            </div>
+
+            <div class="evidence-body">
+              <div class="evidence-primary">
+                <div class="big-num">15 comps</div>
+                <div class="big-sub">within 1.2 miles · 3BR match</div>
+              </div>
+
+              <div class="comp-histogram">
+                <span class="bar" style="height: 18%"></span>
+                <span class="bar active" style="height: 32%"></span>
+                <span class="bar active" style="height: 48%"></span>
+                <span class="bar active" style="height: 55%"></span>
+                <span class="bar active" style="height: 72%"></span>
+                <span class="bar peak" style="height: 88%"></span>
+                <span class="bar active" style="height: 78%"></span>
+                <span class="bar active" style="height: 62%"></span>
+                <span class="bar active" style="height: 45%"></span>
+                <span class="bar" style="height: 28%"></span>
+                <span class="bar" style="height: 22%"></span>
+                <span class="bar" style="height: 18%"></span>
+              </div>
+              <div class="comp-histogram-scale">
+                <span>$20K</span>
+                <span>$62K median</span>
+                <span>$90K</span>
+              </div>
+
+              <div class="comp-table">
+                <div class="comp-table-head">
+                  <span>Listing</span>
+                  <span style="text-align:right">ADR</span>
+                  <span style="text-align:right">Dist</span>
+                  <span style="text-align:right">Rev</span>
+                </div>
+                <div class="comp-row">
+                  <span class="cname">Lakefront Condo</span>
+                  <span class="cadr">$585</span>
+                  <span class="cbd">0.4mi</span>
+                  <span class="crev"><span class="locked-cell"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg></span></span>
+                </div>
+                <div class="comp-row">
+                  <span class="cname">Great Lake View</span>
+                  <span class="cadr">$523</span>
+                  <span class="cbd">0.7mi</span>
+                  <span class="crev"><span class="locked-cell"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg></span></span>
+                </div>
+                <div class="comp-row">
+                  <span class="cname">BROCKway 3BR</span>
+                  <span class="cadr">$412</span>
+                  <span class="cbd">1.1mi</span>
+                  <span class="crev"><span class="locked-cell"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg></span></span>
+                </div>
+                <div class="comp-row">
+                  <span class="cname">Lakeview Serenity</span>
+                  <span class="cadr">$408</span>
+                  <span class="cbd">0.9mi</span>
+                  <span class="crev"><span class="locked-cell"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg></span></span>
+                </div>
+              </div>
+
+              <div class="upgrade-strip">
+                <div class="upgrade-strip-text">
+                  <strong>Unlock all 15 comps.</strong><span class="muted">Revenue · Occupancy · ADR</span>
+                </div>
+                <button class="btn-upgrade-inline">$29 Full Report</button>
+              </div>
+            </div>
+
+            <div class="evidence-footer">
+              <span class="evidence-confidence">Data quality · Medium</span>
+              <a href="#" class="evidence-link">Configure comps →</a>
+            </div>
+          </div>
+
+          <!-- REVENUE -->
+          <div class="evidence-card">
+            <div class="evidence-head">
+              <div class="evidence-head-left">
+                <div class="evidence-icon">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 13h10v1H3v-1zM4 3h1v9H4V3zm3 3h1v6H7V6zm3-2h1v8h-1V4zm3 4h1v4h-1V8z"/></svg>
+                </div>
+                <div class="evidence-title">Revenue Projection</div>
+              </div>
+              <span class="signal-chip locked"><span class="dot"></span>Pro tier</span>
+            </div>
+
+            <div class="evidence-body">
+              <div class="evidence-primary">
+                <div class="big-num locked">$ — .—K</div>
+                <div class="big-sub">comp-weighted annual projection</div>
+              </div>
+
+              <div class="revenue-chart-locked">
+                <svg viewBox="0 0 300 120" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#c55a3f" stop-opacity="0.3"/>
+                      <stop offset="100%" stop-color="#c55a3f" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M 0 85 L 25 80 L 50 78 L 75 70 L 100 58 L 125 38 L 150 28 L 175 32 L 200 42 L 225 52 L 250 68 L 275 82 L 300 88 L 300 120 L 0 120 Z" fill="url(#revGrad)"/>
+                  <path d="M 0 85 L 25 80 L 50 78 L 75 70 L 100 58 L 125 38 L 150 28 L 175 32 L 200 42 L 225 52 L 250 68 L 275 82 L 300 88" fill="none" stroke="#c55a3f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div class="chart-lock-overlay">
+                  <div class="icon">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg>
+                  </div>
+                  <div class="msg">Monthly projections · Pro</div>
+                </div>
+              </div>
+
+              <div class="upgrade-strip">
+                <div class="upgrade-strip-text">
+                  <strong>Monthly revenue, occupancy, ADR.</strong><span class="muted">12-month + 2-year history</span>
+                </div>
+                <button class="btn-upgrade-inline">Upgrade Pro</button>
+              </div>
+            </div>
+
+            <div class="evidence-footer">
+              <span class="evidence-confidence">Data quality · Low · inputs missing</span>
+              <a href="#" class="evidence-link">Connect PMS →</a>
+            </div>
+          </div>
+
+          <!-- REGULATORY -->
+          <div class="evidence-card">
+            <div class="evidence-head">
+              <div class="evidence-head-left">
+                <div class="evidence-icon">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3v5c0 3.5-2.5 6.5-6 7-3.5-.5-6-3.5-6-7V4l6-3z"/></svg>
+                </div>
+                <div class="evidence-title">Regulatory Status</div>
+              </div>
+              <span class="signal-chip buy"><span class="dot"></span>Permitted</span>
+            </div>
+
+            <div class="evidence-body">
+              <div class="evidence-primary">
+                <div class="big-num">Placer County</div>
+                <div class="big-sub">annual renewal · fire inspection</div>
+              </div>
+
+              <ul class="reg-rules">
+                <li>
+                  <span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span>
+                  <span>Non-owner-occupied STR permitted</span>
+                  <span class="qty muted">allowed</span>
+                </li>
+                <li>
+                  <span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span>
+                  <span>Countywide permit cap</span>
+                  <span class="qty">3,900</span>
+                </li>
+                <li>
+                  <span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7.5 7.5L2.5 8.5l1-1 2.5 2.5 6.5-6.5 1 1z"/></svg></span>
+                  <span>Fire-safety inspection</span>
+                  <span class="qty muted">required</span>
+                </li>
+                <li>
+                  <span class="warn"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l7 13H1L8 1zm0 5v4m0 2v0.5"/></svg></span>
+                  <span>HOA overlay check</span>
+                  <span class="qty muted">pending</span>
+                </li>
+              </ul>
+
+              <div class="reg-progress">
+                <span class="reg-progress-text"><strong>1,443</strong> of 3,900 active</span>
+                <div class="reg-progress-fill"><span class="inner"></span></div>
+              </div>
+            </div>
+
+            <div class="evidence-footer">
+              <span class="evidence-confidence">Confidence · 85% · verified 04.22.26</span>
+              <a href="#" class="evidence-link">View ordinance →</a>
+            </div>
+          </div>
+
+          <!-- LOCATION -->
+          <div class="evidence-card">
+            <div class="evidence-head">
+              <div class="evidence-head-left">
+                <div class="evidence-icon">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 00-5 5c0 4.5 5 9 5 9s5-4.5 5-9a5 5 0 00-5-5zm0 7a2 2 0 110-4 2 2 0 010 4z"/></svg>
+                </div>
+                <div class="evidence-title">Location Signal</div>
+              </div>
+              <span class="signal-chip watch"><span class="dot"></span>Mixed</span>
+            </div>
+
+            <div class="evidence-body">
+              <div class="evidence-primary">
+                <div class="big-num">Car-dependent</div>
+                <div class="big-sub">Walk 37 · Lake Tahoe seasonal</div>
+              </div>
+
+              <div class="location-map">
+                <span class="map-pin subject"></span>
+                <span class="map-pin comp c1"></span>
+                <span class="map-pin comp c2"></span>
+                <span class="map-pin comp c3"></span>
+                <span class="map-pin comp c4"></span>
+                <span class="map-pin comp c5"></span>
+                <span class="map-pin comp c6"></span>
+                <span class="map-pin comp c7"></span>
+                <span class="map-scale">0.5 MI</span>
+              </div>
+
+              <div class="location-stats">
+                <div class="loc-stat"><span class="k">Walk</span><span class="v warn">37</span></div>
+                <div class="loc-stat"><span class="k">Nearby ★</span><span class="v">4.56</span></div>
+                <div class="loc-stat"><span class="k">Trail</span><span class="v">0.7mi</span></div>
+              </div>
+            </div>
+
+            <div class="evidence-footer">
+              <span class="evidence-confidence">Confidence · 78%</span>
+              <a href="#" class="evidence-link">View full map →</a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- SCOUT ANALYSIS -->
+        <div class="section-rule">
+          <span class="section-label">Scout Analysis</span>
+          <span class="line"></span>
+        </div>
+
+        <div class="narrative-section">
+          <div class="narrative-body">
+            <h3>Permitted STR in a car-dependent corner of Lake Tahoe — regulatory green, revenue incomplete.</h3>
+            <p>
+              The property sits in a <strong>permitted STR jurisdiction</strong> under Placer County's county-wide program, which caps non-owner-occupied permits at <em class="data">3,900</em> countywide with mandatory annual renewal and fire-safety inspection. Placer County is not currently at cap — <em class="data">1,443 of 3,900</em> permits are active — so permit access is realistic on a 60-90 day timeline.
+            </p>
+            <p>
+              The <strong>revenue case is incomplete.</strong> No Zestimate, no ADR benchmark, no comp revenue data has been unlocked. A BUY signal from our rubric requires at minimum <em class="data">3 verified STR comps</em> within 1 mile with ADR and occupancy resolved. The 15 nearby comps are visible but revenue-side detail is gated until Pro unlock.
+            </p>
+            <p>
+              <strong>Location profile is mixed.</strong> A Walk Score of 37 indicates car-dependency that will penalize short-weekend bookings but is typical for Lake Tahoe's seasonal rental profile. The property's proximity to the Historic Stateline Fire Lookout trail is a genuine amenity — trails in this corridor draw consistent 4.5★+ visitor reviews. No flood or recent wildfire risk registered for this parcel.
+            </p>
+          </div>
+          <aside class="aside-col">
+            <div class="aside-block">
+              <h4>What to watch</h4>
+              <ul class="aside-list">
+                <li><span class="num">01</span><span>Permit window — 60 day target</span></li>
+                <li><span class="num">02</span><span>HOA overlay — pull CC&Rs</span></li>
+                <li><span class="num">03</span><span>Fire inspection cost &amp; timeline</span></li>
+                <li><span class="num">04</span><span>Winter seasonality on ADR</span></li>
+              </ul>
+            </div>
+            <div class="aside-block">
+              <h4>What moves this to BUY</h4>
+              <ul class="aside-list">
+                <li><span class="plus">+</span><span>3+ verified STR comps within 1mi</span></li>
+                <li><span class="plus">+</span><span>Recent sold comp supports price</span></li>
+                <li><span class="plus">+</span><span>HOA permits STR use</span></li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+
+        <!-- SOURCES -->
+        <div class="sources-section">
+          <div class="sources-head">
+            <span class="sources-title">Sources · Cited in this verdict</span>
+            <span class="sources-meta">7 sources · 04.24.26</span>
+          </div>
+          <div class="sources-list">
+            <a href="#" class="source-link">placer.ca.gov/6109/Short-Term-Rental-Program</a>
+            <a href="#" class="source-link">placer.ca.gov/DocumentCenter/View/86557</a>
+            <a href="#" class="source-link">bnbcalc.com/blog/short-term-rental/Placer</a>
+            <a href="#" class="source-link">data-nifc.opendata.arcgis.com</a>
+            <a href="#" class="source-link">cde.ucr.cjis.gov</a>
+            <a href="#" class="source-link">openstreetmap.org/copyright</a>
+            <a href="#" class="source-link">yelp.com/search?find_loc=Kings+Beach</a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT RAIL -->
+      <aside class="right-rail">
+
+        <!-- NEXT STEPS (moved to top — more actionable) -->
+        <div class="rail-card">
+          <div class="rail-head">
+            <span class="rail-title">Next steps</span>
+          </div>
+          <div class="next-step">
+            <div class="next-step-icon">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3v3H4a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1V4a3 3 0 00-3-3zM6 4a2 2 0 014 0v3H6V4z"/></svg>
+            </div>
+            <div class="next-step-body">
+              <div class="next-step-title">Unlock comp revenue data</div>
+              <div class="next-step-desc">Full Report reveals ADR, occupancy, and revenue for all 15 comps.</div>
+            </div>
+            <div class="next-step-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3l5 5-5 5" stroke-linecap="round"/></svg></div>
+          </div>
+          <div class="next-step">
+            <div class="next-step-icon">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10v3H3V2zm0 5h10v3H3V7zm0 5h10v3H3v-3z"/></svg>
+            </div>
+            <div class="next-step-body">
+              <div class="next-step-title">Add to comparison</div>
+              <div class="next-step-desc">Compare Kings Beach vs. your other Lake Tahoe watch-list properties.</div>
+            </div>
+            <div class="next-step-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3l5 5-5 5" stroke-linecap="round"/></svg></div>
+          </div>
+          <div class="next-step">
+            <div class="next-step-icon">
+              <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2" stroke="white" stroke-width="1.5" fill="none"/></svg>
+            </div>
+            <div class="next-step-body">
+              <div class="next-step-title">Schedule re-verdict</div>
+              <div class="next-step-desc">Re-run this verdict in 30 days when revenue data may update.</div>
+            </div>
+            <div class="next-step-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3l5 5-5 5" stroke-linecap="round"/></svg></div>
+          </div>
+          <div class="next-step">
+            <div class="next-step-icon">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2v12h10V6l-4-4H3zm6 1l3 3H9V3z"/></svg>
+            </div>
+            <div class="next-step-body">
+              <div class="next-step-title">Share with advisor</div>
+              <div class="next-step-desc">Generate a tokenized link to share this verdict.</div>
+            </div>
+            <div class="next-step-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3l5 5-5 5" stroke-linecap="round"/></svg></div>
+          </div>
+        </div>
+
+        <!-- ASK SCOUT -->
+        <div class="rail-card">
+          <div class="rail-head">
+            <div class="rail-title-with-icon">
+              <div class="avatar-scout">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l1.8 4.2L14 6l-3 3 .7 4.2L8 11.5l-3.7 1.7L5 9 2 6l4.2-.8L8 1z"/></svg>
+              </div>
+              <span class="rail-title">Ask Scout</span>
+            </div>
+            <span class="rail-eyebrow">Online</span>
+          </div>
+          <div class="scout-ask-input">
+            <span>Ask about this property...</span>
+            <span class="kbd">⌘K</span>
+          </div>
+          <div class="rail-suggestions">
+            <div class="rail-suggestion">What would move this to BUY?</div>
+            <div class="rail-suggestion">Compare to nearby BUY properties</div>
+            <div class="rail-suggestion">Model a 20% down DSCR loan</div>
+          </div>
+        </div>
+
+        <!-- ACTIVITY TIMELINE -->
+        <div class="rail-card">
+          <div class="rail-head">
+            <span class="rail-title">Activity</span>
+          </div>
+          <ul class="timeline-list">
+            <li class="timeline-item">
+              <span class="timeline-marker"></span>
+              <div class="timeline-body">
+                <div class="date">04.24.26 · 08:42</div>
+                <div class="action">Verdict run #02</div>
+                <div class="detail">Confidence 50% · WATCH · by you</div>
+              </div>
+            </li>
+            <li class="timeline-item">
+              <span class="timeline-marker"></span>
+              <div class="timeline-body">
+                <div class="date">04.18.26</div>
+                <div class="action">Verdict run #01</div>
+                <div class="detail">Confidence 42% · WATCH · by you</div>
+              </div>
+            </li>
+            <li class="timeline-item">
+              <span class="timeline-marker"></span>
+              <div class="timeline-body">
+                <div class="date">04.18.26</div>
+                <div class="action">Property added</div>
+                <div class="detail">Pasted from Zillow listing</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+</div>
+
+<div class="v4-badge">v4 · logo locked</div>
+
+</body>
+</html>
