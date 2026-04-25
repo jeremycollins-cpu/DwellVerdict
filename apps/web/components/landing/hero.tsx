@@ -61,7 +61,7 @@ export function Hero() {
         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-subtle">
           <span>No credit card</span>
           <span aria-hidden className="size-1 rounded-full bg-ink-faint" />
-          <span>Free trial</span>
+          <span>First verdict free</span>
           <span aria-hidden className="size-1 rounded-full bg-ink-faint" />
           <span>Takes 30 seconds</span>
         </div>

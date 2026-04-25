@@ -18,7 +18,8 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 Last updated: 2026-04-25
 
-- ✅ M2.1 shipped — landing page redesign (8 sections per mockup 01: hero with serif italic headline, demo frame, three-step explainer, anatomy of a verdict, founder quote, two-tier pricing preview, dark final CTA, rich footer)
+- ✅ M2.1 shipped (commit 2a74399) — landing page redesign (8 sections per mockup 01: hero with serif italic headline, demo frame, three-step explainer, anatomy of a verdict, founder quote, two-tier pricing preview, dark final CTA, rich footer)
+- 🔧 M2.1 follow-up — clarified the hero trust-row pill from the vague "Free trial" to "First verdict free" so the marketing copy matches the actual entitlement (1 lifetime free verdict, per `consumeReport()` and CLAUDE.md § Pricing and billing)
 - ✅ M1.3 shipped (commit a9a7eec) — sidebar shell wired into the authenticated layout (replaces `AppNav`, 7 placeholder pages for not-yet-built routes, mobile drawer, real Clerk + plan data in the footer)
 - ✅ M1.2 shipped (commit 8b66f4e) — onboarding schema fields (5 nullable columns on `users`, backfilled `onboarding_completed_at` for pre-existing users, Zod validators in `apps/web/lib/onboarding/schema.ts`)
 - ✅ M1.1 shipped (commit 5004560) — design system primitives
