@@ -14,6 +14,18 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 ---
 
+## Recent activity
+
+Last updated: 2026-04-25
+
+- ✅ M1.1 shipped (commit 5004560) — design system primitives
+- ✅ M0.2 shipped (commit b758e22) — CI infrastructure
+- ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
+- ✅ M0.1 shipped (commit be71fef) — Email infrastructure
+- ⏳ M1.2 next — onboarding schema migration
+
+---
+
 ## Before you start (one-time setup)
 
 You do these once, before any milestone work begins. After this section, you never touch it again.
@@ -150,6 +162,16 @@ If anything went wrong, mention it:
 
 I'll either send the next prompt or address the issue first.
 
+### Convention: every milestone PR updates this runbook
+
+Every milestone PR must include an edit to `docs/refactor/RUNBOOK.md` as part of the same change:
+
+1. Check off the shipped milestone in the **full milestone sequence** tracker (`[ ]` → `[x]`) and append the merge commit SHA.
+2. Update the **Recent activity** section at the top of the runbook — add a new `✅` row for the shipped milestone, move the `⏳ next` indicator to the next milestone in line, and bump the `Last updated` date.
+3. If the milestone changed plan structure (added/removed a milestone, reordered phases), update the tracker to match.
+
+The milestone prompt template explicitly includes this step. If a PR ships without it, the next milestone prompt should fix the runbook before doing anything else. This keeps the "Recent activity" view accurate without manual bookkeeping.
+
 ---
 
 ## The full milestone sequence (34 total)
@@ -157,11 +179,13 @@ I'll either send the next prompt or address the issue first.
 This is the order. Don't deviate without good reason.
 
 ### Phase 0 — Operational foundation
-- [ ] **M0.1** — Email infrastructure (Resend)
+- [x] **M0.1** — Email infrastructure (Resend) — shipped commit be71fef
+- [x] **M0.2** — CI infrastructure (typecheck, lint, test) — shipped commit b758e22
+- [x] **M0.3** — Sentry error monitoring — shipped commit 480ce7c
 
 ### Phase 1 — Foundation
-- [ ] **M1.1** — Brand tokens + design system primitives (PROMPT_01 already in your repo)
-- [ ] **M1.2** — Onboarding schema migration (PROMPT_02 already in your repo)
+- [x] **M1.1** — Brand tokens + design system primitives (PROMPT_01 already in your repo) — shipped commit 5004560
+- [ ] **M1.2** — Onboarding schema migration (PROMPT_02 already in your repo) — next
 - [ ] **M1.3** — Sidebar shell into authenticated layout
 
 ### Phase 2 — Public surfaces
