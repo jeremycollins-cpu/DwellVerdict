@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Bell,
@@ -21,9 +22,8 @@ import { Avatar } from "@/components/ui/avatar";
 
 /**
  * The application sidebar shell rendered alongside every authenticated
- * surface in the M1.x+ refactor. M1.3 wires this into `apps/web/app/app/layout.tsx`
- * to replace the current top-bar (`AppNav`). For M1.1 it's only mounted by the
- * design-system preview page so the primitive can be visually verified.
+ * surface. Mounted by `apps/web/app/app/layout.tsx` so every `/app/*`
+ * route inherits it.
  *
  * Width:        232px desktop, full-width drawer on mobile
  * Background:   `--sidebar-bg` (warm cream)
@@ -67,8 +67,8 @@ const DEFAULT_SECTIONS: SidebarSection[] = [
     label: "Primary",
     items: [
       { label: "Dashboard", href: "/app/dashboard", icon: Home },
-      { label: "Properties", href: "/app/properties", icon: Building2, badge: 12 },
-      { label: "Verdicts", href: "/app/verdicts", icon: Clock, badge: 8 },
+      { label: "Properties", href: "/app/properties", icon: Building2 },
+      { label: "Verdicts", href: "/app/verdicts", icon: Clock },
       { label: "Compare", href: "/app/compare", icon: Columns3 },
     ],
   },
@@ -77,13 +77,7 @@ const DEFAULT_SECTIONS: SidebarSection[] = [
     items: [
       { label: "Portfolio", href: "/app/portfolio", icon: BarChart3 },
       { label: "Briefs", href: "/app/briefs", icon: StickyNote },
-      {
-        label: "Alerts",
-        href: "/app/alerts",
-        icon: Bell,
-        badge: 3,
-        badgeAccent: true,
-      },
+      { label: "Alerts", href: "/app/alerts", icon: Bell },
     ],
   },
   {
@@ -192,6 +186,12 @@ export function Sidebar({
   sections = DEFAULT_SECTIONS,
   className,
 }: SidebarProps) {
+  // Fall back to the current pathname when the layout doesn't pass an
+  // explicit override. This is what authed `/app/*` rendering uses —
+  // the layout is a server component and can't read pathname itself.
+  const pathname = usePathname();
+  const resolvedActive = activeRoute ?? pathname ?? undefined;
+
   const [drawerOpen, setDrawerOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -222,7 +222,7 @@ export function Sidebar({
           className,
         )}
       >
-        <SidebarBody user={user} sections={sections} activeRoute={activeRoute} />
+        <SidebarBody user={user} sections={sections} activeRoute={resolvedActive} />
       </aside>
 
       {/* Mobile drawer — off-canvas. */}
@@ -246,7 +246,7 @@ export function Sidebar({
             <SidebarBody
               user={user}
               sections={sections}
-              activeRoute={activeRoute}
+              activeRoute={resolvedActive}
             />
           </div>
         </div>
