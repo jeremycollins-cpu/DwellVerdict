@@ -18,12 +18,13 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 Last updated: 2026-04-25
 
-- ✅ M1.2 shipped — onboarding schema fields (5 nullable columns on `users`, backfilled `onboarding_completed_at` for pre-existing users, Zod validators in `apps/web/lib/onboarding/schema.ts`)
+- ✅ M1.3 shipped — sidebar shell wired into the authenticated layout (replaces `AppNav`, 7 placeholder pages for not-yet-built routes, mobile drawer, real Clerk + plan data in the footer)
+- ✅ M1.2 shipped (commit 8b66f4e) — onboarding schema fields (5 nullable columns on `users`, backfilled `onboarding_completed_at` for pre-existing users, Zod validators in `apps/web/lib/onboarding/schema.ts`)
 - ✅ M1.1 shipped (commit 5004560) — design system primitives
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M1.3 next — sidebar shell wired into authenticated layout
+- ⏳ M2.1 next — landing page redesign
 
 ---
 
@@ -187,7 +188,7 @@ This is the order. Don't deviate without good reason.
 ### Phase 1 — Foundation
 - [x] **M1.1** — Brand tokens + design system primitives (PROMPT_01 already in your repo) — shipped commit 5004560
 - [x] **M1.2** — Onboarding schema migration (PROMPT_02 already in your repo) — shipped (commit 8b66f4e)
-- [ ] **M1.3** — Sidebar shell into authenticated layout — next
+- [x] **M1.3** — Sidebar shell into authenticated layout — shipped (merge SHA pending)
 
 ### Phase 2 — Public surfaces
 - [ ] **M2.1** — Landing page
