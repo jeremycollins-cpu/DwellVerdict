@@ -50,6 +50,40 @@
     /* ─── Verdict surface (tokens updated for Ledger direction) ── */
     --verdict-background: 0 0% 100%;
     --verdict-border:     24 10% 90%;
+
+    /* ─── M1.1 Foundation tokens (added for the refactor) ────────
+       Synced with apps/web/lib/brand-tokens.ts. These expose every
+       brand color the mockups consume so we can build primitives
+       (Sidebar, GlanceTile, Chip, etc.) without inline hex values.
+       Existing tokens above are preserved unchanged — these are
+       additive only. */
+    --terracotta-deep:   12 56% 42%;            /* #a8472f */
+    --terracotta-soft:   12 55% 51% / 0.08;
+    --terracotta-wash:   12 55% 51% / 0.04;
+    --terracotta-border: 12 55% 51% / 0.30;
+
+    --ink-70:     24 7% 24%;                    /* #44403c */
+    --ink-subtle: 24 6% 64%;                    /* #a8a29e */
+    --ink-faint:  24 6% 83%;                    /* #d6d3d1 */
+
+    --paper-warm: 40 31% 94%;                   /* #f5f2ec */
+    --paper-deep: 42 30% 89%;                   /* #ebe6da */
+    --sidebar-bg: 43 30% 95%;                   /* #f7f5f0 */
+
+    --hairline-strong: 24 10% 10% / 0.13;
+
+    /* Brand verdict signals (distinct from --signal-* above, which
+       map to tailwind emerald/amber/red). These hit the warmer
+       palette used in mockups. */
+    --buy:        160 83% 32%;                  /* #0e9467 */
+    --buy-soft:   160 83% 32% / 0.08;
+    --buy-border: 160 83% 32% / 0.25;
+    --watch:        34 82% 43%;                 /* #c77a14 */
+    --watch-soft:   34 82% 43% / 0.08;
+    --watch-border: 34 82% 43% / 0.25;
+    --pass:        0 53% 50%;                   /* #c43d3d */
+    --pass-soft:   0 53% 50% / 0.08;
+    --pass-border: 0 53% 50% / 0.25;
   }
 
   .dark {

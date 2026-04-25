@@ -49,22 +49,55 @@ const config: Config = {
         // ─── DwellVerdict Verdict Ledger palette ───────────────────
         // Semantic warm tokens used alongside shadcn's primitive set.
         // See docs/DESIGN.md for usage rules.
-        paper: "hsl(var(--paper))",
+        paper: {
+          DEFAULT: "hsl(var(--paper))",
+          warm: "hsl(var(--paper-warm))",
+          deep: "hsl(var(--paper-deep))",
+        },
         "card-ink": "hsl(var(--card-ink))",
+        "sidebar-bg": "hsl(var(--sidebar-bg))",
         ink: {
           DEFAULT: "hsl(var(--ink))",
+          70: "hsl(var(--ink-70))",
           muted: "hsl(var(--ink-muted))",
+          subtle: "hsl(var(--ink-subtle))",
+          faint: "hsl(var(--ink-faint))",
         },
         terracotta: {
           DEFAULT: "hsl(var(--terracotta))",
           // Use as bg-terracotta/10 etc. via Tailwind's slash-opacity.
+          deep: "hsl(var(--terracotta-deep))",
+          soft: "hsl(var(--terracotta-soft))",
+          wash: "hsl(var(--terracotta-wash))",
+          border: "hsl(var(--terracotta-border))",
         },
-        hairline: "hsl(var(--hairline))",
+        hairline: {
+          DEFAULT: "hsl(var(--hairline))",
+          strong: "hsl(var(--hairline-strong))",
+        },
         // ─── Deal signals ──────────────────────────────────────────
+        // `signal.*` keeps the original Phase B emerald/amber/red palette
+        // (used by older surfaces). `buy`/`watch`/`pass` are the warm
+        // brand variants used by the M1.1+ refactor mockups.
         signal: {
           buy: "hsl(var(--signal-buy))",
           watch: "hsl(var(--signal-watch))",
           pass: "hsl(var(--signal-pass))",
+        },
+        buy: {
+          DEFAULT: "hsl(var(--buy))",
+          soft: "hsl(var(--buy-soft))",
+          border: "hsl(var(--buy-border))",
+        },
+        watch: {
+          DEFAULT: "hsl(var(--watch))",
+          soft: "hsl(var(--watch-soft))",
+          border: "hsl(var(--watch-border))",
+        },
+        pass: {
+          DEFAULT: "hsl(var(--pass))",
+          soft: "hsl(var(--pass-soft))",
+          border: "hsl(var(--pass-border))",
         },
         // ─── Verdict surface tokens (kept for compat) ──────────────
         verdict: {
