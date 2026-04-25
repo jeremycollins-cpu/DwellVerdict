@@ -1,19 +1,14 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import {
-  Filter,
-  MapPin,
-  Search,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { MapPin, Search, ShieldCheck, Sparkles } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Chip } from "@/components/ui/chip";
 import { GlanceTile } from "@/components/ui/glance-tile";
 import { Sidebar } from "@/components/ui/sidebar";
 import { brandColors } from "@/lib/brand-tokens";
+import { ChipFilterDemo } from "./chip-filter-demo";
 import { DesignSystemToggleRow } from "./toggle-row";
 
 export const metadata: Metadata = {
@@ -28,6 +23,27 @@ export const metadata: Metadata = {
  * Auth gate: must be signed in. Anyone not signed in gets a 404 — we
  * return notFound() rather than redirecting so the page's existence
  * isn't leaked publicly.
+ *
+ * Server / client boundary pattern (used here, applies to every later
+ * milestone with mixed static + interactive content):
+ *
+ *   - The page itself is a Server Component so the auth gate can run
+ *     server-side and serializable data (user info) reaches the page
+ *     directly without an extra round-trip.
+ *   - Static demos (color swatches, GlanceTile, signal/status/tag
+ *     Chip variants, Avatar) render directly on the page — they have
+ *     no event handlers and need no client runtime.
+ *   - Each interactive demo is extracted into a small "use client"
+ *     component co-located with the page (`chip-filter-demo.tsx`,
+ *     `toggle-row.tsx`). The page imports them like any other
+ *     component, but state lives inside the client island.
+ *   - Components like `<Sidebar />` that are themselves "use client"
+ *     can be rendered directly from the page as long as the props
+ *     crossing the boundary are serializable (no functions).
+ *
+ * Rule of thumb: never pass an `onClick` (or any function) from a
+ * Server Component to a Client Component. Wrap the interactive bit
+ * in a small client component and pass plain data instead.
  *
  * This is NOT user-facing UI. Function over form.
  */
@@ -113,23 +129,12 @@ export default async function DesignSystemPage() {
         </Section>
 
         <Section title="Chip — filter">
-          <div className="flex flex-wrap items-center gap-2">
-            <Chip variant="filter" leadingIcon={<Filter />} active onClick={() => {}}>
-              All
-            </Chip>
-            <Chip variant="filter" onClick={() => {}}>
-              Active
-            </Chip>
-            <Chip variant="filter" onClick={() => {}} count={12}>
-              Underwriting
-            </Chip>
-            <Chip variant="filter" onClick={() => {}} count={3}>
-              Closing
-            </Chip>
-            <Chip variant="filter" size="md" onClick={() => {}}>
-              Owned
-            </Chip>
-          </div>
+          <p className="text-xs text-ink-muted">
+            Interactive — click a chip to set it active. Lives in
+            <code className="mx-1 font-mono text-ink">chip-filter-demo.tsx</code>
+            so the page can stay a Server Component.
+          </p>
+          <ChipFilterDemo />
         </Section>
 
         <Section title="Chip — signal">
