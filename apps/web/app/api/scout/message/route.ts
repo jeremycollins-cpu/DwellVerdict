@@ -1,4 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 
 import {
@@ -44,6 +45,8 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request): Promise<Response> {
+  Sentry.setTag("operation", "scout_message");
+
   const body = await req.json().catch(() => null);
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) {
