@@ -1,6 +1,3 @@
-# Full CI — lint, typecheck, test on both services — is wired in Milestone 5.
-# This placeholder exists so the file path is stable and PR previews can
-# reference a workflow name from day one.
 name: ci
 
 on:
@@ -8,9 +5,42 @@ on:
     branches: [main]
   pull_request:
 
+# Cancel in-progress runs when a new commit is pushed to the same PR/branch.
+# Saves CI minutes during rapid iteration.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  placeholder:
+  ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - name: Announce M5
-        run: echo "CI pipeline lands in Milestone 5 (lint, typecheck, pytest, pnpm test)."
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Order matters: install pnpm before setup-node so setup-node can use
+      # cache: 'pnpm' (it shells out to the pnpm binary to find the store).
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
