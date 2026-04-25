@@ -1,61 +1,70 @@
 import Link from "next/link";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
 
-import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 
 /**
  * Public marketing header. Used on `/`, `/pricing`, and any other
- * unauthenticated surfaces we ship. Keeps the Logo on the left,
- * a small link cluster in the middle, and auth CTAs on the right.
+ * unauthenticated surfaces we ship. Sticky with a translucent
+ * paper background so the hero glow can bleed through but the nav
+ * still reads on scroll.
  *
  * SignedIn / SignedOut flip the right-hand slot between Sign in +
  * Get started vs. Open dashboard so returning users don't get
  * nagged to sign in again.
+ *
+ * "How it works" anchors `/#how-it-works`, which is the section
+ * id on the landing page. From `/pricing` it routes home and
+ * scrolls. From `/`, the hash anchor scrolls within the page.
  */
 export function PublicNav() {
   return (
-    <header className="border-b border-hairline">
-      <div className="container flex h-14 items-center justify-between">
-        <div className="flex items-center gap-8">
+    <header className="sticky top-0 z-20 border-b border-transparent bg-paper/85 backdrop-blur-md backdrop-saturate-150">
+      <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between px-6 md:px-12">
+        <Link
+          href="/"
+          className="transition-opacity hover:opacity-80"
+          aria-label="DwellVerdict home"
+        >
+          <Logo variant="full" size="md" />
+        </Link>
+
+        <nav className="flex items-center gap-6 text-sm md:gap-8">
           <Link
-            href="/"
-            className="transition-opacity hover:opacity-80"
-            aria-label="DwellVerdict home"
+            href="/#how-it-works"
+            className="hidden text-ink-70 transition-colors hover:text-ink sm:inline"
           >
-            <Logo variant="full" size="md" />
+            How it works
           </Link>
-          <nav className="flex items-center gap-6 text-sm">
-            <Link
-              href="/pricing"
-              className="text-ink-muted transition-colors hover:text-ink"
-            >
-              Pricing
-            </Link>
-          </nav>
-        </div>
-        <div className="flex items-center gap-4 text-sm">
+          <Link
+            href="/pricing"
+            className="text-ink-70 transition-colors hover:text-ink"
+          >
+            Pricing
+          </Link>
           <SignedOut>
             <Link
               href="/sign-in"
-              className="text-ink-muted transition-colors hover:text-ink"
+              className="hidden rounded-md px-3 py-2 text-ink-70 transition-colors hover:text-ink sm:inline-block"
             >
               Sign in
             </Link>
-            <Button
-              asChild
-              size="sm"
-              className="bg-terracotta text-white shadow-sm transition-colors hover:bg-terracotta/90"
+            <Link
+              href="/sign-up"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-70"
             >
-              <Link href="/sign-up">Get started</Link>
-            </Button>
+              Get your first verdict
+            </Link>
           </SignedOut>
           <SignedIn>
-            <Button asChild size="sm" variant="outline">
-              <Link href="/app/properties">Open dashboard</Link>
-            </Button>
+            <Link
+              href="/app/properties"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-70"
+            >
+              Open dashboard
+            </Link>
           </SignedIn>
-        </div>
+        </nav>
       </div>
     </header>
   );
