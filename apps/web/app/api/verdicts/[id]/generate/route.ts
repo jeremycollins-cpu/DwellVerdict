@@ -1,4 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import * as Sentry from "@sentry/nextjs";
 
 import { VERDICT_NARRATIVE_PROMPT_VERSION } from "@dwellverdict/ai";
 
@@ -47,6 +48,12 @@ export async function POST(
   req: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
+  // Tag any Sentry event captured during this request so dashboard
+  // filters can scope to verdict-generation failures specifically.
+  // @sentry/nextjs gives every request its own isolation scope, so
+  // this doesn't bleed across concurrent requests.
+  Sentry.setTag("operation", "verdict_generation");
+
   const { id: verdictId } = await context.params;
 
   // Optional { force: true } body to bypass the ready short-circuit

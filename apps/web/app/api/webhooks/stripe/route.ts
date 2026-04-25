@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import * as Sentry from "@sentry/nextjs";
 
 import { getStripe, planFromPriceId, requireStripeConfig } from "@/lib/stripe/client";
 import {
@@ -34,6 +35,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request): Promise<Response> {
+  Sentry.setTag("operation", "stripe_webhook");
+
   const stripe = getStripe();
   const { webhookSecret } = requireStripeConfig();
 
