@@ -21,9 +21,11 @@ __pycache__
 htmlcov
 
 # env & secrets
-.env
-.env.local
-.env.*.local
+# Catch every .env variant — .env, .env.local, .env.production
+# (from `vercel env pull`), .env.development.local, .env*.local,
+# etc. .env.example is exempted so the documented template stays
+# tracked.
+.env*
 !.env.example
 
 # editor / os
@@ -43,3 +45,4 @@ yarn-error.log*
 coverage
 *.tsbuildinfo
 next-env.d.ts
+.vercel
