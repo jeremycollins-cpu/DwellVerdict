@@ -1,9 +1,12 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import * as Sentry from "@sentry/nextjs";
 
-import { VERDICT_NARRATIVE_PROMPT_VERSION } from "@dwellverdict/ai";
+import { decideCostCap, VERDICT_NARRATIVE_PROMPT_VERSION } from "@dwellverdict/ai";
 
-import { orchestrateVerdict } from "@/lib/verdict/orchestrator";
+import {
+  orchestrateVerdict,
+  type VerdictProgressEvent,
+} from "@/lib/verdict/orchestrator";
 
 import { resolveAppUser } from "@/lib/db/queries/users";
 import { getPropertyForOrg } from "@/lib/db/queries/properties";
@@ -13,55 +16,55 @@ import {
   markVerdictReady,
 } from "@/lib/db/queries/verdicts";
 import { refundReport, getPlanForUser } from "@/lib/db/queries/report-usage";
+import { getUserMonthlySpendCents } from "@/lib/db/queries/ai-usage-events";
 import { describeError } from "@/lib/errors";
 
 /**
- * POST /api/verdicts/[id]/generate — kick off (or complete) Anthropic
- * verdict generation for a pending verdict row.
+ * POST /api/verdicts/[id]/generate — kick off Anthropic verdict
+ * generation for a pending or failed verdict row, streaming
+ * progress events as Server-Sent Events.
  *
- * Why a route handler and not a server action: the Anthropic call can
- * take 60-180s with adaptive thinking + web search, well past the
- * default server-action envelope. Route handlers on Node runtime let
- * us raise `maxDuration` (300s is the Vercel Pro ceiling) and compose
- * more cleanly with client-side fetch() for long-running work.
+ * SSE event types (one per `event:` line):
+ *   phase_start       — phase boundary entered
+ *   phase_complete    — phase boundary exited
+ *   signal_complete   — one of the 11 signals settled
+ *   narrative_ready   — narrative AI call finished, full text + model
+ *   complete          — final verdict assembled (success terminal)
+ *   error             — fatal failure (terminal)
  *
- * If a verdict still hits the 300s envelope consistently, the right
- * next step is to move generation behind Inngest (already in stack
- * per CLAUDE.md): return 202 here, fire a background job, let the
- * existing pending → ready transition drive the UI. We haven't yet
- * because the p95 Anthropic turnaround fits inside this envelope.
+ * The route still writes the verdict row to the DB on completion or
+ * failure (existing markVerdictReady / markVerdictFailed semantics)
+ * — the SSE stream is purely additive observability that the
+ * frontend consumes for the mockup-04 streaming UI. Polling clients
+ * (or SSE-aware clients that lose the connection) can fall back to
+ * /api/verdicts/[id]/status to read the final DB state.
  *
- * Idempotency: the client may call this twice during a refresh or
- * retry. We guard by reading the verdict's current status — if it's
- * already 'ready', return the existing payload; if 'failed', allow a
- * retry (which walks the row forward from failed → pending → ready).
- *
- * Refund: if generation fails, we refund the user's free-tier quota
- * slot that the server action consumed. We swallow refund failures —
- * under-charging once is better than ballooning error surfaces.
+ * Node runtime is required: Edge runtime caps streaming duration at
+ * a level too low for verdict generation (60-180s typical).
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+function sse(event: VerdictProgressEvent): Uint8Array {
+  // SSE wire format: `event: <name>\ndata: <json>\n\n`
+  const body = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+  return new TextEncoder().encode(body);
+}
+
+function sseError(message: string): Uint8Array {
+  const evt: VerdictProgressEvent = { type: "error", error: message };
+  return sse(evt);
+}
+
 export async function POST(
   req: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  // Tag any Sentry event captured during this request so dashboard
-  // filters can scope to verdict-generation failures specifically.
-  // @sentry/nextjs gives every request its own isolation scope, so
-  // this doesn't bleed across concurrent requests.
   Sentry.setTag("operation", "verdict_generation");
 
   const { id: verdictId } = await context.params;
 
-  // Optional { force: true } body to bypass the ready short-circuit
-  // and re-run the whole orchestrator. Useful while we're still
-  // tuning data-source scrapers and the regulatory prompt — lets us
-  // refresh a previously-generated verdict without deleting the row
-  // or creating a second property. No quota charge on force: caller
-  // is an authenticated owner re-running their own row.
   const body = await req.json().catch(() => ({}));
   const force =
     body && typeof body === "object" && "force" in body && body.force === true;
@@ -93,17 +96,7 @@ export async function POST(
     return Response.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  // Idempotency: already-ready short-circuits. pending / failed both
-  // fall through to generation — markVerdictReady / markVerdictFailed
-  // overwrite the final state regardless of prior status.
-  //
-  // TODO(inngest): proper in-flight dedupe so concurrent POSTs can't
-  // kick off duplicate Anthropic calls against the same row. Needs
-  // either a new `generation_started_at` column + atomic claim, or
-  // Inngest's event-key dedup (preferred — it'll arrive with the
-  // background-job migration). Until then, autoStart=false on the
-  // client plus the always-visible disabled "Working…" state handle
-  // the common case.
+  // Idempotency: ready short-circuits unless caller passed force.
   if (verdict.status === "ready" && !force) {
     return Response.json({ ok: true, status: "ready", verdictId });
   }
@@ -130,36 +123,47 @@ export async function POST(
     );
   }
 
+  // M3.0 cost-cap check. Hard-block users past the upper threshold;
+  // surface "degrade" silently for now (M6.1 will use it for Scout).
+  const monthlySpendCents = await getUserMonthlySpendCents(appUser.userId);
+  const capDecision = decideCostCap(monthlySpendCents);
+  if (!capDecision.allowed) {
+    return Response.json(
+      {
+        ok: false,
+        error: "monthly_cost_cap_exceeded",
+        message:
+          "You've reached this month's AI usage cap. Resets on the 1st of the next calendar month, or contact support.",
+        monthlySpendCents: capDecision.monthlySpendCents,
+        capCents: capDecision.capCents,
+      },
+      { status: 429 },
+    );
+  }
+
   const addressFull =
     property.addressFull ??
     `${property.addressLine1}, ${property.city}, ${property.state} ${property.zip}`;
 
-  // VERDICT_TEST_MODE=mock short-circuits the Anthropic call entirely
-  // and writes a synthetic ready verdict. Intended for UI / DB /
-  // routing / deploy verification without spending on inference.
-  // Leave unset (or set to "off") for real generation.
+  // Test mode bypass: skip the AI call, write a synthetic ready
+  // verdict, and return a single SSE payload for parity with the
+  // streaming flow. Same gate the legacy non-streaming route used.
   if (process.env.VERDICT_TEST_MODE === "mock") {
     await markVerdictReady({
       verdictId,
       signal: "watch",
       confidence: 55,
-      summary: `[TEST MODE] Mock verdict for ${addressFull}. No Anthropic call was made.`,
+      summary: `[TEST MODE] Mock verdict for ${addressFull}.`,
       narrative:
-        "[TEST MODE] This is a synthetic verdict generated without calling " +
-        "Anthropic. It exists to let you verify the pending → ready UI " +
-        "transition, the certificate render, and the DB write path " +
-        "without spending on inference. Unset VERDICT_TEST_MODE in Vercel " +
-        "env vars to restore real generation.",
+        "[TEST MODE] Synthetic verdict; no Anthropic call made. " +
+        "Unset VERDICT_TEST_MODE to restore real generation.",
       dataPoints: {
-        comps: "[TEST MODE] No comps fetched.",
-        revenue: "[TEST MODE] No revenue estimate.",
-        regulatory: "[TEST MODE] No regulatory lookup.",
-        location: "[TEST MODE] No location signals.",
+        comps: "[TEST MODE]",
+        revenue: "[TEST MODE]",
+        regulatory: "[TEST MODE]",
+        location: "[TEST MODE]",
       },
-      sources: [
-        "https://dwellverdict.com/docs/test-mode",
-        "https://dwellverdict.com/docs/test-mode-2",
-      ],
+      sources: ["https://dwellverdict.com/docs/test-mode"],
       modelVersion: "mock",
       promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
       inputTokens: 0,
@@ -169,83 +173,115 @@ export async function POST(
     return Response.json({ ok: true, status: "ready", verdictId, mode: "mock" });
   }
 
-  // Outer guard: orchestrateVerdict catches per-signal failures and
-  // returns an OrchestratedVerdictFailure, but DB writes
-  // (markVerdictFailed / markVerdictReady) or other unexpected
-  // errors could still throw.
-  // If anything slips through, mark the verdict failed with a
-  // sanitised message and return a 502 the UI knows how to render as
-  // a retry state — never bubble a bare 500 to the browser.
-  try {
-    const result = await orchestrateVerdict({
-      addressFull,
-      city: property.city,
-      state: property.state,
-      lat,
-      lng,
-      userId: appUser.userId,
-      orgId: appUser.orgId,
-      verdictId,
-    });
+  // Stream verdict generation as SSE. Each progress event from the
+  // orchestrator gets serialized and pushed to the client; the
+  // route handler still writes markVerdictReady / markVerdictFailed
+  // at the end so non-SSE clients see the canonical state via the
+  // /api/verdicts/[id]/status polling endpoint.
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      // Heartbeat so the connection doesn't time out behind any
+      // intermediary (Vercel's edge → function pipe, browsers, the
+      // user's reverse-proxy if any). Comment-only frames per the
+      // SSE spec — clients ignore them but TCP stays open.
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(new TextEncoder().encode(":\n\n"));
+        } catch {
+          // Controller may be closed if the user navigated away.
+        }
+      }, 15_000);
 
-    if (!result.ok) {
-      await markVerdictFailed({
-        verdictId,
-        error: result.error,
-        modelVersion: result.observability.modelVersion,
-        promptVersion: result.observability.promptVersion,
-        inputTokens: result.observability.inputTokens,
-        outputTokens: result.observability.outputTokens,
-        costCents: result.observability.costCents,
-      });
-      await refundReport({
-        userId: appUser.userId,
-        plan: await getPlanForUser(appUser.userId),
-      }).catch(() => undefined);
-      return Response.json(
-        { ok: false, error: "generation_failed", message: result.error },
-        { status: 502 },
-      );
-    }
+      try {
+        const result = await orchestrateVerdict({
+          addressFull,
+          city: property.city,
+          state: property.state,
+          lat,
+          lng,
+          userId: appUser.userId,
+          orgId: appUser.orgId,
+          verdictId,
+          onProgress: (event) => {
+            try {
+              controller.enqueue(sse(event));
+            } catch {
+              // Stream closed (client disconnected). The orchestrator
+              // keeps running to completion regardless — verdict
+              // persistence is decoupled from the SSE channel.
+            }
+          },
+        });
 
-    await markVerdictReady({
-      verdictId,
-      signal: result.signal,
-      confidence: result.confidence,
-      summary: result.summary,
-      narrative: result.narrative,
-      dataPoints: result.dataPoints,
-      sources: result.sources,
-      modelVersion: result.observability.modelVersion,
-      promptVersion: result.observability.promptVersion,
-      inputTokens: result.observability.inputTokens,
-      outputTokens: result.observability.outputTokens,
-      costCents: result.observability.costCents,
-    });
+        if (!result.ok) {
+          await markVerdictFailed({
+            verdictId,
+            error: result.error,
+            modelVersion: result.observability.modelVersion,
+            promptVersion: result.observability.promptVersion,
+            inputTokens: result.observability.inputTokens,
+            outputTokens: result.observability.outputTokens,
+            costCents: result.observability.costCents,
+          });
+          await refundReport({
+            userId: appUser.userId,
+            plan: await getPlanForUser(appUser.userId),
+          }).catch(() => undefined);
+          // The orchestrator already emitted an `error` event above.
+        } else {
+          await markVerdictReady({
+            verdictId,
+            signal: result.signal,
+            confidence: result.confidence,
+            summary: result.summary,
+            narrative: result.narrative,
+            dataPoints: result.dataPoints,
+            sources: result.sources,
+            modelVersion: result.observability.modelVersion,
+            promptVersion: result.observability.promptVersion,
+            inputTokens: result.observability.inputTokens,
+            outputTokens: result.observability.outputTokens,
+            costCents: result.observability.costCents,
+          });
+          // The orchestrator already emitted a `complete` event.
+        }
+      } catch (err) {
+        const { message, code } = describeError(err);
+        console.error("[verdicts/generate] unexpected error", {
+          verdictId,
+          code,
+          message,
+          raw: err,
+        });
+        try {
+          controller.enqueue(sseError(`unexpected: ${message}`));
+        } catch {}
+        await markVerdictFailed({
+          verdictId,
+          error: `unexpected: ${message}`,
+          promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
+        }).catch(() => undefined);
+        await refundReport({
+          userId: appUser.userId,
+          plan: await getPlanForUser(appUser.userId),
+        }).catch(() => undefined);
+      } finally {
+        clearInterval(heartbeat);
+        try {
+          controller.close();
+        } catch {}
+      }
+    },
+  });
 
-    return Response.json({ ok: true, status: "ready", verdictId });
-  } catch (err) {
-    const { message, code } = describeError(err);
-    console.error("[verdicts/generate] unexpected error", {
-      verdictId,
-      code,
-      message,
-      // Keep the raw error around in logs for deep-dive debugging
-      // — Vercel will serialize it so cause chains are visible.
-      raw: err,
-    });
-    await markVerdictFailed({
-      verdictId,
-      error: `unexpected: ${message}`,
-      promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
-    }).catch(() => undefined);
-    await refundReport({
-      userId: appUser.userId,
-      plan: await getPlanForUser(appUser.userId),
-    }).catch(() => undefined);
-    return Response.json(
-      { ok: false, error: "generation_failed", code, message },
-      { status: 502 },
-    );
-  }
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      // Disable Vercel's gateway buffering for SSE responses so
+      // events surface to the client as soon as they're enqueued.
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

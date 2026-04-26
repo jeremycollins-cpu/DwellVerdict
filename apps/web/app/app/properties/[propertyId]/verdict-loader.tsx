@@ -1,50 +1,43 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { pollVerdictUntilDone } from "@/lib/verdict/sse-client";
 
 /**
- * VerdictLoader — client component that drives verdict generation for
- * a pending or failed verdict row.
+ * VerdictLoader — compact button used by the regenerate (ready
+ * verdict) and retry (failed verdict) flows.
  *
- * COST CONTROL (important — do not re-enable without thinking):
- * `autoStart` now defaults to FALSE. Previously the component fired
- * a POST on every mount, which meant every page visit to a pending
- * verdict kicked off a fresh ~$0.30 Anthropic call — reloads, tab
- * duplicates, and the post-failure refresh all silently re-spent.
- * Generation must be user-initiated via the "Generate verdict"
- * button until we have (a) server-side dedupe, (b) a daily spend
- * cap, and (c) Inngest-backed background generation.
+ * Hits POST /api/verdicts/[id]/generate to start orchestration,
+ * then polls /api/verdicts/[id]/status until the row reaches a
+ * terminal state. Doesn't render mockup-04's streaming UI — that's
+ * StreamingVerdict's job for the pending-verdict primary flow.
  *
- * The button is always visible — disabled with a spinner while a
- * fetch is in-flight, clickable otherwise.
- *
- * We don't poll — the POST blocks until Anthropic returns (60-180s
- * typical) or the 300s route maxDuration fires. Either way, the
- * response carries the final state.
+ * COST CONTROL (preserved from the M3.0-era VerdictLoader):
+ * generation is user-initiated via the button below — every page
+ * load to a pending verdict does NOT trigger a fresh Anthropic
+ * call. This stays until in-flight dedupe (Inngest event-key,
+ * server-side claim column, etc.) lands as a v1.1 follow-up.
  */
 export function VerdictLoader({
   verdictId,
-  autoStart = false,
   label = "Generate verdict",
   force = false,
 }: {
   verdictId: string;
-  autoStart?: boolean;
   label?: string;
   /**
-   * When true, send `{ force: true }` in the body so the server
-   * bypasses the ready short-circuit and re-runs the orchestrator.
-   * Used by the "Retry verdict" button on an already-ready row so
-   * the user can refresh the narrative after a data-source fix.
+   * When true, send `{ force: true }` so the server bypasses the
+   * ready short-circuit and re-runs the orchestrator. Used by the
+   * "Regenerate verdict" button on an already-ready row.
    */
   force?: boolean;
 }) {
   const router = useRouter();
-  const [inFlight, setInFlight] = useState(autoStart);
+  const [inFlight, setInFlight] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
@@ -55,47 +48,57 @@ export function VerdictLoader({
     setError(null);
 
     try {
+      // Fire and forget — the SSE stream goes unread; we don't need
+      // its events for this surface. The server-side orchestrator
+      // still runs to completion and writes markVerdictReady /
+      // markVerdictFailed regardless of whether we consume the
+      // stream here. We then poll /status until the row settles.
       const res = await fetch(`/api/verdicts/${verdictId}/generate`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ force }),
-        // Match the route handler's 300s maxDuration with a small
-        // cushion so the browser doesn't abort before the server
-        // has a chance to write the final row + respond.
-        signal: AbortSignal.timeout(310_000),
       });
-      const body = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        setError(body?.message ?? `Generation failed (${res.status})`);
-        setInFlight(false);
-        startedRef.current = false;
+        const body = await res.json().catch(() => ({}));
+        setError(
+          (body as { message?: string })?.message ??
+            `Generation failed (${res.status})`,
+        );
         router.refresh();
         return;
       }
-      // Server component reads the updated row on refresh and swaps
-      // in the ready VerdictCertificate.
+
+      // For a ready short-circuit (status===ready, !force) the
+      // server returns plain JSON. Don't poll — just refresh.
+      if (res.headers.get("content-type")?.includes("application/json")) {
+        router.refresh();
+        return;
+      }
+
+      // Otherwise the body is an SSE stream we don't read here.
+      // Polling is sturdier than parsing the stream just to know
+      // "is it done yet" — single endpoint, idempotent, no SSE
+      // wire-format edge cases.
+      const result = await pollVerdictUntilDone({
+        verdictId,
+        intervalMs: 2000,
+      });
+
+      if (result.status === "failed") {
+        setError(
+          result.errorMessage ??
+            "Generation failed. Try again — failures don't count against your quota.",
+        );
+      }
       router.refresh();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message.includes("timed out") || err.message.includes("timeout")
-            ? "Generation took too long — try again."
-            : err.message
-          : "Unexpected error",
-      );
+      setError(err instanceof Error ? err.message : "Unexpected error");
+    } finally {
       setInFlight(false);
       startedRef.current = false;
     }
   }, [verdictId, inFlight, router, force]);
-
-  useEffect(() => {
-    if (!autoStart) return;
-    if (startedRef.current) return;
-    runGeneration();
-    // `runGeneration` is stable enough — we intentionally fire once
-    // per mount; refetch-on-retry goes through onClick below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoStart]);
 
   return (
     <div className="flex items-center gap-3">

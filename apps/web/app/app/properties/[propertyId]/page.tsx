@@ -5,6 +5,7 @@ import { ArrowLeft, Sparkles } from "lucide-react";
 
 import { VerdictCertificate } from "@/components/verdict-certificate";
 import { VerdictLoader } from "@/app/app/properties/[propertyId]/verdict-loader";
+import { StreamingVerdict } from "@/components/verdict-generating/streaming-verdict";
 import { PropertyStageNav } from "@/components/property-stage-nav";
 import { getPropertyForOrg } from "@/lib/db/queries/properties";
 import { getLatestVerdictForProperty } from "@/lib/db/queries/verdicts";
@@ -121,10 +122,10 @@ export default async function PropertyDetailPage({
             />
           </>
         ) : verdict && verdict.status === "pending" ? (
-          <>
-            <VerdictCertificate mode="pending" addressFull={addressFull} />
-            <VerdictLoader verdictId={verdict.id} />
-          </>
+          <StreamingVerdict
+            verdictId={verdict.id}
+            addressFull={addressFull}
+          />
         ) : verdict && verdict.status === "failed" ? (
           <VerdictFailedCard
             verdictId={verdict.id}
