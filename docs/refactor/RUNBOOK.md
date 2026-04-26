@@ -18,7 +18,8 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 Last updated: 2026-04-25
 
-- ✅ M2.3 shipped — Legal + Help pages (`/terms`, `/privacy`, `/cookies`, `/help` via shared `LegalLayout`; copy verified against `consumeReport()`, scout/message route, and the third-party services actually wired up — flagged drift from the prompt template where Settings → Account self-serve export/delete don't exist yet, softened to email-based requests)
+- ✅ M2.4 shipped — SEO + GEO optimization (JSON-LD schema across all public pages: Organization on landing, Product + FAQPage on pricing, FAQPage on /help, Article on legal pages; full per-page metadata with OG + Twitter cards; auto-generated sitemap.xml + robots.txt; Google Analytics 4 wired in root layout via `NEXT_PUBLIC_GA_MEASUREMENT_ID`; cookie + privacy policies updated to accurately describe GA4). Phase 2 complete.
+- ✅ M2.3 shipped (commit f6ef0e9) — Legal + Help pages (`/terms`, `/privacy`, `/cookies`, `/help` via shared `LegalLayout`; copy verified against `consumeReport()`, scout/message route, and the third-party services actually wired up — flagged drift from the prompt template where Settings → Account self-serve export/delete don't exist yet, softened to email-based requests)
 - ✅ M2.2 shipped (commit e97a362) — pricing page (3 tier cards with Stripe-integrated CTAs, granular feature comparison table with mobile vertical transform, 10 FAQs verified against `consumeReport()` + scout/message route, dark final CTA)
 - ✅ M2.1 shipped (commit 2a74399) — landing page redesign (8 sections per mockup 01: hero with serif italic headline, demo frame, three-step explainer, anatomy of a verdict, founder quote, two-tier pricing preview, dark final CTA, rich footer)
 - 🔧 M2.1 follow-up — clarified the hero trust-row pill from the vague "Free trial" to "First verdict free" so the marketing copy matches the actual entitlement (1 lifetime free verdict, per `consumeReport()` and CLAUDE.md § Pricing and billing)
@@ -28,7 +29,7 @@ Last updated: 2026-04-25
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M2.4 next — SEO + GEO optimization
+- ⏳ M3.0 next — AI cost optimization foundation
 
 ---
 
@@ -198,7 +199,7 @@ This is the order. Don't deviate without good reason.
 - [x] **M2.1** — Landing page — shipped (merge SHA pending)
 - [x] **M2.2** — Pricing page — shipped (merge SHA pending)
 - [x] **M2.3** — Legal + Help pages (Terms, Privacy, Cookies, FAQ) — shipped (merge SHA pending)
-- [ ] **M2.4** — SEO + GEO optimization
+- [x] **M2.4** — SEO + GEO optimization — shipped (merge SHA pending). **Phase 2 complete.**
 
 ### Phase 3 — Verdict surfaces
 - [ ] **M3.0** — AI cost optimization foundation (model router, cache helpers, batch client, ai_usage_events)

@@ -9,7 +9,7 @@
  *   - Stripe = PCI-DSS Level 1, all payment data lives there
  */
 
-const FAQS: ReadonlyArray<{ q: string; a: string }> = [
+export const PRICING_FAQS: ReadonlyArray<{ q: string; a: string }> = [
   {
     q: "How does the free tier work?",
     a: "Every account gets one full verdict. It's the real product — no degraded preview, no watermark. Once you've used it, you'll need to subscribe to generate more. Spend it on a property you're seriously evaluating.",
@@ -68,7 +68,7 @@ export function FAQ() {
       </div>
 
       <div className="grid gap-x-12 gap-y-8 md:grid-cols-2">
-        {FAQS.map((item) => (
+        {PRICING_FAQS.map((item) => (
           <div key={item.q} className="flex flex-col gap-2.5">
             <h3 className="text-[16px] font-medium tracking-[-0.01em] text-ink">
               {item.q}

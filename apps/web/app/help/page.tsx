@@ -4,11 +4,30 @@ import {
   LegalLayout,
   LegalSection,
 } from "@/components/legal/legal-layout";
+import { faqPageSchema, SITE_URL } from "@/lib/seo/schema";
+import { StructuredData } from "@/lib/seo/structured-data";
+
+const TITLE = "Help — DwellVerdict";
+const DESCRIPTION =
+  "Common questions about DwellVerdict's property verdict service. How verdicts work, plans and billing, using the product.";
 
 export const metadata: Metadata = {
-  title: "Help — DwellVerdict",
-  description:
-    "Common questions about DwellVerdict's property verdict service. How verdicts work, plans and billing, using the product.",
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: `${SITE_URL}/help` },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: `${SITE_URL}/help`,
+    siteName: "DwellVerdict",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 const LAST_UPDATED = "April 25, 2026";
@@ -114,14 +133,24 @@ const USING_THE_PRODUCT: ReadonlyArray<HelpItem> = [
 ];
 
 export default function HelpPage() {
+  // Flatten the three help sections into a single FAQPage schema.
+  // Each Q+A item carries a multi-paragraph answer; we join the
+  // paragraphs with two newlines so the answer text reads naturally
+  // when AI engines surface it.
+  const faqEntries = [...GETTING_STARTED, ...PLANS_AND_BILLING, ...USING_THE_PRODUCT].map(
+    (item) => ({ question: item.q, answer: item.a.join("\n\n") }),
+  );
+
   return (
-    <LegalLayout
-      title="Help"
-      lastUpdated={LAST_UPDATED}
-      intro={
-        "Common questions about DwellVerdict. Don't see your question? Email support@dwellverdict.com — replies within 1 business day."
-      }
-    >
+    <>
+      <StructuredData data={faqPageSchema(faqEntries)} />
+      <LegalLayout
+        title="Help"
+        lastUpdated={LAST_UPDATED}
+        intro={
+          "Common questions about DwellVerdict. Don't see your question? Email support@dwellverdict.com — replies within 1 business day."
+        }
+      >
       <LegalSection title="Getting started">
         <HelpList items={GETTING_STARTED} />
       </LegalSection>
@@ -146,7 +175,8 @@ export default function HelpPage() {
           — we reply within 1 business day.
         </p>
       </LegalSection>
-    </LegalLayout>
+      </LegalLayout>
+    </>
   );
 }
 

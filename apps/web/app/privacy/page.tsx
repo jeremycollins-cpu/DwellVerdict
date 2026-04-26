@@ -7,22 +7,50 @@ import {
   LegalSection,
   LegalSubheading,
 } from "@/components/legal/legal-layout";
+import { articleSchema, SITE_URL } from "@/lib/seo/schema";
+import { StructuredData } from "@/lib/seo/structured-data";
+
+const TITLE = "Privacy Policy — DwellVerdict";
+const DESCRIPTION =
+  "How DwellVerdict collects, uses, and protects your data. Third-party processors, data retention, and your privacy rights including CCPA and GDPR.";
+const LAST_UPDATED = "April 25, 2026";
+const PUBLISHED = "2026-04-25";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — DwellVerdict",
-  description:
-    "How DwellVerdict collects, uses, and protects your data. Third-party processors, data retention, and your privacy rights including CCPA and GDPR.",
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: `${SITE_URL}/privacy` },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: `${SITE_URL}/privacy`,
+    siteName: "DwellVerdict",
+    locale: "en_US",
+    type: "article",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
-
-const LAST_UPDATED = "April 25, 2026";
 
 export default function PrivacyPage() {
   return (
-    <LegalLayout
-      title="Privacy Policy"
-      lastUpdated={LAST_UPDATED}
-      intro="What we collect, how we use it, who we share it with, and the rights you have over your data. Plain language where we can manage it; the necessary specifics where we can't."
-    >
+    <>
+      <StructuredData
+        data={articleSchema({
+          headline: "Privacy Policy",
+          datePublished: PUBLISHED,
+          dateModified: PUBLISHED,
+          url: `${SITE_URL}/privacy`,
+        })}
+      />
+      <LegalLayout
+        title="Privacy Policy"
+        lastUpdated={LAST_UPDATED}
+        intro="What we collect, how we use it, who we share it with, and the rights you have over your data. Plain language where we can manage it; the necessary specifics where we can't."
+      >
       <LegalSection number={1} title="Information we collect">
         <LegalSubheading>Account information</LegalSubheading>
         <LegalList
@@ -142,6 +170,12 @@ export default function PrivacyPage() {
               <strong className="font-medium text-ink">Sentry</strong> — error
               monitoring
             </>,
+            <>
+              <strong className="font-medium text-ink">
+                Google Analytics 4
+              </strong>{" "}
+              (operated by Google LLC) — traffic analytics on public pages
+            </>,
           ]}
         />
         <p>We do not:</p>
@@ -164,8 +198,13 @@ export default function PrivacyPage() {
             Cookie Policy
           </Link>{" "}
           for the full list. Brief summary: authentication cookies (Clerk),
-          payment cookies during checkout (Stripe), and CSRF protection. No
-          advertising cookies. No cross-site tracking.
+          payment cookies during checkout (Stripe), CSRF protection, and
+          Google Analytics 4 traffic-measurement cookies on public pages.
+          Google may correlate Analytics activity with other Google services
+          for users who are signed into a Google account; we don&rsquo;t
+          control that correlation. We do not run third-party advertising
+          cookies and do not enable GA4&rsquo;s advertising-features
+          integration.
         </p>
       </LegalSection>
 
@@ -274,6 +313,7 @@ export default function PrivacyPage() {
           .
         </p>
       </LegalSection>
-    </LegalLayout>
+      </LegalLayout>
+    </>
   );
 }

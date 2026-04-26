@@ -5,22 +5,50 @@ import {
   LegalList,
   LegalSection,
 } from "@/components/legal/legal-layout";
+import { articleSchema, SITE_URL } from "@/lib/seo/schema";
+import { StructuredData } from "@/lib/seo/structured-data";
+
+const TITLE = "Terms of Service — DwellVerdict";
+const DESCRIPTION =
+  "Terms governing use of DwellVerdict's property verdict service. Subscription billing, AI content disclaimer, refund policy, and your rights as a user.";
+const LAST_UPDATED = "April 25, 2026";
+const PUBLISHED = "2026-04-25";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — DwellVerdict",
-  description:
-    "Terms governing use of DwellVerdict's property verdict service. Subscription billing, AI content disclaimer, refund policy, and your rights as a user.",
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: `${SITE_URL}/terms` },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: `${SITE_URL}/terms`,
+    siteName: "DwellVerdict",
+    locale: "en_US",
+    type: "article",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
-
-const LAST_UPDATED = "April 25, 2026";
 
 export default function TermsPage() {
   return (
-    <LegalLayout
-      title="Terms of Service"
-      lastUpdated={LAST_UPDATED}
-      intro="By using DwellVerdict, you agree to these terms. Please read them carefully — they cover billing, the AI content disclaimer, refund policy, and your rights as a user."
-    >
+    <>
+      <StructuredData
+        data={articleSchema({
+          headline: "Terms of Service",
+          datePublished: PUBLISHED,
+          dateModified: PUBLISHED,
+          url: `${SITE_URL}/terms`,
+        })}
+      />
+      <LegalLayout
+        title="Terms of Service"
+        lastUpdated={LAST_UPDATED}
+        intro="By using DwellVerdict, you agree to these terms. Please read them carefully — they cover billing, the AI content disclaimer, refund policy, and your rights as a user."
+      >
       <LegalSection number={1} title="Acceptance of terms">
         <p>
           By creating an account or using DwellVerdict (the &ldquo;Service&rdquo;),
@@ -217,6 +245,7 @@ export default function TermsPage() {
           .
         </p>
       </LegalSection>
-    </LegalLayout>
+      </LegalLayout>
+    </>
   );
 }
