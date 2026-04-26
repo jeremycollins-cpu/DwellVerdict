@@ -34,6 +34,14 @@ Last updated: 2026-04-25
 
 ---
 
+## Known v1.1 follow-ups
+
+Tracked work that's been explicitly deferred past the v1 launch window. Each entry should land before the milestone that depends on it (or before public launch, whichever comes first).
+
+- **M0.4 — Auto-migration in Vercel build pipeline.** Required before next schema-change milestone. Until shipped, manually run `pnpm --filter @dwellverdict/db db:migrate` against production after schema migrations merge.
+
+---
+
 ## Before you start (one-time setup)
 
 You do these once, before any milestone work begins. After this section, you never touch it again.
