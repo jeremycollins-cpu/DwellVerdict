@@ -18,7 +18,8 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 Last updated: 2026-04-25
 
-- ✅ M3.2 shipped — streaming verdict generation. SSE-streamed `/api/verdicts/[id]/generate` emits `phase_start` / `signal_complete` / `narrative_ready` / `complete` / `error` events. New `StreamingVerdict` component renders mockup 04: 4-domain stream track ticking off as parallel signals settle, progress bar, live sources panel, and a typewriter-revealed narrative section with "Deep Analysis" badge for Sonnet (M3.0 routing). Cost-cap check from M3.0 wired in. Fallback to `/api/verdicts/[id]/status` polling on SSE connection failure. No schema migration needed.
+- ✅ M3.3 shipped — verdict detail page (mockup v4-verdict). Three architectural changes alongside the visual work: (1) **structured per-domain evidence** via verdict-narrative prompt v2 — `data_points` is now `{summary, metrics?, citations?}` per domain; pre-M3.3 verdicts in the legacy 4-string shape still render via type-guarding. (2) **Immutable verdicts with run history** — regenerate creates a new pending verdict row instead of overwriting; canonical URL is `/app/properties/[propertyId]/verdicts/[verdictId]`; property page redirects to the latest. (3) **`verdict_feedback` table** plus thumbs up/down + issue-category UI per verdict. Plus persisted `score_breakdown`, "Deep Analysis" badge surfaces in the static detail view, and FHA-aware copy on lint-failed verdicts. **Schema migration `0012_verdict_feedback_and_score_breakdown` requires manual production run** per M0.4 follow-up.
+- ✅ M3.2 shipped (commit accfca4) — streaming verdict generation. SSE-streamed `/api/verdicts/[id]/generate` emits `phase_start` / `signal_complete` / `narrative_ready` / `complete` / `error` events. New `StreamingVerdict` component renders mockup 04: 4-domain stream track ticking off as parallel signals settle, progress bar, live sources panel, and a typewriter-revealed narrative section with "Deep Analysis" badge for Sonnet (M3.0 routing). Cost-cap check from M3.0 wired in. Fallback to `/api/verdicts/[id]/status` polling on SSE connection failure. No schema migration needed.
 - ✅ M3.1 shipped (commit 96b7bde) — address input refresh (mockup 03). New eyebrow + serif headline + boxed input row with pin icon and ink "Generate verdict" CTA. Two-step flow: pick suggestion → preview staged address → click CTA to submit (replaces the prior auto-submit-on-pick). Google Places integration preserved verbatim; the dropdown is themed via `.pac-container` rules in `globals.css` so the visual matches the mockup without rewriting the integration.
 - ✅ M3.0 shipped (commit 8304275) — AI cost optimization foundation (additive after pre-flight audit found existing infra). Adds `packages/ai/src/{model-router,usage-events,cost-cap,batch-client}.ts`, `ai_usage_events` table, confidence-band hybrid routing on verdict-narrative (Sonnet < 70 confidence, Haiku otherwise), corrected cache-discount math in `computeCostCents`. Master plan bumped to v1.7 reflecting Haiku-only reality. **Phase 3 begins.**
 - ✅ M2.4 shipped (commit 8bdc9b0) — SEO + GEO optimization (JSON-LD schema across all public pages: Organization on landing, Product + FAQPage on pricing, FAQPage on /help, Article on legal pages; full per-page metadata with OG + Twitter cards; auto-generated sitemap.xml + robots.txt; Google Analytics 4 wired in root layout via `NEXT_PUBLIC_GA_MEASUREMENT_ID`; cookie + privacy policies updated to accurately describe GA4). Phase 2 complete.
@@ -32,7 +33,7 @@ Last updated: 2026-04-25
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M3.3 next — verdict detail page
+- ⏳ M3.4 next — onboarding intent flow + welcome email
 
 ---
 
@@ -216,7 +217,7 @@ This is the order. Don't deviate without good reason.
 - [x] **M3.0** — AI cost optimization foundation — shipped (merge SHA pending)
 - [x] **M3.1** — Address input refresh — shipped (merge SHA pending)
 - [x] **M3.2** — Streaming verdict generation + cost optimization — shipped (merge SHA pending)
-- [ ] **M3.3** — Verdict detail page (the centerpiece) + verdict feedback capture
+- [x] **M3.3** — Verdict detail page (the centerpiece) + verdict feedback capture — shipped (merge SHA pending, requires manual production migration)
 - [ ] **M3.4** — Onboarding intent flow + welcome email
 
 ### Phase 4 — Property surfaces

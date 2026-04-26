@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -117,6 +117,17 @@ interface ConnectionState {
     model: string;
     routingReason: string;
   } | null;
+  /**
+   * Verdict id from the SSE `complete` event. May differ from the
+   * starting `verdictId` prop on regenerate (insert-only writes
+   * give the new run its own id).
+   */
+  effectiveVerdictId: string | null;
+  /**
+   * Property id pulled out of the current pathname so we can
+   * navigate to the new verdict's canonical URL on completion.
+   */
+  propertyId: string | null;
   error: string | null;
   // For "+N in last 6s" rolling window on the sources panel.
   now: number;
@@ -129,6 +140,8 @@ const initialState = (): ConnectionState => ({
   domainStarted: false,
   sources: [],
   narrative: null,
+  effectiveVerdictId: null,
+  propertyId: null,
   error: null,
   now: Date.now(),
 });
@@ -150,8 +163,18 @@ export function StreamingVerdict({
   startLabel = "Generate verdict",
 }: StreamingVerdictProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [state, setState] = useState<ConnectionState>(initialState);
   const streamRef = useRef<{ abort: () => void } | null>(null);
+
+  // Pull `propertyId` from the URL so we can navigate to the new
+  // verdict's canonical /verdicts/[id] page on completion. The
+  // pathname always contains it because every surface that renders
+  // StreamingVerdict lives under /app/properties/[propertyId]/...
+  const propertyIdFromPath = (() => {
+    const m = pathname?.match(/\/app\/properties\/([^/]+)/);
+    return m ? m[1] : null;
+  })();
 
   // Tick the clock once per second so elapsed times animate without
   // having to re-render the world on every event arrival.
@@ -196,7 +219,11 @@ export function StreamingVerdict({
               },
             };
           case "complete":
-            return { ...prev, phase: "complete" };
+            return {
+              ...prev,
+              phase: "complete",
+              effectiveVerdictId: event.verdictId || prev.effectiveVerdictId,
+            };
           case "error":
             return { ...prev, phase: "error", error: event.error };
           default:
@@ -207,17 +234,28 @@ export function StreamingVerdict({
     [],
   );
 
-  // Once the server signals complete, refresh the route so the
-  // server component re-reads the row and swaps in the ready
-  // verdict UI. Small delay so the user sees the final "complete"
-  // state for a moment before the page transitions.
+  // Once the server signals complete, navigate to the new verdict's
+  // canonical URL. With M3.3's insert-only regenerate, the
+  // effectiveVerdictId from the SSE complete event may differ from
+  // the verdictId we started streaming against — so we always push
+  // to /app/properties/[propertyId]/verdicts/[effectiveId] rather
+  // than refreshing in place. Small delay so the user sees the
+  // final "complete" state for a moment before the transition.
   useEffect(() => {
     if (state.phase !== "complete") return;
     const id = window.setTimeout(() => {
-      router.refresh();
+      const targetVerdictId = state.effectiveVerdictId ?? verdictId;
+      if (propertyIdFromPath) {
+        router.push(
+          `/app/properties/${propertyIdFromPath}/verdicts/${targetVerdictId}`,
+        );
+        router.refresh();
+      } else {
+        router.refresh();
+      }
     }, 800);
     return () => window.clearTimeout(id);
-  }, [state.phase, router]);
+  }, [state.phase, state.effectiveVerdictId, verdictId, router, propertyIdFromPath]);
 
   const start = useCallback(() => {
     if (streamRef.current) return;

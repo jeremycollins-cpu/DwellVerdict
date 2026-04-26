@@ -11,6 +11,7 @@ import {
 import { resolveAppUser } from "@/lib/db/queries/users";
 import { getPropertyForOrg } from "@/lib/db/queries/properties";
 import {
+  createPendingVerdict,
   getVerdictForOrg,
   markVerdictFailed,
   markVerdictReady,
@@ -99,6 +100,26 @@ export async function POST(
   // Idempotency: ready short-circuits unless caller passed force.
   if (verdict.status === "ready" && !force) {
     return Response.json({ ok: true, status: "ready", verdictId });
+  }
+
+  // Insert-only regenerate (M3.3 / CLAUDE.md immutability rule).
+  // When the caller passes force=true on an already-ready verdict,
+  // create a NEW pending row for the same property and orchestrate
+  // against that. Preserves the prior verdict for run history; the
+  // streaming UI uses the new verdictId from the SSE complete
+  // event to navigate to the new verdict's URL.
+  //
+  // First-run (status='pending') and failed retries continue to
+  // update in place — those represent a single attempt at the
+  // current verdict, not a fresh run worth its own row.
+  let effectiveVerdictId = verdict.id;
+  if (verdict.status === "ready" && force) {
+    const newVerdict = await createPendingVerdict({
+      orgId: appUser.orgId,
+      propertyId: verdict.propertyId,
+      createdByUserId: appUser.userId,
+    });
+    effectiveVerdictId = newVerdict.id;
   }
 
   const property = await getPropertyForOrg({
@@ -201,7 +222,7 @@ export async function POST(
           lng,
           userId: appUser.userId,
           orgId: appUser.orgId,
-          verdictId,
+          verdictId: effectiveVerdictId,
           onProgress: (event) => {
             try {
               controller.enqueue(sse(event));
@@ -215,7 +236,7 @@ export async function POST(
 
         if (!result.ok) {
           await markVerdictFailed({
-            verdictId,
+            verdictId: effectiveVerdictId,
             error: result.error,
             modelVersion: result.observability.modelVersion,
             promptVersion: result.observability.promptVersion,
@@ -230,7 +251,7 @@ export async function POST(
           // The orchestrator already emitted an `error` event above.
         } else {
           await markVerdictReady({
-            verdictId,
+            verdictId: effectiveVerdictId,
             signal: result.signal,
             confidence: result.confidence,
             summary: result.summary,
@@ -242,13 +263,14 @@ export async function POST(
             inputTokens: result.observability.inputTokens,
             outputTokens: result.observability.outputTokens,
             costCents: result.observability.costCents,
+            scoreBreakdown: result.breakdown,
           });
           // The orchestrator already emitted a `complete` event.
         }
       } catch (err) {
         const { message, code } = describeError(err);
         console.error("[verdicts/generate] unexpected error", {
-          verdictId,
+          verdictId: effectiveVerdictId,
           code,
           message,
           raw: err,
@@ -257,7 +279,7 @@ export async function POST(
           controller.enqueue(sseError(`unexpected: ${message}`));
         } catch {}
         await markVerdictFailed({
-          verdictId,
+          verdictId: effectiveVerdictId,
           error: `unexpected: ${message}`,
           promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
         }).catch(() => undefined);

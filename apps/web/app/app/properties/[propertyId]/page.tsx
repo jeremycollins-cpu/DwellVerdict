@@ -1,31 +1,24 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Sparkles } from "lucide-react";
 
 import { VerdictCertificate } from "@/components/verdict-certificate";
-import { VerdictLoader } from "@/app/app/properties/[propertyId]/verdict-loader";
-import { StreamingVerdict } from "@/components/verdict-generating/streaming-verdict";
 import { PropertyStageNav } from "@/components/property-stage-nav";
 import { getPropertyForOrg } from "@/lib/db/queries/properties";
 import { getLatestVerdictForProperty } from "@/lib/db/queries/verdicts";
 import { resolveAppUser } from "@/lib/db/queries/users";
 
 /**
- * Property detail page — the post-paste destination.
+ * Property detail page — post-paste destination AND verdict
+ * gateway. After M3.3, when a verdict exists (in any status) we
+ * redirect to its canonical URL at
+ * `/app/properties/[propertyId]/verdicts/[verdictId]`.
  *
- * Three render states driven by latest verdict row:
- *   - ready   → render VerdictCertificate with real data
- *   - pending → render a placeholder skeleton, VerdictLoader (client)
- *               POSTs to /api/verdicts/[id]/generate to complete
- *   - failed  → render a retry affordance, same VerdictLoader handles
- *               it (POST is idempotent)
- *
- * No verdict at all is theoretically possible (property row exists
- * without any verdicts) — in that case we render the no-verdict
- * state and let the user manually trigger generation. Sprint 2
- * shouldn't hit this path normally because createPropertyAction
- * creates a pending row for every new property.
+ * The only state that renders here is "no verdict yet" — a clean
+ * landing where the user can manually trigger generation. In the
+ * common path (createPropertyAction insert + redirect), this page
+ * never renders to the user.
  */
 export default async function PropertyDetailPage({
   params,
@@ -56,10 +49,19 @@ export default async function PropertyDetailPage({
     orgId: appUser.orgId,
   });
 
+  // If a verdict exists, redirect to its canonical URL. Pending
+  // verdicts redirect too — the verdict-detail route renders the
+  // streaming UI for that state.
+  if (verdict) {
+    redirect(`/app/properties/${propertyId}/verdicts/${verdict.id}`);
+  }
+
   const addressFull =
     property.addressFull ??
     `${property.addressLine1}, ${property.city}, ${property.state} ${property.zip}`;
 
+  // No-verdict state — rare in production (createPropertyAction
+  // pre-creates a pending row) but possible if the row was deleted.
   return (
     <div className="flex flex-1 flex-col bg-paper">
       <section className="container flex flex-col gap-6 py-10">
@@ -89,91 +91,8 @@ export default async function PropertyDetailPage({
           </Link>
         </div>
 
-        {verdict && verdict.status === "ready" ? (
-          <>
-            <VerdictCertificate
-              mode="ready"
-              data={{
-                addressFull,
-                signal: verdict.signal as "buy" | "watch" | "pass",
-                confidence: verdict.confidence ?? 0,
-                summary: verdict.summary ?? "",
-                narrative: verdict.narrative ?? "",
-                dataPoints: (verdict.dataPoints as {
-                  comps: string;
-                  revenue: string;
-                  regulatory: string;
-                  location: string;
-                }) ?? {
-                  comps: "",
-                  revenue: "",
-                  regulatory: "",
-                  location: "",
-                },
-                sources: Array.isArray(verdict.sources)
-                  ? (verdict.sources as string[])
-                  : [],
-              }}
-            />
-            <VerdictLoader
-              verdictId={verdict.id}
-              label="Regenerate verdict"
-              force
-            />
-          </>
-        ) : verdict && verdict.status === "pending" ? (
-          <StreamingVerdict
-            verdictId={verdict.id}
-            addressFull={addressFull}
-          />
-        ) : verdict && verdict.status === "failed" ? (
-          <VerdictFailedCard
-            verdictId={verdict.id}
-            addressFull={addressFull}
-            errorMessage={verdict.errorMessage}
-          />
-        ) : (
-          <VerdictCertificate mode="placeholder" />
-        )}
+        <VerdictCertificate mode="placeholder" />
       </section>
     </div>
-  );
-}
-
-function VerdictFailedCard({
-  verdictId,
-  addressFull,
-  errorMessage,
-}: {
-  verdictId: string;
-  addressFull: string;
-  errorMessage: string | null;
-}) {
-  return (
-    <>
-      <div className="relative overflow-hidden rounded-[14px] bg-card shadow-card">
-        <div
-          aria-hidden
-          className="absolute inset-y-0 left-0 w-[3px] bg-signal-pass"
-        />
-        <div className="flex flex-col gap-4 p-8 pl-10">
-          <div>
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-signal-pass">
-              Generation failed
-            </p>
-            <h3 className="mt-1 text-lg font-medium tracking-[-0.01em] text-ink">
-              Scout couldn&apos;t render a verdict for {addressFull}
-            </h3>
-          </div>
-          {errorMessage ? (
-            <p className="font-mono text-xs text-ink-muted">{errorMessage}</p>
-          ) : null}
-          <p className="text-sm text-ink-muted">
-            You can retry — failures don&apos;t count against your quota.
-          </p>
-        </div>
-      </div>
-      <VerdictLoader verdictId={verdictId} label="Retry verdict" />
-    </>
   );
 }

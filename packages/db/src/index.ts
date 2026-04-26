@@ -68,6 +68,10 @@ export type {
   AiUsageEvent,
   NewAiUsageEvent,
   AiUsageTask,
+  VerdictFeedback,
+  NewVerdictFeedback,
+  VerdictFeedbackRating,
+  VerdictFeedbackIssueCategory,
 } from "./schema";
 
 export {
@@ -90,4 +94,6 @@ export {
   RESERVATION_STATUSES,
   EXPENSE_CATEGORIES,
   AI_USAGE_TASKS,
+  VERDICT_FEEDBACK_RATINGS,
+  VERDICT_FEEDBACK_ISSUE_CATEGORIES,
 } from "./schema";
