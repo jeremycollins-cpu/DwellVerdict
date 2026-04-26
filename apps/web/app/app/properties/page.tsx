@@ -44,19 +44,19 @@ export default async function PropertiesPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-paper">
-      <section className="container flex flex-col gap-8 py-12">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-[28px] font-medium tracking-[-0.02em] text-ink">
-            Your properties
-          </h1>
-          <p className="text-sm text-ink-muted">
-            Paste any US address. Scout researches the property and returns a
-            verdict you can track through the lifecycle.
-          </p>
-        </div>
+      <AddressEntry />
 
-        <AddressEntry />
-
+      <section className="mx-auto w-full max-w-[1080px] px-6 pb-12 md:px-12">
+        {properties.length > 0 ? (
+          <div className="mb-5 flex items-baseline justify-between border-b border-hairline pb-3">
+            <h1 className="text-[18px] font-medium tracking-[-0.01em] text-ink">
+              Your properties
+            </h1>
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-muted">
+              {properties.length} saved
+            </span>
+          </div>
+        ) : null}
         <PropertyList properties={properties} />
       </section>
 

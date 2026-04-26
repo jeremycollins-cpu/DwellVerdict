@@ -1,11 +1,10 @@
 "use client";
 
 import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
-import { MapPin, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { parseGooglePlace, type ParsedAddress } from "@/lib/address";
-import { Input } from "@/components/ui/input";
 
 /**
  * AddressAutocomplete — the front door of DwellVerdict.
@@ -123,22 +122,23 @@ export function AddressAutocomplete({
 
   const isDisabled = disabled || loadError === "missing-api-key";
 
+  // The M3.1 visual is a single boxed row (icon + flush input +
+  // CTA), so this component renders only the input itself plus the
+  // loading/error affordances. The wrapping shell — pin icon, CTA
+  // button, focus ring, autocomplete-dropdown styling — lives in
+  // the parent (AddressEntry) and on Google's `.pac-container` via
+  // globals.css.
   return (
-    <div className="relative w-full">
-      <MapPin
-        aria-hidden
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-terracotta"
-      />
-      <Input
+    <div className="relative flex w-full items-center">
+      <input
         ref={inputRef}
         type="text"
         defaultValue={initialValue}
         placeholder={placeholder}
         disabled={isDisabled}
-        // Prevent browser autofill from competing with Google's dropdown.
         autoComplete="off"
         aria-label="Property address"
-        className="h-12 pl-10 pr-10 text-base"
+        className="w-full flex-1 bg-transparent py-4 text-[18px] tracking-[-0.005em] text-ink placeholder:text-ink-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         // Enter without a selection shouldn't submit a form; the
         // component relies on place_changed. Swallow it.
         onKeyDown={(e) => {
@@ -148,14 +148,14 @@ export function AddressAutocomplete({
       {!ready && !loadError ? (
         <Loader2
           aria-hidden
-          className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-ink-muted/60"
+          className="size-4 shrink-0 animate-spin text-ink-muted/60"
         />
       ) : null}
       {loadError ? (
-        <p className="mt-2 font-mono text-xs text-ink-muted">
+        <p className="ml-3 shrink-0 font-mono text-xs text-ink-muted">
           {loadError === "missing-api-key"
-            ? "Address autocomplete is offline (API key not configured)."
-            : "Couldn't reach Google Maps. Refresh to try again."}
+            ? "Autocomplete offline"
+            : "Couldn't reach Google Maps"}
         </p>
       ) : null}
     </div>

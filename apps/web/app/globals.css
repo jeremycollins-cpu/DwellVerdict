@@ -125,3 +125,56 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Google Places Autocomplete dropdown — styled to match mockup 03's
+   visual language without rewriting the integration. Google's widget
+   renders a fixed-position `.pac-container` element appended to
+   document.body, so these rules live outside the @layer base block
+   and use !important to override the inline styles Google ships. */
+.pac-container {
+  border: 1px solid hsl(var(--hairline)) !important;
+  border-radius: 12px !important;
+  margin-top: 8px !important;
+  padding: 0 !important;
+  background-color: hsl(var(--card-ink)) !important;
+  box-shadow:
+    0 16px 40px -16px rgba(28, 25, 23, 0.18),
+    0 0 0 1px rgba(28, 25, 23, 0.04) !important;
+  font-family: var(--font-geist-sans), system-ui, sans-serif !important;
+  overflow: hidden !important;
+}
+.pac-container::after {
+  /* Hide the default "powered by Google" footer logo — we surface
+     the attribution in surrounding copy. */
+  display: none !important;
+}
+.pac-item {
+  padding: 12px 18px !important;
+  border-top: 1px solid hsl(var(--hairline)) !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  color: hsl(var(--ink-70)) !important;
+  cursor: pointer !important;
+}
+.pac-item:first-child {
+  border-top: 0 !important;
+}
+.pac-item:hover {
+  background-color: hsl(var(--paper-warm)) !important;
+}
+.pac-item-selected,
+.pac-item-selected:hover {
+  background-color: hsl(var(--terracotta-soft)) !important;
+}
+.pac-item-query {
+  color: hsl(var(--ink)) !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+}
+.pac-icon {
+  display: none !important;
+}
+.pac-matched {
+  font-weight: 500 !important;
+  color: hsl(var(--ink)) !important;
+}

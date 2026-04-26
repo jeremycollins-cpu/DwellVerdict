@@ -18,7 +18,8 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 Last updated: 2026-04-25
 
-- ✅ M3.0 shipped — AI cost optimization foundation (additive after pre-flight audit found existing infra). Adds `packages/ai/src/{model-router,usage-events,cost-cap,batch-client}.ts`, `ai_usage_events` table, confidence-band hybrid routing on verdict-narrative (Sonnet < 70 confidence, Haiku otherwise), corrected cache-discount math in `computeCostCents`. Master plan bumped to v1.7 reflecting Haiku-only reality. **Phase 3 begins.**
+- ✅ M3.1 shipped — address input refresh (mockup 03). New eyebrow + serif headline + boxed input row with pin icon and ink "Generate verdict" CTA. Two-step flow: pick suggestion → preview staged address → click CTA to submit (replaces the prior auto-submit-on-pick). Google Places integration preserved verbatim; the dropdown is themed via `.pac-container` rules in `globals.css` so the visual matches the mockup without rewriting the integration.
+- ✅ M3.0 shipped (commit 8304275) — AI cost optimization foundation (additive after pre-flight audit found existing infra). Adds `packages/ai/src/{model-router,usage-events,cost-cap,batch-client}.ts`, `ai_usage_events` table, confidence-band hybrid routing on verdict-narrative (Sonnet < 70 confidence, Haiku otherwise), corrected cache-discount math in `computeCostCents`. Master plan bumped to v1.7 reflecting Haiku-only reality. **Phase 3 begins.**
 - ✅ M2.4 shipped (commit 8bdc9b0) — SEO + GEO optimization (JSON-LD schema across all public pages: Organization on landing, Product + FAQPage on pricing, FAQPage on /help, Article on legal pages; full per-page metadata with OG + Twitter cards; auto-generated sitemap.xml + robots.txt; Google Analytics 4 wired in root layout via `NEXT_PUBLIC_GA_MEASUREMENT_ID`; cookie + privacy policies updated to accurately describe GA4). Phase 2 complete.
 - ✅ M2.3 shipped (commit f6ef0e9) — Legal + Help pages (`/terms`, `/privacy`, `/cookies`, `/help` via shared `LegalLayout`; copy verified against `consumeReport()`, scout/message route, and the third-party services actually wired up — flagged drift from the prompt template where Settings → Account self-serve export/delete don't exist yet, softened to email-based requests)
 - ✅ M2.2 shipped (commit e97a362) — pricing page (3 tier cards with Stripe-integrated CTAs, granular feature comparison table with mobile vertical transform, 10 FAQs verified against `consumeReport()` + scout/message route, dark final CTA)
@@ -30,7 +31,7 @@ Last updated: 2026-04-25
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M3.1 next — address input refresh
+- ⏳ M3.2 next — streaming verdict generation
 
 ---
 
@@ -212,7 +213,7 @@ This is the order. Don't deviate without good reason.
 
 ### Phase 3 — Verdict surfaces
 - [x] **M3.0** — AI cost optimization foundation — shipped (merge SHA pending)
-- [ ] **M3.1** — Address input refresh
+- [x] **M3.1** — Address input refresh — shipped (merge SHA pending)
 - [ ] **M3.2** — Streaming verdict generation + cost optimization
 - [ ] **M3.3** — Verdict detail page (the centerpiece) + verdict feedback capture
 - [ ] **M3.4** — Onboarding intent flow + welcome email
