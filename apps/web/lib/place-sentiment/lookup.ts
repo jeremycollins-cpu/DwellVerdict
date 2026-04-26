@@ -47,8 +47,12 @@ export type PlaceSentimentSignal =
 export async function getPlaceSentimentSignal(params: {
   lat: number;
   lng: number;
+  /** When set, the AI usage event is attributed to this user on
+   *  cache miss. Cache hits skip the AI call. */
+  userId?: string;
+  orgId?: string;
 }): Promise<PlaceSentimentSignal> {
-  const { lat, lng } = params;
+  const { lat, lng, userId, orgId } = params;
   const db = getDb();
 
   const cached = await getPlaceSentimentCacheRow({ lat, lng });
@@ -99,7 +103,13 @@ export async function getPlaceSentimentSignal(params: {
         },
   };
 
-  const result = await synthesizePlaceSentiment({ lat, lng, data });
+  const result = await synthesizePlaceSentiment({
+    lat,
+    lng,
+    data,
+    userId,
+    orgId,
+  });
   if (!result.ok) {
     if (cached) return rowToSignal({ row: cached, isStale: true });
     return { ok: false, error: result.error };

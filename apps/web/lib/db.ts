@@ -1,4 +1,5 @@
 import { createDb, type Db } from "@dwellverdict/db";
+import { setUsageLoggerDb } from "@dwellverdict/ai";
 
 /**
  * Process-wide singleton pinned to `globalThis` so Next.js dev-mode hot
@@ -15,5 +16,11 @@ export function getDb(): Db {
     throw new Error("DATABASE_URL is not set");
   }
   globalForDb._dwellverdictDb = createDb(url);
+  // Wire the AI package's usage-event logger to this same Drizzle
+  // client. Decouples packages/ai from any concrete connection
+  // pattern while ensuring every AI call lands in
+  // ai_usage_events. Safe to call repeatedly — setUsageLoggerDb
+  // just overwrites the module-scoped pointer.
+  setUsageLoggerDb(globalForDb._dwellverdictDb);
   return globalForDb._dwellverdictDb;
 }

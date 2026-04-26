@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { getAnthropicClient } from "../anthropic";
 import { computeCostCents } from "../pricing";
+import { logAiUsageEvent } from "../usage-events";
 
 /**
  * regulatory-lookup — Haiku + web_search sub-task that researches
@@ -163,6 +164,12 @@ export type RegulatoryLookupInput = {
   state: string;
   /** Optional override; default 4 per ADR-6. */
   maxWebSearches?: number;
+  /** Optional userId. When set, the call logs to ai_usage_events.
+   *  Cache hits don't reach this task at all, so logging here only
+   *  fires on cache miss. */
+  userId?: string;
+  /** Optional orgId for org-scoped cost analytics. */
+  orgId?: string;
 };
 
 export type RegulatoryLookupSuccess = {
@@ -173,6 +180,8 @@ export type RegulatoryLookupSuccess = {
     promptVersion: string;
     inputTokens: number;
     outputTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
     costCents: number;
     webSearchCount: number;
   };
@@ -275,6 +284,9 @@ export async function lookupRegulatory(
 
   const inputTokens = response.usage.input_tokens;
   const outputTokens = response.usage.output_tokens;
+  const cacheReadInputTokens = response.usage.cache_read_input_tokens ?? 0;
+  const cacheCreationInputTokens =
+    response.usage.cache_creation_input_tokens ?? 0;
   const webSearchCount = response.content.filter(
     (b) => b.type === "server_tool_use" && b.name === "web_search",
   ).length;
@@ -286,21 +298,44 @@ export async function lookupRegulatory(
     inputTokens,
     outputTokens,
     webSearchCount,
-    cacheReadInputTokens: response.usage.cache_read_input_tokens ?? 0,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
     stopReason: response.stop_reason,
   });
+
+  const costCents = computeCostCents({
+    model: REGULATORY_LOOKUP_MODEL,
+    inputTokens,
+    outputTokens,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
+    webSearchCount,
+  });
+
+  if (input.userId) {
+    await logAiUsageEvent({
+      userId: input.userId,
+      orgId: input.orgId,
+      task: "regulatory-lookup",
+      model: REGULATORY_LOOKUP_MODEL,
+      inputTokens,
+      outputTokens,
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+      webSearchCount,
+      costCents,
+      durationMs: Date.now() - startedAt,
+    });
+  }
 
   const observability = {
     modelVersion: REGULATORY_LOOKUP_MODEL,
     promptVersion: REGULATORY_LOOKUP_PROMPT_VERSION,
     inputTokens,
     outputTokens,
-    costCents: computeCostCents({
-      model: REGULATORY_LOOKUP_MODEL,
-      inputTokens,
-      outputTokens,
-      webSearchCount,
-    }),
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
+    costCents,
     webSearchCount,
   };
 

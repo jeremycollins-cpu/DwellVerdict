@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
+    "@dwellverdict/db": "workspace:*",
     "zod": "^3.24.1"
   },
   "devDependencies": {

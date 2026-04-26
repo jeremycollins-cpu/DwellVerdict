@@ -79,8 +79,17 @@ export async function orchestrateVerdict(input: {
   state: string;
   lat: number;
   lng: number;
+  /** Logged on every AI call inside the orchestrator (narrative,
+   *  regulatory cache miss, place-sentiment cache miss) so cost
+   *  events get attributed to the right user. */
+  userId?: string;
+  orgId?: string;
+  /** Set on the verdict that triggered this orchestration. The
+   *  narrative AI usage event will reference it; analytics surfaces
+   *  pivot from a verdict to its underlying AI calls via this. */
+  verdictId?: string;
 }): Promise<OrchestratedVerdict | OrchestratedVerdictFailure> {
-  const { addressFull, city, state, lat, lng } = input;
+  const { addressFull, city, state, lat, lng, userId, orgId, verdictId } = input;
   const db = getDb();
 
   // ---- Phase 1: fetch everything in parallel ----
@@ -104,8 +113,8 @@ export async function orchestrateVerdict(input: {
     getAirbnbCompsSignal(db, lat, lng, `${city}, ${state}`),
     getZillowValuationSignal(db, addressFull),
     getRedfinValuationSignal(db, addressFull),
-    getRegulatorySignal({ city, state }),
-    getPlaceSentimentSignal({ lat, lng }),
+    getRegulatorySignal({ city, state, userId, orgId }),
+    getPlaceSentimentSignal({ lat, lng, userId, orgId }),
   ]);
 
   // Unpack with null fallbacks so downstream can degrade gracefully.
@@ -260,6 +269,9 @@ export async function orchestrateVerdict(input: {
     addressFull,
     score,
     signals,
+    userId,
+    orgId,
+    verdictId,
   });
   if (!narrative.ok) {
     return {

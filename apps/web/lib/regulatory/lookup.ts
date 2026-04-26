@@ -50,8 +50,13 @@ export type RegulatorySignal =
 export async function getRegulatorySignal(params: {
   city: string;
   state: string;
+  /** When set, the AI usage event is attributed to this user.
+   *  Cache hits skip the AI call entirely so attribution only
+   *  matters on cache miss. */
+  userId?: string;
+  orgId?: string;
 }): Promise<RegulatorySignal> {
-  const { city, state } = params;
+  const { city, state, userId, orgId } = params;
 
   const cached = await getRegulatoryCacheRow({ city, state });
   if (cached && isRegulatoryCacheFresh(cached)) {
@@ -60,7 +65,7 @@ export async function getRegulatorySignal(params: {
 
   // Cache miss OR stale: fetch live.
   // v0 synchronous refresh; Inngest background path is a TODO.
-  const result = await lookupRegulatory({ city, state });
+  const result = await lookupRegulatory({ city, state, userId, orgId });
   if (!result.ok) {
     // Degrade gracefully: if we have a stale cache row, return it
     // rather than erroring the caller. Some signal is better than

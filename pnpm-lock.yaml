@@ -153,6 +153,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.90.0
         version: 0.90.0(zod@3.25.76)
+      '@dwellverdict/db':
+        specifier: workspace:*
+        version: link:../db
       zod:
         specifier: ^3.24.1
         version: 3.25.76
