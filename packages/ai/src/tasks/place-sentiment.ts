@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { getAnthropicClient } from "../anthropic";
 import { computeCostCents } from "../pricing";
+import { logAiUsageEvent } from "../usage-events";
 
 /**
  * place-sentiment — Haiku synthesis of pre-fetched Yelp + Google
@@ -142,6 +143,11 @@ export type PlaceSentimentInput = {
   lat: number;
   lng: number;
   data: PlaceSentimentInputData;
+  /** Optional userId. When set, the call logs to ai_usage_events.
+   *  Cache hits don't reach this task so logging only fires on miss. */
+  userId?: string;
+  /** Optional orgId for org-scoped cost analytics. */
+  orgId?: string;
 };
 
 export type PlaceSentimentSuccess = {
@@ -152,6 +158,8 @@ export type PlaceSentimentSuccess = {
     promptVersion: string;
     inputTokens: number;
     outputTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
     costCents: number;
   };
 };
@@ -235,6 +243,9 @@ export async function synthesizePlaceSentiment(
 
   const inputTokens = response.usage.input_tokens;
   const outputTokens = response.usage.output_tokens;
+  const cacheReadInputTokens = response.usage.cache_read_input_tokens ?? 0;
+  const cacheCreationInputTokens =
+    response.usage.cache_creation_input_tokens ?? 0;
 
   console.log("[place-sentiment] call complete", {
     lat: input.lat,
@@ -242,20 +253,42 @@ export async function synthesizePlaceSentiment(
     elapsedMs: Date.now() - startedAt,
     inputTokens,
     outputTokens,
-    cacheReadInputTokens: response.usage.cache_read_input_tokens ?? 0,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
     stopReason: response.stop_reason,
   });
+
+  const costCents = computeCostCents({
+    model: PLACE_SENTIMENT_MODEL,
+    inputTokens,
+    outputTokens,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
+  });
+
+  if (input.userId) {
+    await logAiUsageEvent({
+      userId: input.userId,
+      orgId: input.orgId,
+      task: "place-sentiment",
+      model: PLACE_SENTIMENT_MODEL,
+      inputTokens,
+      outputTokens,
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+      costCents,
+      durationMs: Date.now() - startedAt,
+    });
+  }
 
   const observability = {
     modelVersion: PLACE_SENTIMENT_MODEL,
     promptVersion: PLACE_SENTIMENT_PROMPT_VERSION,
     inputTokens,
     outputTokens,
-    costCents: computeCostCents({
-      model: PLACE_SENTIMENT_MODEL,
-      inputTokens,
-      outputTokens,
-    }),
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
+    costCents,
   };
 
   const renderCall = response.content.find(

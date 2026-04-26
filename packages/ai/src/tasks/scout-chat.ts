@@ -6,6 +6,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { getAnthropicClient } from "../anthropic";
 import { computeCostCents } from "../pricing";
+import { logAiUsageEvent } from "../usage-events";
 
 /**
  * Scout chat — property-scoped conversational AI per ADR-8 (Pro
@@ -45,6 +46,12 @@ export type ScoutChatInput = {
    * part of `userMessage`, NOT included in history. */
   history: ScoutChatTurn[];
   userMessage: string;
+  /** Optional userId so the call can be logged to ai_usage_events.
+   *  Omit in unit tests; logging silently no-ops. */
+  userId?: string;
+  /** Optional orgId. Threaded into ai_usage_events for org-scoped
+   *  cost analytics. */
+  orgId?: string;
 };
 
 export type ScoutChatSuccess = {
@@ -55,6 +62,8 @@ export type ScoutChatSuccess = {
     promptVersion: string;
     inputTokens: number;
     outputTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
     costCents: number;
   };
 };
@@ -175,6 +184,19 @@ export async function sendScoutMessage(
       message,
       elapsedMs: Date.now() - startedAt,
     });
+    if (input.userId) {
+      await logAiUsageEvent({
+        userId: input.userId,
+        orgId: input.orgId,
+        task: "scout-chat",
+        model: SCOUT_CHAT_MODEL,
+        inputTokens: 0,
+        outputTokens: 0,
+        costCents: 0,
+        durationMs: Date.now() - startedAt,
+        error: message,
+      });
+    }
     return {
       ok: false,
       error: message,
@@ -202,10 +224,16 @@ export async function sendScoutMessage(
         promptVersion: SCOUT_CHAT_PROMPT_VERSION,
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
+        cacheReadInputTokens: response.usage.cache_read_input_tokens ?? 0,
+        cacheCreationInputTokens:
+          response.usage.cache_creation_input_tokens ?? 0,
         costCents: computeCostCents({
           model: SCOUT_CHAT_MODEL,
           inputTokens: response.usage.input_tokens,
           outputTokens: response.usage.output_tokens,
+          cacheReadInputTokens: response.usage.cache_read_input_tokens ?? 0,
+          cacheCreationInputTokens:
+            response.usage.cache_creation_input_tokens ?? 0,
         }),
       },
     };
@@ -213,14 +241,41 @@ export async function sendScoutMessage(
 
   const inputTokens = response.usage.input_tokens;
   const outputTokens = response.usage.output_tokens;
+  const cacheReadInputTokens = response.usage.cache_read_input_tokens ?? 0;
+  const cacheCreationInputTokens =
+    response.usage.cache_creation_input_tokens ?? 0;
 
   console.log("[scout-chat] call complete", {
     elapsedMs: Date.now() - startedAt,
     inputTokens,
     outputTokens,
-    cacheReadInputTokens: response.usage.cache_read_input_tokens ?? 0,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
     stopReason: response.stop_reason,
   });
+
+  const costCents = computeCostCents({
+    model: SCOUT_CHAT_MODEL,
+    inputTokens,
+    outputTokens,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
+  });
+
+  if (input.userId) {
+    await logAiUsageEvent({
+      userId: input.userId,
+      orgId: input.orgId,
+      task: "scout-chat",
+      model: SCOUT_CHAT_MODEL,
+      inputTokens,
+      outputTokens,
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+      costCents,
+      durationMs: Date.now() - startedAt,
+    });
+  }
 
   return {
     ok: true,
@@ -230,11 +285,9 @@ export async function sendScoutMessage(
       promptVersion: SCOUT_CHAT_PROMPT_VERSION,
       inputTokens,
       outputTokens,
-      costCents: computeCostCents({
-        model: SCOUT_CHAT_MODEL,
-        inputTokens,
-        outputTokens,
-      }),
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+      costCents,
     },
   };
 }

@@ -27,14 +27,38 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
 export const WEB_SEARCH_USD_PER_CALL = 0.01;
 
 /**
- * Convert token usage to a cost in cents. Returns 0 for unknown
- * models so we don't drop events entirely, but logs a warning so
- * missing pricing gets noticed.
+ * Cache-read tokens are billed at 10% of base input rate.
+ * Cache-creation tokens are billed at 125% of base input rate
+ * (5-minute TTL — the only TTL we use today). Both rates from the
+ * Anthropic prompt-caching pricing page.
+ */
+export const CACHE_READ_DISCOUNT = 0.1;
+export const CACHE_WRITE_MULTIPLIER = 1.25;
+
+/**
+ * Convert token usage to a cost in cents.
+ *
+ * Anthropic's API returns four token counts on a Message response:
+ *   - input_tokens         : uncached input (already excludes cache reads)
+ *   - cache_read_input_tokens     : tokens served from the prompt cache
+ *   - cache_creation_input_tokens : tokens written to the cache
+ *   - output_tokens        : completion output
+ *
+ * input_tokens is *NOT* a superset of cache_read_input_tokens — the
+ * three input fields are disjoint. Earlier versions of this file
+ * only summed input_tokens × baseRate, which silently undercounted
+ * cache writes (charged below their 125% rate) and miscategorised
+ * cache reads. Now each pool is priced explicitly.
+ *
+ * Returns 0 for unknown models (with a console.warn) so we don't
+ * drop events entirely.
  */
 export function computeCostCents(params: {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  cacheReadInputTokens?: number;
+  cacheCreationInputTokens?: number;
   webSearchCount?: number;
 }): number {
   const rate = MODEL_PRICING[params.model];
@@ -42,9 +66,18 @@ export function computeCostCents(params: {
     console.warn(`[ai pricing] unknown model ${params.model}; cost defaulted to 0`);
     return 0;
   }
-  const inputCost = (params.inputTokens / 1_000_000) * rate.inputUsdPerMillion;
-  const outputCost = (params.outputTokens / 1_000_000) * rate.outputUsdPerMillion;
-  const webSearchCost = (params.webSearchCount ?? 0) * WEB_SEARCH_USD_PER_CALL;
-  const totalUsd = inputCost + outputCost + webSearchCost;
+  const cacheRead = params.cacheReadInputTokens ?? 0;
+  const cacheWrite = params.cacheCreationInputTokens ?? 0;
+
+  const baseInputUsd = (params.inputTokens / 1_000_000) * rate.inputUsdPerMillion;
+  const cacheReadUsd =
+    (cacheRead / 1_000_000) * rate.inputUsdPerMillion * CACHE_READ_DISCOUNT;
+  const cacheWriteUsd =
+    (cacheWrite / 1_000_000) * rate.inputUsdPerMillion * CACHE_WRITE_MULTIPLIER;
+  const outputUsd = (params.outputTokens / 1_000_000) * rate.outputUsdPerMillion;
+  const webSearchUsd = (params.webSearchCount ?? 0) * WEB_SEARCH_USD_PER_CALL;
+
+  const totalUsd =
+    baseInputUsd + cacheReadUsd + cacheWriteUsd + outputUsd + webSearchUsd;
   return Math.round(totalUsd * 100);
 }

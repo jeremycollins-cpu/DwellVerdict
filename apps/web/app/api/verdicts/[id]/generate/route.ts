@@ -183,6 +183,9 @@ export async function POST(
       state: property.state,
       lat,
       lng,
+      userId: appUser.userId,
+      orgId: appUser.orgId,
+      verdictId,
     });
 
     if (!result.ok) {

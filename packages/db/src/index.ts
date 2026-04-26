@@ -65,6 +65,9 @@ export type {
   ExpenseCategory,
   ScoutMessage,
   NewScoutMessage,
+  AiUsageEvent,
+  NewAiUsageEvent,
+  AiUsageTask,
 } from "./schema";
 
 export {
@@ -86,4 +89,5 @@ export {
   RESERVATION_SOURCES,
   RESERVATION_STATUSES,
   EXPENSE_CATEGORIES,
+  AI_USAGE_TASKS,
 } from "./schema";

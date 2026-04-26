@@ -3,7 +3,46 @@ export {
   __setAnthropicClientForTesting,
   __resetAnthropicClientForTesting,
 } from "./anthropic";
-export { computeCostCents, MODEL_PRICING, WEB_SEARCH_USD_PER_CALL } from "./pricing";
+export {
+  computeCostCents,
+  MODEL_PRICING,
+  WEB_SEARCH_USD_PER_CALL,
+  CACHE_READ_DISCOUNT,
+  CACHE_WRITE_MULTIPLIER,
+} from "./pricing";
+export {
+  HAIKU_MODEL,
+  SONNET_MODEL,
+  VERDICT_NARRATIVE_SONNET_THRESHOLD,
+  routeVerdictNarrative,
+  getDefaultModel,
+  type RoutingDecision,
+  type RoutingReason,
+  type TaskName,
+} from "./model-router";
+export {
+  logAiUsageEvent,
+  setUsageLoggerDb,
+  getUsageLoggerDb,
+  type LogUsageParams,
+  type UsageLoggerDb,
+} from "./usage-events";
+export {
+  decideCostCap,
+  MONTHLY_COST_CAP_CENTS,
+  HARD_BLOCK_MULTIPLIER,
+  type CostCapDecision,
+  type CostCapState,
+} from "./cost-cap";
+export {
+  submitBatch,
+  pollBatchStatus,
+  iterBatchResults,
+  type BatchRequest,
+  type BatchSubmissionResult,
+  type BatchStatus,
+  type BatchStatusSnapshot,
+} from "./batch-client";
 export {
   lookupRegulatory,
   RegulatoryLookupOutputSchema,

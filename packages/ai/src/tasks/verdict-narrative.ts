@@ -6,7 +6,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 import { getAnthropicClient } from "../anthropic";
+import { routeVerdictNarrative, type RoutingReason } from "../model-router";
 import { computeCostCents } from "../pricing";
+import { logAiUsageEvent } from "../usage-events";
 import type { VerdictScore } from "../scoring";
 
 /**
@@ -20,6 +22,13 @@ import type { VerdictScore } from "../scoring";
 
 export const VERDICT_NARRATIVE_TASK_TYPE = "verdict_narrative";
 export const VERDICT_NARRATIVE_PROMPT_VERSION = "v1";
+
+/**
+ * Default model for verdict-narrative. Kept exported for backward
+ * compatibility — callers that import VERDICT_NARRATIVE_MODEL still
+ * work, but the actual model on a given call is decided at runtime
+ * by routeVerdictNarrative(confidence) (see model-router.ts).
+ */
 export const VERDICT_NARRATIVE_MODEL = "claude-haiku-4-5";
 
 export const VerdictNarrativeOutputSchema = z.object({
@@ -132,6 +141,15 @@ export type VerdictNarrativeInput = {
   score: VerdictScore;
   /** Already-computed structured signals the narrative should cite. */
   signals: Record<string, unknown>;
+  /** Optional userId so the call can be logged to ai_usage_events.
+   *  When omitted (e.g. unit tests) usage logging silently no-ops. */
+  userId?: string;
+  /** Optional orgId. Threaded into ai_usage_events for org-scoped
+   *  cost analytics. */
+  orgId?: string;
+  /** Optional verdictId so the usage event can be correlated to the
+   *  verdict that triggered it. */
+  verdictId?: string;
 };
 
 export type VerdictNarrativeSuccess = {
@@ -140,8 +158,11 @@ export type VerdictNarrativeSuccess = {
   observability: {
     modelVersion: string;
     promptVersion: string;
+    routingReason: RoutingReason;
     inputTokens: number;
     outputTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
     costCents: number;
   };
 };
@@ -155,6 +176,10 @@ export type VerdictNarrativeFailure = {
 export async function writeVerdictNarrative(
   input: VerdictNarrativeInput,
 ): Promise<VerdictNarrativeSuccess | VerdictNarrativeFailure> {
+  // Route based on confidence: low-confidence verdicts get Sonnet
+  // for nuanced interpretation; everything else stays on Haiku.
+  const routing = routeVerdictNarrative(input.score.confidence);
+
   let client: Anthropic;
   let prompt: { system: string; user: string };
   try {
@@ -173,7 +198,7 @@ export async function writeVerdictNarrative(
       ok: false,
       error: `verdict_narrative_setup_failed: ${message}`,
       observability: {
-        modelVersion: VERDICT_NARRATIVE_MODEL,
+        modelVersion: routing.model,
         promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
       },
     };
@@ -184,7 +209,7 @@ export async function writeVerdictNarrative(
   try {
     response = await client.messages.create(
       {
-        model: VERDICT_NARRATIVE_MODEL,
+        model: routing.model,
         max_tokens: 1000,
         system: [
           {
@@ -210,12 +235,29 @@ export async function writeVerdictNarrative(
       message,
       elapsedMs: Date.now() - startedAt,
       addressFull: input.addressFull,
+      model: routing.model,
+      routingReason: routing.reason,
     });
+    if (input.userId) {
+      await logAiUsageEvent({
+        userId: input.userId,
+        orgId: input.orgId,
+        task: "verdict-narrative",
+        model: routing.model,
+        routingReason: routing.reason,
+        inputTokens: 0,
+        outputTokens: 0,
+        costCents: 0,
+        verdictId: input.verdictId,
+        durationMs: Date.now() - startedAt,
+        error: message,
+      });
+    }
     return {
       ok: false,
       error: message,
       observability: {
-        modelVersion: VERDICT_NARRATIVE_MODEL,
+        modelVersion: routing.model,
         promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
       },
     };
@@ -223,27 +265,58 @@ export async function writeVerdictNarrative(
 
   const inputTokens = response.usage.input_tokens;
   const outputTokens = response.usage.output_tokens;
+  const cacheReadInputTokens = response.usage.cache_read_input_tokens ?? 0;
+  const cacheCreationInputTokens =
+    response.usage.cache_creation_input_tokens ?? 0;
 
   console.log("[verdict-narrative] call complete", {
     addressFull: input.addressFull,
     elapsedMs: Date.now() - startedAt,
+    model: routing.model,
+    routingReason: routing.reason,
+    confidence: input.score.confidence,
     inputTokens,
     outputTokens,
-    cacheReadInputTokens: response.usage.cache_read_input_tokens ?? 0,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
     stopReason: response.stop_reason,
   });
 
-  const observability = {
-    modelVersion: VERDICT_NARRATIVE_MODEL,
-    promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
+  const costCents = computeCostCents({
+    model: routing.model,
     inputTokens,
     outputTokens,
-    costCents: computeCostCents({
-      model: VERDICT_NARRATIVE_MODEL,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
+  });
+
+  const observability = {
+    modelVersion: routing.model,
+    promptVersion: VERDICT_NARRATIVE_PROMPT_VERSION,
+    routingReason: routing.reason,
+    inputTokens,
+    outputTokens,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
+    costCents,
+  };
+
+  if (input.userId) {
+    await logAiUsageEvent({
+      userId: input.userId,
+      orgId: input.orgId,
+      task: "verdict-narrative",
+      model: routing.model,
+      routingReason: routing.reason,
       inputTokens,
       outputTokens,
-    }),
-  };
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+      costCents,
+      verdictId: input.verdictId,
+      durationMs: Date.now() - startedAt,
+    });
+  }
 
   const renderCall = response.content.find(
     (b): b is Anthropic.Messages.ToolUseBlock =>

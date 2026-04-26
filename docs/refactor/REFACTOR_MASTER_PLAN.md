@@ -1,6 +1,6 @@
 # DwellVerdict Engineering Refactor — Master Plan
 
-**Status:** Active · v1.6 · April 25, 2026
+**Status:** Active · v1.7 · April 25, 2026
 **Owner:** Jeremy Collins
 **Engineering executor:** Claude Code (autonomous)
 **Design reference:** 22 mockups in `/mnt/user-data/outputs/`
@@ -306,17 +306,50 @@ The customer-facing UI for capturing this feedback ships in M3.3 (verdict detail
 
 ## Cost optimization architecture
 
-This is a first-class concern of the refactor, not an afterthought. The product's unit economics depend on aggressive cost optimization in the AI layer. Without it, heavy Pro users cost more in Anthropic API spend than they pay in subscription, and the business doesn't work.
+This is a first-class concern of the refactor, not an afterthought. The product's unit economics depend on aggressive cost optimization in the AI layer.
 
-### The unit economics problem
+### State of the world after the M3.0 audit
 
-At naive Sonnet 4.6 pricing across all AI operations:
+The original framing of M3.0 ("rebuild the AI infrastructure") was wrong against actual code. A pre-M3.0 audit found that most of the planned architecture already existed:
 
-- **Average verdict generation:** ~$0.72 per verdict (4 domain sub-calls × ~$0.18 each)
-- **Scout chat at heavy use:** ~$0.15 per message × 450 messages/month = $67.50/month per heavy user
-- **Heavy Pro user total:** ~$71/month in COGS against $40 in subscription revenue → **negative margin**
+- ✅ Single SDK chokepoint at `packages/ai/src/anthropic.ts` (lazy singleton, test injection)
+- ✅ Prompt caching on every task — `cache_control: { type: "ephemeral" }` is already used in regulatory-lookup, place-sentiment, scout-chat, and verdict-narrative
+- ✅ Per-call cost tracking via `MODEL_PRICING` table + `computeCostCents()` flowing into `verdicts.cost_cents`, `scout_messages.cost_cents`, `regulatory_cache.cost_cents`, `place_sentiment_cache.cost_cents`
+- ✅ Cache-read token logging (`response.usage.cache_read_input_tokens` captured at call sites)
+- ✅ Pure-function rules-first scoring — `scoreVerdict()` and revenue computation are deterministic; AI synthesizes a 2-3 paragraph narrative from the scored signals
 
-This is unsustainable. The optimization strategy below restructures these costs to land at roughly $20/month in COGS for a heavy Pro user, achieving ~50% gross margin even at the high end of usage.
+**What didn't exist (M3.0 ships these):**
+
+- Model routing logic — every task hardcoded `claude-haiku-4-5`. Sonnet wasn't used anywhere despite being mentioned in legacy docs
+- Centralized AI usage log — costs were scattered across surface-specific tables, no single source of truth for analytics
+- Batch API client — no batched operations
+- Cost-cap framework — no degradation utilities
+- Cache discount math — `computeCostCents` billed cache-read tokens at full input rate, slightly over-stating cost on cached calls
+
+**What was wrong about the legacy docs:**
+
+- CLAUDE.md and pre-v1.6 master plan both claimed Sonnet was used for verdict synthesis. **Production runs Haiku for everything.**
+- Master plan unit-economics math was based on Sonnet pricing for verdicts (~$0.18 per domain × 4 sub-calls). Reality: one Haiku narrative call per verdict, ~$0.005 steady state with cached system prompt.
+- Master plan implied verdict generation was a multi-call AI synthesis. Actual flow is rules-first: 8 deterministic data fetches + 2 cached LLM lookups (regulatory, place-sentiment) + 1 narrative AI call.
+
+### The unit economics problem (revised against reality)
+
+Production today (Haiku 4.5 for every task, prompt caching on every system prompt, rules-first scoring with one narrative AI call per verdict):
+
+- **Verdict generation, steady state** (regulatory + place-sentiment cached, narrative only): ~$0.005 per verdict
+- **Verdict generation, cold caches** (regulatory miss + place-sentiment miss): ~$0.05 per verdict
+- **Verdict generation with Sonnet escalation** (low-confidence path, M3.0+): ~$0.05 per verdict
+- **Scout chat with property-context caching:** ~$0.005 first turn, ~$0.001 subsequent turns within the cache TTL
+
+Per-Pro-user heavy-use scenario (5 verdicts/month mixed cache state, 450 Scout messages/month session-cached):
+
+- Verdicts: 5 × $0.02 average = $0.10
+- Scout: 450 × $0.002 average = $0.90
+- **Total: ~$1.00/month against $40 revenue → 97% gross margin**
+
+The original v1.5 plan estimated ~$19/month per heavy Pro user. That number was based on Sonnet pricing across all calls. The Haiku-only reality is dramatically cheaper, which is why M3.0's scope shrunk: most of the infrastructure was already there because the cost was already low enough to not be an emergency.
+
+Even at much higher usage volumes, margin stays comfortably positive. M3.0's batch and cost-cap frameworks ship as defenses against future scale (when one outlier user could otherwise eat into margin), not against current spend.
 
 ### The four cost levers
 
@@ -436,19 +469,21 @@ A view or function `user_monthly_ai_spend(user_id, month)` aggregates this for t
 
 ### Expected post-optimization economics
 
-**Per Pro user, heavy use scenario (5 verdicts/month, 450 Scout messages/month):**
+Numbers replaced in v1.7. Production runs Haiku 4.5 across all four AI tasks today, and the v1.5 estimates were anchored on Sonnet pricing. The Haiku-only reality is roughly an order of magnitude cheaper per call.
 
-- Verdicts: 5 × $0.30 (caching + Haiku sub-routing) = $1.50
-- Scout: 450 messages, 80% Haiku-handled with context caching @ ~$0.03 each + 20% Sonnet-escalated with context caching @ ~$0.08 each = $10.80 + $7.20 = $18.00
-- **Total: ~$19.50/month against $40 revenue → 51% gross margin**
+**Per Pro user, heavy use (5 verdicts/month, 450 Scout messages/month):**
 
-**Per DwellVerdict user, average use (2 verdicts/month, 60 Scout messages/month — limited by tier):**
+- Verdicts: 5 × $0.02 average (mixed cache state, occasional Sonnet escalation) = $0.10
+- Scout: 450 × $0.002 average (first turn cold, subsequent turns benefit from property-context caching) = $0.90
+- **Total: ~$1.00/month against $40 revenue → 97% gross margin**
 
-- Verdicts: 2 × $0.30 = $0.60
-- Scout: 60 × ~$0.03 = $1.80
-- **Total: ~$2.40/month against $20 revenue → 88% gross margin**
+**Per DwellVerdict user, average use (2 verdicts/month, no Scout — Pro-only feature):**
 
-These projections are conservative. With real usage data post-launch, we'll have actuals to optimize against.
+- Verdicts: 2 × $0.02 = $0.04
+- Scout: $0
+- **Total: ~$0.04/month against $20 revenue → 99.8% gross margin**
+
+These margins are comfortably positive even at the high end of usage. The cost-cap framework + Batch API plumbing are defenses against future scale (single outlier users, brief generation volume, alert evaluation runs) rather than a fix for current spend. The DwellVerdict scenario is barely meaningful at $0.04/mo — verdicts are nearly free at scale once caches are warm. Re-validate against real usage data post-launch.
 
 ### Implementation across milestones
 
@@ -550,7 +585,15 @@ Public-facing pages: landing, pricing, legal, help, plus comprehensive SEO/GEO o
 The core product: how users go from address to verdict to evidence. This phase opens with the AI cost optimization foundation (M3.0) — every milestone after this one consumes those abstractions rather than calling Anthropic directly.
 
 **M3.0** — AI cost optimization foundation
-> Build the architectural foundation for cost-optimized AI usage that every later milestone depends on. Three new abstractions in `apps/web/lib/ai/`: `model-router.ts` (classifies request type and picks Haiku vs Sonnet vs Opus), `cache-helpers.ts` (wraps Anthropic SDK with prompt caching markers and TTL management), `batch-client.ts` (queues non-real-time AI operations through the Anthropic Batch API for 50% savings). Add `ai_usage_events` schema migration for per-call cost tracking. Add a `user_monthly_ai_spend(userId, month)` helper for cost-cap logic. Refactor existing AI code paths (verdict generation, Scout chat) to route through these abstractions — without changing behavior yet, just plumbing. Hard rule: no direct Anthropic SDK calls anywhere in the codebase outside these abstractions after this milestone ships.
+> Pre-flight audit (April 25, 2026) confirmed the SDK chokepoint, prompt caching, per-call cost tracking, cache-read logging, and rules-first scoring already exist in `packages/ai/src/`. M3.0 is therefore additive plumbing rather than a rewrite.
+>
+> Adds: `packages/ai/src/model-router.ts` (`routeVerdictNarrative(confidence)` escalates to Sonnet 4.6 when confidence < `VERDICT_NARRATIVE_SONNET_THRESHOLD`, default 70; everything else stays on Haiku 4.5), `packages/ai/src/usage-events.ts` (central `ai_usage_events` log alongside the existing surface-specific cost columns), `packages/ai/src/cost-cap.ts` (decision utility for future degradation; not consumed yet), `packages/ai/src/batch-client.ts` (Anthropic Batch API wrapper; first consumer is M7.1). Adds the `ai_usage_events` table via migration `0011_ai_usage_events.sql` with FKs to verdicts and scout_messages.
+>
+> Updates: `computeCostCents` in `packages/ai/src/pricing.ts` now applies the 10% cache-read discount and 1.25x cache-write multiplier (was billing cache reads at full input rate, slightly over-stating cost on cached calls). All four task wrappers (regulatory-lookup, place-sentiment, scout-chat, verdict-narrative) thread `userId`/`orgId` and emit `logAiUsageEvent` after every call. The existing `verdicts.cost_cents`, `scout_messages.cost_cents`, `regulatory_cache.cost_cents`, `place_sentiment_cache.cost_cents` columns keep their current behavior — `ai_usage_events` is the source of truth for cross-surface analytics; the surface-specific columns are the fast path for surface UIs.
+>
+> The M3.3 "Deep Analysis" badge reads from the existing `verdicts.model_version` column (already populated by `markVerdictReady`); no new column needed.
+>
+> Hard rule preserved: no direct Anthropic SDK calls outside `packages/ai/src/tasks/*` and `packages/ai/src/batch-client.ts`.
 
 **M3.1** — Address input refresh (mockup #03)
 > Update the address input on `/app/properties` to match mockup 03 exactly. Preserve existing `AddressAutocomplete` component logic. Visual changes only.

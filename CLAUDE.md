@@ -64,7 +64,7 @@ What varies between stages is *depth*, not *presence*. Every stage is wired into
 - **Email:** Resend
 - **Storage:** Cloudflare R2 (S3 API)
 - **Jobs:** Inngest
-- **AI:** Anthropic API — Sonnet 4 for reasoning, Haiku 4.5 for volume
+- **AI:** Anthropic Haiku 4.5 for all production AI tasks (verdict narrative, regulatory lookup, place sentiment, Scout chat). Sonnet 4.6 conditionally used for verdict narrative when verdict confidence is below the threshold (default 70, configurable via `VERDICT_NARRATIVE_SONNET_THRESHOLD` env var) — see `packages/ai/src/model-router.ts`. Future milestones may extend Sonnet usage.
 - **Observability:** Sentry, PostHog, Axiom
 - **Hosting:** Vercel for web, Fly.io for modeling + workers
 - **Data sources (primary):** Direct HTTP to Zillow `__NEXT_DATA__`, Redfin `__NEXT_DATA__`, Airbnb internal StaysSearch API
@@ -163,9 +163,12 @@ The AI is the defining product surface. Treat it as first-class, not as a featur
 
 ### Model routing
 
-- Sonnet 4: offer analysis, regulatory interpretation, tax strategy, multi-property reasoning, location verdict synthesis.
-- Haiku 4.5: comp rationales, listing summaries, inbox task triage, light extraction.
-- Route at the task level. Task registry declares the model.
+Production today is Haiku-first, with one task escalating to Sonnet on a runtime signal:
+
+- **All registered tasks default to Haiku 4.5**: regulatory lookup, place sentiment, verdict narrative, Scout chat. Routed via `getDefaultModel(task)` in `packages/ai/src/model-router.ts`.
+- **Verdict narrative escalates to Sonnet 4.6** when the deterministic score's confidence falls below `VERDICT_NARRATIVE_SONNET_THRESHOLD` (default 70). Routed via `routeVerdictNarrative(confidence)`. Low-confidence verdicts get the more capable model so the narrative can navigate ambiguous signals; high-confidence verdicts stay on Haiku because the data is clear and the narrative just explains.
+- Hard rule: every AI call goes through `packages/ai/src/tasks/*` (no direct SDK calls anywhere else). Model strings are exported as runtime decisions, not hardcoded everywhere.
+- Future milestones (M6.1 in particular) may extend routing — e.g., two-pass routing on Scout if telemetry shows it's worth it. Master plan section "Cost optimization architecture" tracks the lever set.
 
 ## Location signals — implementation rules
 

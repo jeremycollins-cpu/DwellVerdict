@@ -167,6 +167,8 @@ export async function POST(req: Request): Promise<Response> {
     propertyContext,
     history,
     userMessage: parsed.data.message,
+    userId: appUser.userId,
+    orgId: appUser.orgId,
   });
 
   if (!result.ok) {
