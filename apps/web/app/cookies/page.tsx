@@ -5,22 +5,50 @@ import {
   LegalList,
   LegalSection,
 } from "@/components/legal/legal-layout";
+import { articleSchema, SITE_URL } from "@/lib/seo/schema";
+import { StructuredData } from "@/lib/seo/structured-data";
+
+const TITLE = "Cookie Policy — DwellVerdict";
+const DESCRIPTION =
+  "Cookies used by DwellVerdict for authentication, payments, and Google Analytics 4 traffic measurement. No third-party advertising cookies.";
+const LAST_UPDATED = "April 25, 2026";
+const PUBLISHED = "2026-04-25";
 
 export const metadata: Metadata = {
-  title: "Cookie Policy — DwellVerdict",
-  description:
-    "Cookies used by DwellVerdict for authentication and payments. No advertising cookies and no cross-site tracking.",
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: `${SITE_URL}/cookies` },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: `${SITE_URL}/cookies`,
+    siteName: "DwellVerdict",
+    locale: "en_US",
+    type: "article",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
-
-const LAST_UPDATED = "April 25, 2026";
 
 export default function CookiesPage() {
   return (
-    <LegalLayout
-      title="Cookie Policy"
-      lastUpdated={LAST_UPDATED}
-      intro="We keep cookies to the minimum needed to operate the product. No advertising, no cross-site tracking."
-    >
+    <>
+      <StructuredData
+        data={articleSchema({
+          headline: "Cookie Policy",
+          datePublished: PUBLISHED,
+          dateModified: PUBLISHED,
+          url: `${SITE_URL}/cookies`,
+        })}
+      />
+      <LegalLayout
+        title="Cookie Policy"
+        lastUpdated={LAST_UPDATED}
+        intro="The cookies we set, why we set them, and how to control them."
+      >
       <LegalSection number={1} title="What cookies are">
         <p>
           Cookies are small text files that websites store in your browser to
@@ -55,25 +83,55 @@ export default function CookiesPage() {
           ]}
         />
         <p>
-          We do <strong className="font-medium text-ink">not</strong> currently
-          set advertising cookies, cross-site tracking cookies, social-media
-          tracking pixels, or product-analytics cookies.
+          <strong className="font-medium text-ink">
+            Analytics cookies (Google Analytics 4):
+          </strong>
+        </p>
+        <LegalList
+          items={[
+            <>
+              <code className="font-mono text-[13px]">_ga</code>,{" "}
+              <code className="font-mono text-[13px]">_ga_*</code> — Google
+              Analytics tracking cookies
+            </>,
+            "Used to measure site traffic and understand how visitors use the public pages",
+            "Operated by Google LLC, governed by Google's privacy policy",
+            <>
+              You can opt out using Google&rsquo;s Analytics Opt-out browser
+              extension:{" "}
+              <a
+                href="https://tools.google.com/dlpage/gaoptout"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-terracotta underline-offset-2 hover:underline"
+              >
+                tools.google.com/dlpage/gaoptout
+              </a>
+            </>,
+          ]}
+        />
+        <p>
+          GA4 runs only on public pages (landing, pricing, legal, help). It
+          does not run inside the authenticated app. We do not enable
+          GA4&rsquo;s advertising-features integration, do not run third-party
+          advertising cookies, and do not run social-media tracking pixels.
         </p>
         <p>
-          A privacy-friendly analytics tool (Plausible) may be added in a
-          future release. If it is, this policy will be updated to reflect it.
-          Plausible doesn&rsquo;t set tracking cookies, doesn&rsquo;t collect
-          personal data, and doesn&rsquo;t track users across sites — but
-          we&rsquo;d still document it here when it ships.
+          Note that as part of Google&rsquo;s broader ecosystem, GA4 cookies
+          may be correlated with other Google services for users who are
+          signed into a Google account — we don&rsquo;t control that
+          correlation. If you prefer not to be tracked, the opt-out extension
+          above blocks GA4 across all sites.
         </p>
       </LegalSection>
 
       <LegalSection number={3} title="How to control cookies">
         <p>
           Most browsers let you block cookies via settings. If you block
-          essential cookies, sign-in and payments will stop working. We
-          don&rsquo;t set any non-essential cookies today, so cookie-blocking
-          extensions have no impact on the rest of the experience.
+          essential cookies (Clerk, Stripe, CSRF), sign-in and payments will
+          stop working. Blocking GA4 cookies has no impact on the rest of the
+          experience — the product works the same; we just lose the traffic
+          measurement signal.
         </p>
       </LegalSection>
 
@@ -97,6 +155,7 @@ export default function CookiesPage() {
           .
         </p>
       </LegalSection>
-    </LegalLayout>
+      </LegalLayout>
+    </>
   );
 }

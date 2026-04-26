@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 // Geist — interface sans + mono. Loaded at build time via next/font
@@ -51,6 +52,11 @@ export const metadata: Metadata = {
   },
 };
 
+// Google Analytics 4 — only loads when the env var is set, so dev
+// traffic doesn't pollute the property and self-hosted previews
+// without the var stay clean.
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -60,7 +66,25 @@ export default function RootLayout({
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
       >
-        <body className="min-h-screen font-sans antialiased">{children}</body>
+        <body className="min-h-screen font-sans antialiased">
+          {children}
+          {GA_MEASUREMENT_ID ? (
+            <>
+              <Script
+                strategy="afterInteractive"
+                src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+              />
+              <Script id="google-analytics" strategy="afterInteractive">
+                {`
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${GA_MEASUREMENT_ID}');
+                `}
+              </Script>
+            </>
+          ) : null}
+        </body>
       </html>
     </ClerkProvider>
   );
