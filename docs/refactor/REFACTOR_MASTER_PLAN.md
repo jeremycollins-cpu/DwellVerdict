@@ -1,6 +1,6 @@
 # DwellVerdict Engineering Refactor — Master Plan
 
-**Status:** Active · v1.5 · April 24, 2026
+**Status:** Active · v1.6 · April 25, 2026
 **Owner:** Jeremy Collins
 **Engineering executor:** Claude Code (autonomous)
 **Design reference:** 22 mockups in `/mnt/user-data/outputs/`
@@ -40,8 +40,10 @@ No third tier added in this refactor. Mockups updated to match this structure.
 ### Feature gating (soft paywall)
 
 - **Free / unauthenticated** — Can paste an address, see the verdict generate, but the result is partially gated (verdict signal + 1 evidence domain visible, rest behind upgrade)
-- **DwellVerdict $20** — Full Regulatory + Location domains unlocked. Comps ADR visible. Comps revenue + Revenue projection gated.
-- **Pro $40** — Everything unlocked. Scout chat (30/day, 300/mo). Compare. Briefs unlimited. Portfolio dashboard. Alerts.
+- **DwellVerdict $20** — 50 verdicts/month. Full Regulatory + Location domains unlocked. Comps ADR visible. Comps revenue + Revenue projection gated. Lifecycle stages (Buying / Renovating / Managing) unlocked.
+- **Pro $40** — 200 verdicts/month. Everything unlocked: full evidence (regulatory, location, comps revenue, revenue projection), Scout chat, Compare, Briefs, Portfolio dashboard, Alerts.
+
+Note: Verdict quotas (50/200 per month) are real per-period caps enforced by `consumeReport()` in production. This is the actual model — not "unlimited verdicts." Marketing materials must reflect the real numbers, not aspirational simplicity. Per-period caps are cost controls; at heavy usage 200 verdicts/month aligns with the gross-margin targets in the cost optimization architecture section.
 
 This gating is enforced server-side via existing `consumeReport()` quota logic. UI shows lock states matching mockup designs.
 
@@ -377,9 +379,9 @@ Net effect on Scout cost: 80-90% reduction on the property-context portion of ev
 
 **3c. Tier limits + monthly cost cap.**
 
-Adjusted from current production:
-- **DwellVerdict $20:** Scout limited to 3 messages/day, demo only
-- **Pro $40:** 20 messages/day, soft cap at 200/month with smooth slowdown after
+Current production (subject to revisit when M6.1 ships):
+- **DwellVerdict $20:** Scout is Pro-only in production today (no DwellVerdict tier access). When M6.1 ships, evaluate whether to add a small demo allowance (e.g., 3 messages/day) for conversion purposes vs. keeping Scout fully Pro-only. Decision is data-driven from M6.1 conversion telemetry, not pre-determined here.
+- **Pro $40:** 30 messages/day, 300/month soft cap (current production behavior). M6.1 may tighten to 20/day, 200/month based on actual usage data — adjustment ships with M6.1 implementation.
 - **Per-user monthly Anthropic spend cap:** If a user's tracked Anthropic spend in a month exceeds $30 (75% of Pro subscription), Scout degrades to Haiku-only and surfaces a friendly "you're using Scout heavily" message. Keeps margins positive even on outlier users.
 
 #### Lever 4: Batch API for non-urgent operations (50% savings)
@@ -480,10 +482,29 @@ Milestones are organized into 9 phases plus a Phase 0 setup. Each phase represen
 
 ### Phase 0 — Operational foundation
 
-Critical infrastructure that must exist before user-facing work begins. These milestones establish email delivery, error monitoring, and other operational essentials. Without these in place, later phases either can't function (M7.3 alerts, M8.4 notifications) or ship without the safety net needed for production launch (no Sentry = no visibility into production errors).
+Critical infrastructure that must exist before user-facing work continues. These milestones establish CI, error monitoring, email delivery, and other operational essentials. Without these in place, later phases either can't function (M7.3 alerts, M8.4 notifications), ship without the safety net needed for production launch (no Sentry = no visibility into production errors), or accumulate undetected regressions (no real CI = type errors and broken tests slip through).
+
+**Sequencing note:** Phase 0 milestones are interleaved with Phase 1+ rather than all shipping at once. M0.2 (CI) ships immediately after M1.1 so all subsequent milestones get type-checking. M0.1 (email) ships after M1.3 since the first email-using milestone (M3.4 welcome email) is in Phase 3. M0.3 (Sentry) ships before Phase 3 begins so verdict generation errors are captured from day one.
 
 **M0.1** — Email infrastructure (Resend)
 > Set up Resend as the email provider. Create a Resend account at resend.com if not already created. Provision API key, store in env var `RESEND_API_KEY`. Configure DNS records on dwellverdict.com domain: SPF record, DKIM record (Resend provides), DMARC record. Verify domain in Resend dashboard. Set up `notifications@dwellverdict.com` and `hello@dwellverdict.com` as sending addresses. Install `resend` and `@react-email/components` npm packages. Create `apps/web/lib/email/client.ts` (Resend client singleton with retry logic) and `apps/web/lib/email/send.ts` (typed sendEmail helper that takes a React Email component, recipient, subject). Build base email layout component at `apps/web/emails/_layout.tsx` matching brand tokens (terracotta accent, paper background, ink type). Build one example transactional email (`apps/web/emails/welcome.tsx`) to verify the pipeline works end-to-end. Send a test email to Jeremy's address from the verified sending address. Document the email setup in `docs/runbooks/email.md`. After this milestone, every later milestone that sends email uses these helpers — no direct Resend SDK calls.
+
+**M0.2** — Real CI infrastructure
+> The current `.github/workflows/ci.yml` is a placeholder stub that runs `echo` and reports green. Replace it with a functional CI pipeline that runs on every PR and push to main. Configure these required jobs:
+>
+> 1. **Typecheck** — runs `pnpm typecheck` across the monorepo. Fails build if any TypeScript error exists. This is the highest-value job for the refactor since most schema and prop type issues will be caught here.
+> 2. **Lint** — runs `pnpm lint` across the monorepo. Fails build on lint errors. Warnings allowed but visible in PR.
+> 3. **Build** — runs `pnpm build` for the web app. Catches build-time errors that aren't pure TypeScript issues (e.g., missing env vars referenced in code, incorrect Next.js config).
+> 4. **Tests** — runs `pnpm test` if test scripts exist; otherwise skip with a no-op. Don't block the PR for missing tests, but if tests exist, they must pass.
+>
+> Use `actions/checkout@v4`, `actions/setup-node@v4` (Node version from `.nvmrc`), `pnpm/action-setup@v3` (read version from package.json), and `actions/cache@v4` for pnpm store caching. Set up matrix-free single-runner config — overcomplicating CI is a waste at this scale. Add branch protection rules in GitHub: require all CI jobs green before merge to main (except for the `placeholder` legacy job, which can be removed entirely). Document the CI architecture in `docs/runbooks/ci.md`.
+>
+> After this milestone, every PR runs real type-checking and linting. Claude Code's "merge after 3 fix attempts" policy still applies, but most of those fix attempts will be fixing real issues now rather than working around CI gaps.
+
+**M0.3** — Sentry error monitoring
+> Set up Sentry for production error monitoring. Create Sentry project at sentry.io if not already created. Install `@sentry/nextjs` package. Run `npx @sentry/wizard@latest -i nextjs` to scaffold the integration, or configure manually with `apps/web/sentry.client.config.ts`, `apps/web/sentry.server.config.ts`, and `apps/web/sentry.edge.config.ts`. Store DSN in env var `NEXT_PUBLIC_SENTRY_DSN`. Configure source maps upload on production deploy via Vercel integration or build-time script. Set up Sentry alert rules in dashboard: notify Jeremy via email when error rate exceeds 1% in any 5-minute window, when any new error type appears in production, when verdict generation fails more than 5 times in an hour. Wrap critical server actions with Sentry context tags using `Sentry.withScope()` so errors are attributable: verdict generation route, Stripe webhook handler, Scout message endpoint, Clerk webhook handler. Test the integration by triggering a deliberate error in dev and confirming it appears in Sentry dashboard within 30 seconds. Document the Sentry setup in `docs/runbooks/error-monitoring.md`.
+>
+> After this milestone, every production error is captured. M9.3 admin operations view will read from Sentry's API to display recent errors in the admin console — but Sentry's own dashboard is the primary surface until then.
 
 ### Phase 1 — Foundation
 
@@ -577,7 +598,7 @@ The 3 stage pages for properties under management.
 Scout chat — the AI conversation surfaces.
 
 **M6.1** — Scout per-property (mockup #17) + cost optimization
-> Refactor `/app/properties/[propertyId]/scout/page.tsx` to match mockup 17. Conversation thread with editorial greeting, message blocks, inline evidence cards, citation chips, live thinking states, per-message contextual actions. Right rail: Scout's context summary, cited sources, earlier conversations. Implement two-pass routing in `/api/scout/message`: first call goes to Haiku 4.5 via `model-router.ts`; if Haiku classifies the question as requiring complex reasoning, escalate to Sonnet 4.6 with same context. Use `cache-helpers.ts` to cache property context (verdict + evidence + recent messages) with 1-hour TTL on first message of a session. Adjust tier limits: $20 DwellVerdict tier capped at 3 messages/day (demo only), $40 Pro tier at 20/day with 200/month soft cap. Implement monthly cost cap: when a user's `ai_usage_events` spend in current month exceeds $30, Scout degrades to Haiku-only with friendly notification. Track all costs in `ai_usage_events`. Add per-message thumbs up/down feedback (one of the per-message actions in the message footer, alongside Copy / Save to notes / etc.) — clicking writes to `scout_message_feedback` table (schema in master plan § AI quality feedback) with the model used for that message captured in the snapshot.
+> Refactor `/app/properties/[propertyId]/scout/page.tsx` to match mockup 17. Conversation thread with editorial greeting, message blocks, inline evidence cards, citation chips, live thinking states, per-message contextual actions. Right rail: Scout's context summary, cited sources, earlier conversations. Implement two-pass routing in `/api/scout/message`: first call goes to Haiku 4.5 via `model-router.ts`; if Haiku classifies the question as requiring complex reasoning, escalate to Sonnet 4.6 with same context. Use `cache-helpers.ts` to cache property context (verdict + evidence + recent messages) with 1-hour TTL on first message of a session. Re-evaluate tier limits at this milestone with conversion telemetry from prior milestones: current production is Scout-as-Pro-only with 30/day, 300/month caps; this milestone should determine whether to (a) keep Pro-only, (b) add small DwellVerdict demo allowance (~3/day), and (c) tighten Pro caps to 20/day, 200/month for tighter cost control. Implement monthly cost cap: when a user's `ai_usage_events` spend in current month exceeds $30, Scout degrades to Haiku-only with friendly notification. Track all costs in `ai_usage_events`. Add per-message thumbs up/down feedback (one of the per-message actions in the message footer, alongside Copy / Save to notes / etc.) — clicking writes to `scout_message_feedback` table (schema in master plan § AI quality feedback) with the model used for that message captured in the snapshot.
 
 **M6.2** — Scout global view (mockup #18)
 > New route `/app/scout`. Cross-portfolio Scout history. Hero ask block + composer + quick-ask chips. Search controls scoped by property. Date-grouped conversation list with property pills, snippets, tags, jump-back actions. Uses the same two-pass routing and tier limits from M6.1.
@@ -638,12 +659,10 @@ Internal-only admin surfaces for Jeremy. Embedded in the existing app at `/admin
 
 The "live in one tab" framing: Jeremy is both a user and an admin. The admin section appears as an additional sidebar group at the bottom (below "Account · Settings"), labeled "Admin," visible only when `is_super_admin = true`. Inside admin views, the customer-facing nav remains clickable so Jeremy can switch between his own properties and admin views without leaving the tab.
 
-**M9.1** — Admin foundation + Dashboard + Error monitoring (Sentry)
+**M9.1** — Admin foundation + Dashboard
 > Add `is_super_admin` boolean column to users table (default false). Implement `getEffectiveTier(user)` helper at `apps/web/lib/auth/effective-tier.ts` that returns `'pro'` for super admins, otherwise returns the user's actual subscription tier. Refactor every existing tier-gating check in the codebase (the `consumeReport()` function, any `if user.tier === 'pro'` checks, Pro-feature middleware) to use this helper. Add admin auth gate as server-side middleware on all `/admin/*` routes: returns 404 to non-admins so the routes are indistinguishable from non-existent routes. Add admin sidebar section to `Sidebar` component as a conditionally-rendered group at the bottom — when `user.is_super_admin === false`, the admin section must be entirely absent from the rendered DOM (not hidden, not styled invisible, actually not in the output). Use server-side rendering or dynamic imports to ensure admin code is not in JS bundles served to non-admins.
 >
-> **Set up Sentry for error monitoring.** Install `@sentry/nextjs` and configure with DSN env var. Configure source maps upload on production deploy. Set up alert rules in Sentry dashboard: notify Jeremy via email when error rate exceeds 1% in any 5-minute window, or when any new error type appears in production. Wrap critical server actions (verdict generation, Stripe webhook handlers, Scout message endpoint) with Sentry context tags so errors are attributable. Test by triggering a deliberate error in dev and confirming it appears in Sentry dashboard.
->
-> Build `/admin/dashboard` page: top-level KPIs (MRR from Stripe, ARR, total users by tier, net new users this period, churn count, Anthropic spend this month with delta vs last month, gross margin estimate, top 3 system alerts including Sentry error rate). Time picker (7D / 30D / 90D / YTD / All) using same pattern as customer-facing portfolio dashboard. Aggregations queried on-demand from existing tables — no admin-specific cache required for v1. After this milestone ships, manually update Jeremy's user record with `UPDATE users SET is_super_admin = true WHERE email = '<jeremy's email>'` (run via direct DB access — no admin endpoint that grants the flag, since that would be a critical security hole).
+> Build `/admin/dashboard` page: top-level KPIs (MRR from Stripe, ARR, total users by tier, net new users this period, churn count, Anthropic spend this month with delta vs last month, gross margin estimate, top 3 system alerts — pull recent error rate from Sentry API, which was set up in M0.3). Time picker (7D / 30D / 90D / YTD / All) using same pattern as customer-facing portfolio dashboard. Aggregations queried on-demand from existing tables — no admin-specific cache required for v1. After this milestone ships, manually update Jeremy's user record with `UPDATE users SET is_super_admin = true WHERE email = '<jeremy's email>'` (run via direct DB access — no admin endpoint that grants the flag, since that would be a critical security hole).
 
 **M9.2** — Admin · Users + Cost analytics
 > Build `/admin/users`: paginated table of every user with columns for name, email, signup date, plan tier, Stripe status, properties count, lifetime verdicts, Scout messages this month, Anthropic spend this month, Anthropic spend lifetime, margin this month (color-coded green/yellow/red), last active. Sortable, filterable. Click into user → individual user detail page at `/admin/users/[userId]` showing full activity timeline, properties, verdicts, briefs, scout conversations, and detailed cost breakdown by operation type. Build `/admin/costs`: total Anthropic spend chart (current month + trailing 12 months), spend by operation type breakdown, spend by model split (Sonnet / Haiku / Opus), top 20 users by cost with margin alongside, cache hit rate, batch API usage rate, cost per verdict trend, cost per Scout message trend. All queries hit `ai_usage_events` table from M3.0. All routes protected by the M9.1 admin auth gate.
@@ -663,7 +682,7 @@ The "live in one tab" framing: Jeremy is both a user and an admin. The admin sec
 
 ## Milestone count summary
 
-- Phase 0 — Operational foundation: 1 milestone (M0.1 email infrastructure)
+- Phase 0 — Operational foundation: 3 milestones (M0.1 email, M0.2 CI, M0.3 Sentry)
 - Phase 1 — Foundation: 3 milestones
 - Phase 2 — Public surfaces: 4 milestones (M2.1 landing, M2.2 pricing, M2.3 legal+help, M2.4 SEO+GEO)
 - Phase 3 — Verdict surfaces: 5 milestones (M3.0 cost optimization foundation + M3.1-M3.4)
@@ -672,9 +691,9 @@ The "live in one tab" framing: Jeremy is both a user and an admin. The admin sec
 - Phase 6 — AI surfaces: 2 milestones
 - Phase 7 — Workspace surfaces: 5 milestones
 - Phase 8 — Settings surfaces: 4 milestones
-- Phase 9 — Embedded admin console: 3 milestones (includes Sentry setup in M9.1, AI quality dashboard in M9.3)
+- Phase 9 — Embedded admin console: 3 milestones (Sentry already shipped in M0.3; M9.1 reads from existing Sentry, M9.3 displays in admin operations view)
 
-**Total: 34 milestones.** With autonomous Claude Code execution, estimated 32-44 hours of compute time, deliverable at Jeremy's pace of pasting prompts.
+**Total: 36 milestones.** With autonomous Claude Code execution, estimated 34-46 hours of compute time, deliverable at Jeremy's pace of pasting prompts.
 
 ---
 
@@ -764,7 +783,7 @@ These come post-launch.
 
 The refactor is "complete" when:
 
-1. All 34 milestones have shipped to production
+1. All 36 milestones have shipped to production
 2. dwellverdict.com matches the 22 mockups visually
 3. All new schema migrations are applied
 4. No "coming soon" placeholders remain
