@@ -2,23 +2,27 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2, MapPin, X } from "lucide-react";
 
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { createPropertyAction } from "@/app/app/properties/actions";
 import type { ParsedAddress } from "@/lib/address";
 
 /**
- * AddressEntry — the paste-an-address card at the top of /app/properties.
+ * AddressEntry — paste-an-address hero block at the top of
+ * `/app/properties`. Refreshed in M3.1 to match mockup 03's
+ * focused layout: terracotta-eyebrow chip, serif headline, sub
+ * copy, then a single boxed row containing the pin icon, the
+ * Google Places input, and a "Generate verdict" CTA button.
  *
- * Owns the short UI state (selected address pending submission, error
- * message, loading flag) and delegates the actual mutation to the
- * `createPropertyAction` server action. On success, navigates to the
- * new property's detail page where verdict generation kicks off.
+ * Two-step flow per the mockup. Picking a suggestion stages the
+ * address (preview shown inline, CTA enabled). The CTA click
+ * commits via `createPropertyAction` and navigates to the new
+ * property's detail page where verdict generation kicks off.
  *
- * We navigate client-side (router.push) instead of letting the server
- * action `redirect()` so the pending UI is instant and the inline
- * error handling surface stays under the client's control.
+ * Behavior preserved from the prior version: rate-limit handling,
+ * inline error surface, transition pending UI, remount-on-failure
+ * via `resetKey` so the user can re-pick without stale state.
  */
 export function AddressEntry() {
   const router = useRouter();
@@ -26,10 +30,17 @@ export function AddressEntry() {
   const [error, setError] = useState<string | null>(null);
   const [rateLimited, setRateLimited] = useState<{ resetAt: string } | null>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [staged, setStaged] = useState<ParsedAddress | null>(null);
 
   const handleSelect = (address: ParsedAddress) => {
     setError(null);
     setRateLimited(null);
+    setStaged(address);
+  };
+
+  const handleSubmit = () => {
+    if (!staged || pending) return;
+    const address = staged;
     startTransition(async () => {
       const result = await createPropertyAction(address);
       if (!result.ok) {
@@ -46,6 +57,7 @@ export function AddressEntry() {
           );
         }
         // Remount the input so the user can re-pick without stale state.
+        setStaged(null);
         setResetKey((k) => k + 1);
         return;
       }
@@ -54,59 +66,128 @@ export function AddressEntry() {
     });
   };
 
-  return (
-    <div className="relative overflow-hidden rounded-[14px] bg-card shadow-card">
-      <div
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-[3px] bg-terracotta"
-      />
-      <div className="flex flex-col gap-4 p-6 pl-8 md:p-8 md:pl-10">
-        <div>
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink-muted">
-            New verdict
-          </p>
-          <h2 className="mt-1 text-lg font-medium tracking-[-0.01em] text-ink">
-            Paste an address
-          </h2>
-        </div>
+  const handleClearStaged = () => {
+    setStaged(null);
+    setResetKey((k) => k + 1);
+  };
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-start">
-          <div className="flex-1">
+  const ctaDisabled = !staged || pending;
+
+  return (
+    <section className="flex flex-col items-center gap-6 py-4 md:py-8">
+      <div className="max-w-[640px] text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-terracotta-border bg-terracotta-soft px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
+          <span className="size-[5px] rounded-full bg-terracotta" />
+          New verdict
+        </div>
+        <h2 className="mt-5 font-serif text-[34px] font-normal leading-[1.1] tracking-[-0.02em] text-ink md:text-[44px]">
+          Paste any address to begin.
+        </h2>
+        <p className="mx-auto mt-3 max-w-[520px] text-[15px] leading-[1.55] text-ink-muted md:text-[16px]">
+          Any U.S. residential property. Scout generates a verdict with cited
+          evidence in under a minute.
+        </p>
+      </div>
+
+      <div className="w-full max-w-[720px]">
+        <div
+          className={`flex items-center gap-3 rounded-[14px] border-2 bg-card-ink py-1 pl-5 pr-1 transition-colors focus-within:border-terracotta focus-within:shadow-[0_0_0_4px_rgba(197,90,63,0.08)] md:gap-3.5 md:pl-[22px] ${
+            staged ? "border-terracotta" : "border-hairline-strong"
+          }`}
+        >
+          <MapPin
+            aria-hidden
+            className="size-5 shrink-0 text-ink-muted"
+            strokeWidth={1.8}
+          />
+
+          {staged ? (
+            <StagedAddress
+              address={staged}
+              onClear={handleClearStaged}
+              disabled={pending}
+            />
+          ) : (
             <AddressAutocomplete
               key={resetKey}
               onSelect={handleSelect}
               onInvalid={(msg) => setError(msg)}
               disabled={pending}
+              placeholder="295 Bend Ave, Kings Beach, CA"
             />
-          </div>
+          )}
 
-          {pending ? (
-            <div className="flex h-12 items-center gap-2 font-mono text-xs text-ink-muted md:px-4">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>Creating property…</span>
-            </div>
-          ) : null}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={ctaDisabled}
+            className="inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-ink px-5 py-3.5 text-sm font-medium text-paper transition-colors hover:bg-ink-70 disabled:cursor-not-allowed disabled:opacity-50 md:px-[22px]"
+          >
+            {pending ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                <span className="hidden sm:inline">Creating&hellip;</span>
+              </>
+            ) : (
+              <>
+                <span className="hidden sm:inline">Generate verdict</span>
+                <span className="sm:hidden">Verdict</span>
+                <ArrowRight className="size-3.5" strokeWidth={2} />
+              </>
+            )}
+          </button>
         </div>
 
+        <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-ink-subtle">
+          Google Places confirms the address before submission.
+        </p>
+
         {error ? (
-          <div className="flex items-start gap-2 rounded-md border border-signal-pass/30 bg-signal-pass/5 px-3 py-2 text-sm text-signal-pass">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="mt-4 flex items-start gap-2 rounded-md border border-pass-border bg-pass-soft px-3 py-2 text-sm text-pass">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
             <p>{error}</p>
           </div>
         ) : null}
 
         {rateLimited ? (
-          <div className="rounded-md border border-signal-watch/30 bg-signal-watch/5 px-3 py-2.5 text-sm text-ink">
+          <div className="mt-4 rounded-md border border-watch-border bg-watch-soft px-3 py-2.5 text-sm text-ink">
             <p className="font-medium">
-              You&apos;ve used your 3 free verdicts this month.
+              You&apos;ve used your verdict quota for this period.
             </p>
             <p className="mt-1 text-ink-muted">
               Quota resets {new Date(rateLimited.resetAt).toLocaleDateString()}.
-              Upgrade to Pro for unlimited verdicts — coming in Sprint 3.
+              Upgrade your plan for a higher monthly cap.
             </p>
           </div>
         ) : null}
       </div>
+    </section>
+  );
+}
+
+function StagedAddress({
+  address,
+  onClear,
+  disabled,
+}: {
+  address: ParsedAddress;
+  onClear: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex w-full flex-1 items-center gap-2 py-4">
+      <div className="min-w-0 flex-1 truncate text-[18px] tracking-[-0.005em] text-ink">
+        {address.addressFull}
+      </div>
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={disabled}
+        aria-label="Clear address and pick a different one"
+        className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-paper-warm hover:text-ink disabled:opacity-50"
+      >
+        <X className="size-3.5" />
+      </button>
     </div>
   );
 }
