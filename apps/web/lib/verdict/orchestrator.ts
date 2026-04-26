@@ -73,6 +73,48 @@ export type OrchestratedVerdictFailure = {
   observability: Partial<OrchestratedVerdict["observability"]>;
 };
 
+/**
+ * One of the ten signals the orchestrator fetches in parallel, plus
+ * `revenue` for the post-comps deterministic compute. Frontend maps
+ * these onto the four mockup-04 domain cards (regulatory / location /
+ * comps / revenue) — the orchestrator just emits the underlying
+ * truth and lets the UI bucket.
+ */
+export type SignalKey =
+  | "fema"
+  | "usgs"
+  | "fbi"
+  | "census"
+  | "overpass"
+  | "airbnb"
+  | "zillow"
+  | "redfin"
+  | "regulatory"
+  | "placeSentiment"
+  | "revenue";
+
+export type VerdictProgressEvent =
+  | { type: "phase_start"; phase: "signals" | "scoring" | "narrative" | "lint" }
+  | { type: "phase_complete"; phase: "signals" | "scoring" | "narrative" | "lint" }
+  | {
+      type: "signal_complete";
+      signal: SignalKey;
+      ok: boolean;
+      sourceUrls: string[];
+      durationMs: number;
+    }
+  | {
+      type: "narrative_ready";
+      text: string;
+      summary: string;
+      model: string;
+      routingReason: string;
+    }
+  | { type: "complete"; verdict: OrchestratedVerdict }
+  | { type: "error"; error: string };
+
+export type ProgressListener = (event: VerdictProgressEvent) => void;
+
 export async function orchestrateVerdict(input: {
   addressFull: string;
   city: string;
@@ -88,11 +130,66 @@ export async function orchestrateVerdict(input: {
    *  narrative AI usage event will reference it; analytics surfaces
    *  pivot from a verdict to its underlying AI calls via this. */
   verdictId?: string;
+  /** Optional progress callback. When set, the orchestrator emits
+   *  events as each signal settles, each phase boundary is crossed,
+   *  and the narrative becomes available. Used by the M3.2 SSE
+   *  streaming endpoint. When omitted, the orchestrator runs
+   *  silently — preserving the legacy non-streaming API. */
+  onProgress?: ProgressListener;
 }): Promise<OrchestratedVerdict | OrchestratedVerdictFailure> {
-  const { addressFull, city, state, lat, lng, userId, orgId, verdictId } = input;
+  const {
+    addressFull,
+    city,
+    state,
+    lat,
+    lng,
+    userId,
+    orgId,
+    verdictId,
+    onProgress,
+  } = input;
   const db = getDb();
+  const emit: ProgressListener = onProgress ?? (() => {});
 
   // ---- Phase 1: fetch everything in parallel ----
+  emit({ type: "phase_start", phase: "signals" });
+
+  // Wrap each signal promise so its completion fires a
+  // signal_complete event (with any source URL the signal returns)
+  // the moment that signal settles, regardless of whether the
+  // overall Promise.all is still in flight. This is what makes the
+  // mockup-04 stream-track tick off domains as work finishes.
+  const wrap = <T>(
+    key: SignalKey,
+    p: Promise<T>,
+    extractSources: (r: T) => string[],
+    isOk: (r: T) => boolean,
+  ): Promise<T> => {
+    const startedAt = Date.now();
+    return p.then((r) => {
+      emit({
+        type: "signal_complete",
+        signal: key,
+        ok: isOk(r),
+        sourceUrls: isOk(r) ? extractSources(r) : [],
+        durationMs: Date.now() - startedAt,
+      });
+      return r;
+    });
+  };
+
+  type DataSourceResult = { ok: boolean; data?: { sourceUrl?: string } };
+  const ds = (r: unknown): string[] => {
+    const x = r as DataSourceResult;
+    return x.ok && x.data?.sourceUrl ? [x.data.sourceUrl] : [];
+  };
+  type ValuationResult = { ok: boolean; data?: { url?: string } };
+  const valuation = (r: unknown): string[] => {
+    const x = r as ValuationResult;
+    return x.ok && x.data?.url ? [x.data.url] : [];
+  };
+  const okFlag = (r: unknown): boolean => (r as { ok: boolean }).ok;
+
   const [
     femaResult,
     usgsResult,
@@ -105,17 +202,34 @@ export async function orchestrateVerdict(input: {
     regulatorySignal,
     placeSentimentSignal,
   ] = await Promise.all([
-    getFemaFloodSignal(db, lat, lng),
-    getUsgsWildfireSignal(db, lat, lng),
-    getFbiCrimeSignal(db, lat, lng),
-    getCensusAcsSignal(db, lat, lng),
-    getOverpassSignal(db, lat, lng),
-    getAirbnbCompsSignal(db, lat, lng, `${city}, ${state}`),
-    getZillowValuationSignal(db, addressFull),
-    getRedfinValuationSignal(db, addressFull),
-    getRegulatorySignal({ city, state, userId, orgId }),
-    getPlaceSentimentSignal({ lat, lng, userId, orgId }),
+    wrap("fema", getFemaFloodSignal(db, lat, lng), ds, okFlag),
+    wrap("usgs", getUsgsWildfireSignal(db, lat, lng), ds, okFlag),
+    wrap("fbi", getFbiCrimeSignal(db, lat, lng), ds, okFlag),
+    wrap("census", getCensusAcsSignal(db, lat, lng), ds, okFlag),
+    wrap("overpass", getOverpassSignal(db, lat, lng), ds, okFlag),
+    wrap(
+      "airbnb",
+      getAirbnbCompsSignal(db, lat, lng, `${city}, ${state}`),
+      ds,
+      okFlag,
+    ),
+    wrap("zillow", getZillowValuationSignal(db, addressFull), valuation, okFlag),
+    wrap("redfin", getRedfinValuationSignal(db, addressFull), valuation, okFlag),
+    wrap(
+      "regulatory",
+      getRegulatorySignal({ city, state, userId, orgId }),
+      (r) => (r.ok ? r.sourceUrls : []),
+      (r) => r.ok,
+    ),
+    wrap(
+      "placeSentiment",
+      getPlaceSentimentSignal({ lat, lng, userId, orgId }),
+      () => [],
+      (r) => r.ok,
+    ),
   ]);
+
+  emit({ type: "phase_complete", phase: "signals" });
 
   // Unpack with null fallbacks so downstream can degrade gracefully.
   // Log every signal's outcome — success/failure/empty — so we can
@@ -191,6 +305,8 @@ export async function orchestrateVerdict(input: {
   });
 
   // ---- Phase 2: deterministic computation ----
+  emit({ type: "phase_start", phase: "scoring" });
+  const revenueStartedAt = Date.now();
   const revenue =
     airbnb && airbnb.comps.length > 0
       ? (() => {
@@ -201,6 +317,13 @@ export async function orchestrateVerdict(input: {
           }
         })()
       : null;
+  emit({
+    type: "signal_complete",
+    signal: "revenue",
+    ok: revenue !== null,
+    sourceUrls: [],
+    durationMs: Date.now() - revenueStartedAt,
+  });
 
   const referencePrice =
     zillow?.listPrice ??
@@ -265,6 +388,9 @@ export async function orchestrateVerdict(input: {
       : null,
   };
 
+  emit({ type: "phase_complete", phase: "scoring" });
+  emit({ type: "phase_start", phase: "narrative" });
+
   const narrative = await writeVerdictNarrative({
     addressFull,
     score,
@@ -274,6 +400,7 @@ export async function orchestrateVerdict(input: {
     verdictId,
   });
   if (!narrative.ok) {
+    emit({ type: "error", error: `narrative_failed: ${narrative.error}` });
     return {
       ok: false,
       error: `narrative_failed: ${narrative.error}`,
@@ -281,11 +408,21 @@ export async function orchestrateVerdict(input: {
     };
   }
 
+  emit({
+    type: "narrative_ready",
+    text: narrative.output.narrative,
+    summary: narrative.output.summary,
+    model: narrative.observability.modelVersion,
+    routingReason: narrative.observability.routingReason,
+  });
+  emit({ type: "phase_complete", phase: "narrative" });
+
   // Fail-closed fair-housing lint on the narrative + four data-
   // point strings. If anything flags, we refuse the verdict
   // rather than persist a potentially-FHA-problematic record.
   // The caller marks the verdict failed; user retries or we
   // iterate the prompt. Same pattern as place-sentiment.
+  emit({ type: "phase_start", phase: "lint" });
   const fhaFlags = lintPlaceSentiment({
     bullets: [
       narrative.output.data_points.comps,
@@ -300,12 +437,17 @@ export async function orchestrateVerdict(input: {
       addressFull,
       flags: fhaFlags,
     });
+    emit({
+      type: "error",
+      error: `fair_housing_lint_blocked: ${fhaFlags.map((f) => f.reason).join("; ")}`,
+    });
     return {
       ok: false,
       error: `fair_housing_lint_blocked: ${fhaFlags.map((f) => f.reason).join("; ")}`,
       observability: narrative.observability,
     };
   }
+  emit({ type: "phase_complete", phase: "lint" });
 
   // ---- Phase 4: assemble response ----
   const sources = collectSources({
@@ -320,7 +462,7 @@ export async function orchestrateVerdict(input: {
     regulatory,
   });
 
-  return {
+  const finalVerdict: OrchestratedVerdict = {
     ok: true,
     signal: score.signal,
     score: score.score,
@@ -338,6 +480,10 @@ export async function orchestrateVerdict(input: {
       costCents: narrative.observability.costCents,
     },
   };
+
+  emit({ type: "complete", verdict: finalVerdict });
+
+  return finalVerdict;
 }
 
 function collectSources(signals: {
