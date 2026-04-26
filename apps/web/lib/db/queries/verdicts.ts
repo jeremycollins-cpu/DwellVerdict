@@ -40,6 +40,10 @@ export async function createPendingVerdict(params: {
 /**
  * Write the final verdict payload and flip status to 'ready'.
  * Observability fields are required — CLAUDE.md non-negotiable.
+ *
+ * `scoreBreakdown` (M3.3) persists scoring.breakdown so the verdict
+ * detail page can render "what moved the verdict" without
+ * recomputing the rubric.
  */
 export async function markVerdictReady(params: {
   verdictId: string;
@@ -54,6 +58,7 @@ export async function markVerdictReady(params: {
   inputTokens: number;
   outputTokens: number;
   costCents: number;
+  scoreBreakdown?: unknown;
 }): Promise<void> {
   const db = getDb();
   await db
@@ -71,6 +76,7 @@ export async function markVerdictReady(params: {
       inputTokens: params.inputTokens,
       outputTokens: params.outputTokens,
       costCents: params.costCents,
+      scoreBreakdown: params.scoreBreakdown ?? null,
       completedAt: sql`now()`,
     })
     .where(eq(verdicts.id, params.verdictId));
@@ -140,4 +146,30 @@ export async function getLatestVerdictForProperty(params: {
     .orderBy(desc(verdicts.createdAt))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * Return all verdicts for a property, newest first. Used by the
+ * M3.3 verdict-detail page's run history rail. Limit defaults to
+ * 10 — the rail collapses additional rows behind a "View all"
+ * link in the UI.
+ */
+export async function listVerdictsForProperty(params: {
+  propertyId: string;
+  orgId: string;
+  limit?: number;
+}): Promise<Verdict[]> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(verdicts)
+    .where(
+      and(
+        eq(verdicts.propertyId, params.propertyId),
+        eq(verdicts.orgId, params.orgId),
+      ),
+    )
+    .orderBy(desc(verdicts.createdAt))
+    .limit(params.limit ?? 10);
+  return rows;
 }

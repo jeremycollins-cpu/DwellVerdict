@@ -96,6 +96,12 @@ export const verdicts = pgTable(
     outputTokens: integer("output_tokens"),
     costCents: integer("cost_cents"),
 
+    // M3.3: persisted scoring.breakdown so the verdict-detail page
+    // can render "what moved the verdict" without recomputing the
+    // rubric. Shape matches packages/ai/src/scoring.ts:VerdictScore
+    // ["breakdown"] — an array of { key, contribution, note }.
+    scoreBreakdown: jsonb("score_breakdown"),
+
     errorMessage: text("error_message"),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -18,6 +18,7 @@ import {
   writeVerdictNarrative,
   lintPlaceSentiment,
   type VerdictScore,
+  type VerdictNarrativeOutput,
 } from "@dwellverdict/ai";
 
 import { getDb } from "@/lib/db";
@@ -50,12 +51,13 @@ export type OrchestratedVerdict = {
   confidence: number;
   summary: string;
   narrative: string;
-  dataPoints: {
-    comps: string;
-    revenue: string;
-    regulatory: string;
-    location: string;
-  };
+  /**
+   * Structured per-domain evidence (M3.3 / verdict-narrative v2).
+   * Type matches VerdictNarrativeOutput["data_points"] from
+   * packages/ai. Frontend handles backward-compat with legacy
+   * verdict rows that have a string-only shape.
+   */
+  dataPoints: VerdictNarrativeOutput["data_points"];
   sources: string[];
   breakdown: VerdictScore["breakdown"];
   observability: {
@@ -110,7 +112,7 @@ export type VerdictProgressEvent =
       model: string;
       routingReason: string;
     }
-  | { type: "complete"; verdict: OrchestratedVerdict }
+  | { type: "complete"; verdict: OrchestratedVerdict; verdictId: string }
   | { type: "error"; error: string };
 
 export type ProgressListener = (event: VerdictProgressEvent) => void;
@@ -425,10 +427,10 @@ export async function orchestrateVerdict(input: {
   emit({ type: "phase_start", phase: "lint" });
   const fhaFlags = lintPlaceSentiment({
     bullets: [
-      narrative.output.data_points.comps,
-      narrative.output.data_points.revenue,
-      narrative.output.data_points.regulatory,
-      narrative.output.data_points.location,
+      narrative.output.data_points.comps.summary,
+      narrative.output.data_points.revenue.summary,
+      narrative.output.data_points.regulatory.summary,
+      narrative.output.data_points.location.summary,
     ],
     summary: `${narrative.output.summary}\n\n${narrative.output.narrative}`,
   });
@@ -481,7 +483,11 @@ export async function orchestrateVerdict(input: {
     },
   };
 
-  emit({ type: "complete", verdict: finalVerdict });
+  emit({
+    type: "complete",
+    verdict: finalVerdict,
+    verdictId: verdictId ?? "",
+  });
 
   return finalVerdict;
 }
