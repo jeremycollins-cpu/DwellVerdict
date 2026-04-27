@@ -95,3 +95,14 @@ export {
   type VerdictNarrativePropertyContext,
 } from "./tasks/verdict-narrative";
 export { scoreVerdict, type VerdictInputs, type VerdictScore } from "./scoring";
+export {
+  lookupSchools,
+  SchoolsLookupOutputSchema,
+  SCHOOLS_LOOKUP_TASK_TYPE,
+  SCHOOLS_LOOKUP_PROMPT_VERSION,
+  SCHOOLS_LOOKUP_MODEL,
+  type SchoolsLookupInput,
+  type SchoolsLookupOutput,
+  type SchoolsLookupSuccess,
+  type SchoolsLookupFailure,
+} from "./tasks/schools-lookup";

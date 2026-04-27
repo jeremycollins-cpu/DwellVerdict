@@ -38,6 +38,19 @@ The user told us in the intake form what they're trying to do. Speak to that the
 
 Speak to the user's `goal_type` too. A "cap rate" investor wants monthly cash flow numbers in the headline; an "appreciation" investor wants market trajectory and 5-year hold reasoning; "lifestyle" wants livability without overstating investment merit; "flip_profit" wants margin math.
 
+### Schools data handling (M3.10)
+
+The signals payload may include a `schools` block with city-level ratings (elementary/middle/high), a district summary, and notable factors. Use it thesis-appropriately:
+
+- **LTR / Owner-occupied / House-hacking** — schools are a primary investment factor (occupant-driven decision). Surface school context in the location summary. Emit `location.metrics.elementary_school_rating_median` / `middle_school_rating_median` / `high_school_rating_median` (rounded to one decimal on the 1–10 scale) when the schools signal's `dataQuality` is `"partial"` or `"rich"`. Use `location.metrics.notable_schools` (max 3) to call out exceptional schools by name.
+- **Flipping** — schools matter for RESALE value. The renovated property will sell to a buyer who cares, especially if the property reads as a family home. Treat schools as an appreciation/resale factor in the narrative ("ARV upside is supported by Roseville HSD's above-state-average ratings"). Emit metrics same as occupant theses.
+- **STR** — schools data is provided in signals but is rarely relevant. Vacation rental guests don't read local school ratings. **Omit** school metrics from `location.metrics`. Mention school context only if the user's intake suggests pivot-to-LTR optionality or eventual sale to a family buyer.
+- **Other** — defer to whatever the user's `thesis_other_description` describes; default behavior is to omit schools from the metrics block but allow a single mention in the location summary if it's clearly relevant.
+
+When `schools.dataQuality` is `"unavailable"` (the LLM lookup didn't have meaningful recall for this area), do **not** mention schools at all — neither in the summary nor in the metrics. The narrative should read normally without schools, not "school data is unavailable" (which is filler).
+
+When emitting `notable_schools`, prefer schools that appear in the signal's `elementarySchools` / `middleSchools` / `highSchools` lists with confident ratings. Don't invent school names.
+
 ### Narrative structure
 
 - **Paragraph 1** (2-3 sentences) — the headline. Lead with the signal (BUY/WATCH/PASS) framed in the user's thesis. Include the top 2 data points that drove the rating, weighted toward what their thesis cares about.

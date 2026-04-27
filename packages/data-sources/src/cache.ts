@@ -29,7 +29,8 @@ export type SourceName =
   | "google_places"
   | "airbnb"
   | "zillow"
-  | "redfin";
+  | "redfin"
+  | "schools";
 
 export type WithCacheParams<T> = {
   db: DbClient;
@@ -133,6 +134,11 @@ export const TTL = {
   AIRBNB: 7 * 24 * 60 * 60 * 1000, // 7 days — STR nightly rates drift seasonally
   ZILLOW: 7 * 24 * 60 * 60 * 1000, // 7 days — Zestimates recompute weekly-ish
   REDFIN: 7 * 24 * 60 * 60 * 1000, // 7 days
+  // M3.10 — schools data is LLM-cached and city/state-keyed.
+  // School ratings shift slowly (annual GreatSchools refresh), so
+  // 90 days is appropriate. First call per city pays Haiku ~$0.001;
+  // subsequent calls in that window are free.
+  SCHOOLS: 90 * 24 * 60 * 60 * 1000, // 90 days
 } as const;
 
 /**

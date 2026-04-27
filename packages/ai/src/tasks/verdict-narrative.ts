@@ -103,6 +103,15 @@ const LocationEvidenceSchema = z.object({
       flood_zone: z.string().min(1).max(20).optional(),
       crime_rate_rank: z.enum(["low", "moderate", "high"]).optional(),
       nearby_rating: z.number().min(0).max(5).optional(),
+      // M3.10 — school quality metrics. Optional throughout so the
+      // model can surface them only when (a) thesis cares about
+      // schools (LTR / owner-occupied / house-hacking / flipping)
+      // and (b) the schools lookup returned data_quality != "unavailable".
+      // Median ratings are 1–10 on the GreatSchools scale.
+      elementary_school_rating_median: z.number().min(1).max(10).optional(),
+      middle_school_rating_median: z.number().min(1).max(10).optional(),
+      high_school_rating_median: z.number().min(1).max(10).optional(),
+      notable_schools: z.array(z.string().min(1).max(120)).max(3).optional(),
     })
     .optional(),
   citations: z.array(CitationSchema).max(6).optional(),
@@ -275,6 +284,27 @@ const RENDER_VERDICT_NARRATIVE_TOOL: Anthropic.Messages.Tool = {
                   nearby_rating: {
                     type: "number",
                     description: "Average nearby business rating, 0-5.",
+                  },
+                  elementary_school_rating_median: {
+                    type: "number",
+                    description:
+                      "Median GreatSchools-scale rating (1-10) across nearby elementary schools. Emit only when the user's thesis is occupant- or resale-driven (LTR / owner-occupied / house-hacking / flipping) AND the schools signal's dataQuality is 'partial' or 'rich'.",
+                  },
+                  middle_school_rating_median: {
+                    type: "number",
+                    description:
+                      "Median GreatSchools-scale rating (1-10) across nearby middle schools. Same emit conditions as elementary.",
+                  },
+                  high_school_rating_median: {
+                    type: "number",
+                    description:
+                      "Median GreatSchools-scale rating (1-10) across nearby high schools. Same emit conditions.",
+                  },
+                  notable_schools: {
+                    type: "array",
+                    items: { type: "string" },
+                    description:
+                      "Up to 3 exceptional schools by name (top performers, magnet/specialty programs, recent ranking shifts worth flagging). Names only; no commentary.",
                   },
                 },
               },

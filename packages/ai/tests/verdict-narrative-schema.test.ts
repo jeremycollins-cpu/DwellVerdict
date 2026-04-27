@@ -163,6 +163,61 @@ describe("VerdictNarrativeOutputSchema (v2)", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  // M3.10: optional school metrics on the location card. Schema-only
+  // validation; thesis-aware emit rules live in the v3 prompt.
+  it("accepts location metrics with school median ratings + notable schools", () => {
+    const r = VerdictNarrativeOutputSchema.safeParse({
+      ...golden,
+      data_points: {
+        ...golden.data_points,
+        location: {
+          summary: "Walk score 82, schools rate above state median.",
+          metrics: {
+            walk_score: 82,
+            elementary_school_rating_median: 8.5,
+            middle_school_rating_median: 7.0,
+            high_school_rating_median: 8.0,
+            notable_schools: [
+              "Roseville High School",
+              "Sargeant Elementary",
+            ],
+          },
+        },
+      },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects a school rating outside 1-10", () => {
+    const r = VerdictNarrativeOutputSchema.safeParse({
+      ...golden,
+      data_points: {
+        ...golden.data_points,
+        location: {
+          summary: "x",
+          metrics: { elementary_school_rating_median: 11 },
+        },
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects more than 3 notable_schools", () => {
+    const r = VerdictNarrativeOutputSchema.safeParse({
+      ...golden,
+      data_points: {
+        ...golden.data_points,
+        location: {
+          summary: "x",
+          metrics: {
+            notable_schools: ["A", "B", "C", "D"],
+          },
+        },
+      },
+    });
+    expect(r.success).toBe(false);
+  });
 });
 
 describe("verdict-narrative fair-housing lint (v2 shape)", () => {

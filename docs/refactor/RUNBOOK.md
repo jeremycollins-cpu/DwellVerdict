@@ -18,6 +18,7 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 Last updated: 2026-04-27
 
+- ✅ M3.10 shipped — schools data integration (LTR + Owner-occupied + House-hacking + Flipping). New LLM-cached city-level fetcher: `lookupSchools` (Haiku, no web_search, returns up to 5 schools per level + district summary + notable factors + `data_quality` self-assessment). Wrapped by `apps/web/lib/schools/lookup.ts` with the shared `data_source_cache` (90d TTL, key `${state}:${city}`). Orchestrator adds `schools` to the parallel signal fetch (uses `LLM_CACHED_FETCHER_TIMEOUT_MS = 12s`); fetcher health log distinguishes `ok:rich` / `ok:partial` / `ok:unavailable`. Narrative tool schema gains optional `location.metrics.elementary_school_rating_median` / `middle_school_rating_median` / `high_school_rating_median` / `notable_schools`; v3 prompt adds a thesis-aware "Schools data handling" section that emits metrics for LTR/OO/HH/Flipping and omits for STR. Evidence card UI renders the new metrics whenever the model includes them. **Schema migration `0015_ai_usage_tasks_add_schools_lookup`** required (extends the `ai_usage_events.task` CHECK constraint to include `schools-lookup` so the new LLM call's usage event is allowed at the DB layer). Per M0.4 follow-up, runs via the standard manual `pnpm db:migrate`. Defers paid GreatSchools enrichment to v1.1 per master plan upgrade triggers (5+ paying users); v1 relies on Haiku's recall with explicit `data_quality: "unavailable"` for areas the model doesn't know. Tests: 10 SchoolsSignal schema regressions in data-sources, 3 location-metrics schema regressions in AI; 71 AI + 34 data-sources tests total. Carries the M3.7 fix-forward stack forward (max_tokens=4000, summaries ≤500 chars) — current realistic worst-case output ~2000 tokens with schools, well within the 4000 ceiling.
 - 🔧 M3.7 fix-forward (continuation) — Kings Beach regenerate produced rich narrative output (10.7% cap rate, real Placer County permit specifics, wildfire history, FEMA Zone X confirmed, BUY @ 100% confidence) but still failed Zod schema validation: two `data_points.*.summary` strings exceeded the 300-char ceiling (regulatory ~410 chars; location ~380 chars). The 300-char limit dated from when summaries were sparse-data placeholders ("FEMA data unavailable") — with M3.7 fetchers actually returning data, summaries naturally run longer. Bumped per-domain summary `.max(300)` → `.max(500)` on all four data_points domains in `VerdictNarrativeOutputSchema`. 2 new boundary regression tests pin the new ceiling. UI evidence cards render summaries as plain `<p>` with no clamping → 500-char prose wraps naturally with no layout impact. No DB migration; no env vars.
 - 🔧 M3.7 fix-forward — narrative `max_tokens=1000` regression + stale USGS cache. Diagnostic against failed Kings Beach verdict `69de7c71-31e3-488d-8134-899fac4f76cf` showed the misleading `data_points: Required` Zod error was actually Haiku hitting `max_tokens=1000` and truncating its tool-call mid-write before emitting the `data_points` key. `ai_usage_events` history confirmed: when input was 5020 tokens (pre-M3.5 intake context era) output landed at 859–970 (success); after M3.5 + M3.6 fix-forward + M3.7 enrichment grew input to 6076, output saturated at 1000 every time → `data_points` never written → Zod rejection. Two changes in this fix: (1) bump narrative `max_tokens` 1000 → 4000 in `packages/ai/src/tasks/verdict-narrative.ts` (realistic worst-case output ~1500 tokens; output billed only when generated, ceiling change is essentially free); (2) new migration `0014_bust_stale_usgs_cache.sql` force-expires every USGS cache entry written before the M3.7 production deploy timestamp so the next regenerate on each property repopulates from the new InterAgencyFirePerimeterHistory endpoint instead of serving the stale "0 fires" payload from the broken pre-M3.7 fetcher. **Migration runs via the standard manual `pnpm db:migrate` per M0.4 follow-up — read-only against rows that don't match.** Also surfaced a Census timeout race condition that's NOT fixed in this PR; tracked as a v1.1 follow-up.
 - ✅ M3.7 shipped — free fetcher diagnostics & repair (FEMA + Census + USGS). All three were at 100% failure in production. Live diagnostic against actual endpoints surfaced three independent bugs: (1) **FEMA** — code pointed at `services.arcgis.com/HAJAw18hMX4YJMdE/.../FeatureServer/{27,28}` which returns 400 "Invalid URL"; the canonical home is `hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28` (still alive — the prior comment claiming FEMA "retired" it was wrong). Plus parser bug: `STATIC_BFE = -9999` sentinel for "not applicable" was being treated as a real BFE in the narrative — now filtered to null. (2) **Census** — geocoder pairing `Public_AR_Census2020` benchmark with `Census2020_Current` vintage returns 400 "Invalid vintage in request"; valid pairing is `Public_AR_Current` + `Census2020_Current`. Plus bumped ACS dataset 2022 → 2023. `CENSUS_API_KEY` is optional at our volume — works without it. (3) **USGS** — `services3.arcgis.com/.../US_Wildfires_v1/FeatureServer/0` returns 400 "Invalid URL" (service retired); canonical replacement is `InterAgencyFirePerimeterHistory_All_Years_View/FeatureServer/0` with renamed fields (`INCIDENT` / `GIS_ACRES` / `FIRE_YEAR_INT`). 7 new vitest regression tests pin the parser bugs; 24 data-sources tests pass. Live verification against Kings Beach + Roseville coords confirmed all three fetchers now return real data (Kings Beach: FEMA Zone X, Census 42% vacancy / $42K median income, USGS 9 fires including Martis 2001 14.4K acres). No schema migration; no env vars needed.
@@ -42,7 +43,7 @@ Last updated: 2026-04-27
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M3.10 next — schools data integration (per v1.9 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 ✅ → M3.10 → M3.13 → M3.11 → M3.8 → M3.4 → M3.9 → M3.12)
+- ⏳ M3.13 next — thesis-specific regulatory expansion (per v1.9 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 ✅ → M3.10 ✅ → M3.13 → M3.11 → M3.8 → M3.4 → M3.9 → M3.12)
 
 ---
 
@@ -76,6 +77,26 @@ ORDER BY hours_since_last_success DESC NULLS FIRST;
 ```
 
 A healthy snapshot has FEMA / Census / USGS / Overpass all with `hours_since_last_success` under 24 (assuming verdicts were generated in that window). A row with `hours_since_last_success` over 168 (one week) is a strong signal that fetcher is broken. Cross-reference with the per-verdict `[orchestrator] fetcher health` log line in Vercel logs to see which calls are failing live.
+
+### Schools cache health (M3.10)
+
+Verifies the schools fetcher is populating with real content rather than silently emitting "data unavailable" envelopes for every city. Counts schools per level + surfaces the LLM's `dataQuality` self-assessment.
+
+```sql
+SELECT
+  cache_key,
+  fetched_at,
+  jsonb_array_length(payload->'elementarySchools') AS elementary_count,
+  jsonb_array_length(payload->'middleSchools') AS middle_count,
+  jsonb_array_length(payload->'highSchools') AS high_count,
+  payload->>'dataQuality' AS data_quality
+FROM data_source_cache
+WHERE source = 'schools'
+ORDER BY fetched_at DESC
+LIMIT 10;
+```
+
+A healthy entry has at least one school in some level and `data_quality` of `partial` or `rich`. Repeated `unavailable` rows mean Haiku's recall isn't recognizing the cities being queried — surface to the M9.3 admin AI quality dashboard rather than treat as a fetcher failure.
 
 ### Per-property verdict run history
 
@@ -276,11 +297,14 @@ This is the order. Don't deviate without good reason.
 - [x] **M3.3** — Verdict detail page (the centerpiece) + verdict feedback capture — shipped (merge SHA pending, requires manual production migration)
 - [x] **M3.5** — Property thesis intake (keystone) — shipped (merge SHA pending, requires manual production migration)
 - [x] **M3.6** — User-input data architecture for verdict generation — shipped (merge SHA pending)
-- [ ] **M3.6** — User-input data architecture
 - [x] **M3.7** — Free fetcher repair (FEMA + Census + USGS) — shipped (merge SHA pending). Zillow/Redfin/Airbnb deferred to user-input fallback per v1.8 architecture; county records deferred to v1.1.
+- [x] **M3.10** — Schools data integration — shipped (merge SHA pending, requires manual production migration for AI_USAGE_TASKS CHECK constraint extension)
+- [ ] **M3.13** — Thesis-specific regulatory expansion (next per v1.9 sequence)
+- [ ] **M3.11** — LTR rental comps
+- [ ] **M3.8** — Thesis-aware scoring + thesis-aware fetcher selection (expanded in v1.9)
 - [ ] **M3.4** — Onboarding intent flow + welcome email (ships after M3.5–M3.7 so user-level data pre-fills the per-property intake form)
-- [ ] **M3.8** — Thesis-aware scoring (list price as first-class metric)
 - [ ] **M3.9** — What-if calculator
+- [ ] **M3.12** — Sales comps + days-on-market
 
 ### Phase 4 — Property surfaces
 - [ ] **M4.1** — Dashboard route

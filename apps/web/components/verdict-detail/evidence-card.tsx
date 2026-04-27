@@ -180,6 +180,27 @@ function formatMetrics(
     const rating = get<number>("nearby_rating");
     if (typeof rating === "number")
       rows.push({ label: "Nearby rating", value: `${rating.toFixed(2)} ★` });
+    // M3.10 — school median ratings. Whether these appear in
+    // `metrics` is decided upstream by the v3 prompt's thesis-aware
+    // emit rules (LTR / Owner-occupied / House-hacking / Flipping
+    // emit; STR omits). The card just renders whatever the model
+    // included.
+    const elem = get<number>("elementary_school_rating_median");
+    if (typeof elem === "number")
+      rows.push({ label: "Elementary", value: `${elem.toFixed(1)}/10` });
+    const middle = get<number>("middle_school_rating_median");
+    if (typeof middle === "number")
+      rows.push({ label: "Middle", value: `${middle.toFixed(1)}/10` });
+    const high = get<number>("high_school_rating_median");
+    if (typeof high === "number")
+      rows.push({ label: "High", value: `${high.toFixed(1)}/10` });
+    const notable = get<unknown>("notable_schools");
+    if (Array.isArray(notable) && notable.length > 0) {
+      const names = notable.filter((n): n is string => typeof n === "string");
+      if (names.length > 0) {
+        rows.push({ label: "Notable schools", value: names.join(", ") });
+      }
+    }
   }
 
   return rows;
