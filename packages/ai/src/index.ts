@@ -88,11 +88,13 @@ export {
   VERDICT_NARRATIVE_TASK_TYPE,
   VERDICT_NARRATIVE_PROMPT_VERSION,
   VERDICT_NARRATIVE_MODEL,
+  CITATION_URL_SENTINELS,
   type VerdictNarrativeInput,
   type VerdictNarrativeOutput,
   type VerdictNarrativeSuccess,
   type VerdictNarrativeFailure,
   type VerdictNarrativePropertyContext,
+  type CitationUrlSentinel,
 } from "./tasks/verdict-narrative";
 export { scoreVerdict, type VerdictInputs, type VerdictScore } from "./scoring";
 export {

@@ -98,19 +98,43 @@ export function EvidenceCard({ domain, evidence }: EvidenceCardProps) {
       {citations.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 border-t border-hairline pt-3">
           {citations.map((c, i) => (
-            <a
-              key={`${c.url}-${i}`}
-              href={c.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center rounded-[10px] border border-terracotta-border bg-terracotta-soft px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-terracotta transition-colors hover:bg-terracotta hover:text-white"
-            >
-              {c.label}
-            </a>
+            <CitationChip key={`${c.url}-${i}`} url={c.url} label={c.label} />
           ))}
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Citation chip — clickable terracotta link for real URLs, soft
+ * "From your intake" pill for the M3.10 citation sentinels
+ * (`user-provided` / `intake-data`). The model emits these
+ * sentinels when the cited source is the user's own intake form
+ * answers (per v3 prompt's citations guidance), where there's no
+ * URL to point at.
+ */
+function CitationChip({ url, label }: { url: string; label: string }) {
+  const isSentinel = url === "user-provided" || url === "intake-data";
+  if (isSentinel) {
+    return (
+      <span
+        title={`Source: ${label} (from your intake)`}
+        className="inline-flex items-center rounded-[10px] border border-hairline-strong bg-card-ink px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-muted"
+      >
+        {label} · From your intake
+      </span>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center rounded-[10px] border border-terracotta-border bg-terracotta-soft px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-terracotta transition-colors hover:bg-terracotta hover:text-white"
+    >
+      {label}
+    </a>
   );
 }
 

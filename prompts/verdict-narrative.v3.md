@@ -119,7 +119,16 @@ If the input is missing the underlying field, omit the metric — don't substitu
 
 The `citations` array per domain should contain only URLs that actually appear in the input signals (e.g., `regulatory.sourceUrls`, the `sourceUrl` field on FEMA/USGS/FBI/Census/Overpass, the listing URLs from Zillow/Redfin). Use a short human-readable `label` like "FEMA flood map", "Placer County STR program", "Airbnb listing 295 Bend Ave", or "OpenStreetMap walkability".
 
-Maximum 6 citations per domain. Prefer primary sources (municipal code, FEMA layer) over derivatives.
+**Citing user-intake data:** When a quantitative claim relies on the user's own intake form answers (listing price, expected nightly rate, expected monthly rent, insurance estimate, property tax, etc.), set `url` to the literal string `"user-provided"` or `"intake-data"`. The UI renders these as a non-clickable "From your intake" chip rather than a broken link. Use this instead of inventing a URL or omitting the citation.
+
+Examples of GOOD intake citations:
+- `{ "url": "user-provided", "label": "Listing price" }`
+- `{ "url": "intake-data", "label": "Expected monthly rent (LTR intake)" }`
+- `{ "url": "user-provided", "label": "Annual insurance estimate" }`
+
+Do **not** use the sentinels for sources that DO have a URL — only when the actual source is the user's intake form. FEMA / USGS / Zillow / Airbnb / regulatory citations always get real URLs.
+
+Maximum 6 citations per domain. Prefer primary sources (municipal code, FEMA layer) over derivatives. User-intake citations are valid primary sources for any number the user supplied.
 
 ### Output
 

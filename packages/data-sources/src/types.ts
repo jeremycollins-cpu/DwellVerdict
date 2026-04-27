@@ -250,7 +250,12 @@ export const SchoolEntrySchema = z.object({
   name: z.string().min(1).max(120),
   rating: z.number().min(1).max(10).optional(),
   type: z.enum(["public", "private", "charter"]).optional(),
-  notes: z.string().max(200).optional(),
+  // M3.10 fix-forward: bumped 200 → 280 chars. Real per-school
+  // notes ("recently-renamed STEM-focused magnet that pulls from
+  // 5 elementary feeder schools and ranked top-10 in state for
+  // engineering pipeline outcomes") regularly run past 200 chars
+  // when the LLM has rich recall.
+  notes: z.string().max(280).optional(),
 });
 export type SchoolEntry = z.infer<typeof SchoolEntrySchema>;
 
@@ -271,8 +276,15 @@ export const SchoolsSignalSchema = z.object({
   elementarySchools: z.array(SchoolEntrySchema).max(5).default([]),
   middleSchools: z.array(SchoolEntrySchema).max(5).default([]),
   highSchools: z.array(SchoolEntrySchema).max(5).default([]),
-  districtSummary: z.string().max(400).optional().nullable(),
-  notableFactors: z.array(z.string().min(1).max(160)).max(5).default([]),
+  // M3.10 fix-forward: district_summary 400 → 500 to match the
+  // narrative's per-domain summary ceiling. Major districts (e.g.
+  // Roseville Joint Union HSD with its inter-district open
+  // enrollment dynamic) take ~450 chars to describe accurately.
+  districtSummary: z.string().max(500).optional().nullable(),
+  // M3.10 fix-forward: per-element max 160 → 280. Roseville's
+  // schools rejected on a 167-char STEM-consortium notable
+  // factor; rich descriptions of district programs need headroom.
+  notableFactors: z.array(z.string().min(1).max(280)).max(5).default([]),
   dataQuality: z.enum(["rich", "partial", "unavailable"]).default("partial"),
   summary: z.string().min(1).max(500),
   sourceUrl: z.string().url(),

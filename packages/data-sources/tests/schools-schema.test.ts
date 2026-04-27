@@ -111,4 +111,31 @@ describe("SchoolsSignalSchema (M3.10)", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  // M3.10 fix-forward — Roseville rejected with a 167-char STEM
+  // consortium notable factor under the prior 160-char cap.
+  // 280 gives headroom; 281 still rejects.
+  it("accepts notableFactors entries up to 280 chars", () => {
+    const r = SchoolsSignalSchema.safeParse({
+      ...baseSignal,
+      notableFactors: ["x".repeat(280)],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects notableFactors entries over 280 chars", () => {
+    const r = SchoolsSignalSchema.safeParse({
+      ...baseSignal,
+      notableFactors: ["x".repeat(281)],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("accepts SchoolEntry notes up to 280 chars", () => {
+    const r = SchoolsSignalSchema.safeParse({
+      ...baseSignal,
+      elementarySchools: [{ name: "Test", notes: "y".repeat(280) }],
+    });
+    expect(r.success).toBe(true);
+  });
 });
