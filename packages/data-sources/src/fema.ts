@@ -24,15 +24,20 @@ import {
  * (zone code), SFHA_TF (Y/N), and STATIC_BFE fields.
  */
 
-// FEMA retired the /public/NFHL/MapServer path entirely (all three
-// historic layers now 404). NFHL data lives on FEMA's ArcGIS
-// Online hosted FeatureServer now, published under the FEMA org
-// id HAJAw18hMX4YJMdE. The flood-hazard-zones layer is 27 on the
-// National Flood Hazard Layer service there. Kept a second URL
-// as a sanity fallback in case they move again.
+// FEMA's canonical NFHL ArcGIS service is alive at
+// `hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer`.
+// Layer 28 is "Flood Hazard Zones" (FLD_ZONE / SFHA_TF / STATIC_BFE
+// fields per the layer metadata). M3.7 diagnostic confirmed the
+// `services.arcgis.com/HAJAw18hMX4YJMdE/...FeatureServer` path the
+// pre-M3.7 code pointed at returns 400 "Invalid URL" for every
+// query — that hosted FeatureServer was never the canonical home;
+// the migration claim in the prior comment was incorrect. Layer 27
+// is kept as a fallback (FEMA's "Flood Hazard Boundaries" layer
+// has the same FLD_ZONE attribute, useful when a coord falls on a
+// boundary polygon rather than a zone polygon).
 const NFHL_QUERY_URLS = [
-  "https://services.arcgis.com/HAJAw18hMX4YJMdE/arcgis/rest/services/National_Flood_Hazard_Layer/FeatureServer/27/query",
-  "https://services.arcgis.com/HAJAw18hMX4YJMdE/arcgis/rest/services/National_Flood_Hazard_Layer/FeatureServer/28/query",
+  "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query",
+  "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/27/query",
 ];
 const SOURCE_URL = "https://msc.fema.gov/portal/";
 
@@ -103,7 +108,12 @@ function parseFemaResponse(text: string): FemaFloodSignal {
   const zone = feature?.attributes.FLD_ZONE ?? null;
   const sfha =
     (feature?.attributes.SFHA_TF ?? "").toUpperCase() === "T";
-  const bfe = feature?.attributes.STATIC_BFE ?? null;
+  // STATIC_BFE returns the sentinel -9999.0 for "not applicable"
+  // (zones outside the SFHA, panels without elevation data). Treat
+  // any non-positive BFE as null so it doesn't surface in the
+  // narrative as "Base Flood Elevation: -9999 ft".
+  const rawBfe = feature?.attributes.STATIC_BFE ?? null;
+  const bfe = rawBfe != null && rawBfe > 0 ? rawBfe : null;
 
   const summary = buildFemaSummary({ zone, sfha, bfe });
 

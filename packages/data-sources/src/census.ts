@@ -32,9 +32,23 @@ import {
 
 const GEOCODER_URL =
   "https://geocoding.geo.census.gov/geocoder/geographies/coordinates";
-const ACS_URL = "https://api.census.gov/data/2022/acs/acs5";
+// ACS 5-Year 2023 is the current latest dataset (ACS releases
+// annually in December). Bumped from 2022 in M3.7. Updating this
+// each year is acceptable maintenance; future v1.1 follow-up is
+// to auto-detect the most recent published dataset by probing the
+// /data/{year}/acs/acs5 root.
+const ACS_URL = "https://api.census.gov/data/2023/acs/acs5";
 const SOURCE_URL =
   "https://data.census.gov/";
+
+// Census Geocoder benchmark + vintage pairing is restrictive:
+// `Public_AR_Census2020` benchmark only accepts the
+// `Census2020_Census2020` / `Census2010_Census2020` vintages.
+// `Census2020_Current` vintage only works under the
+// `Public_AR_Current` benchmark (the diagnostic before M3.7
+// confirmed the prior pairing returned 400 "Invalid vintage").
+const GEOCODER_BENCHMARK = "Public_AR_Current";
+const GEOCODER_VINTAGE = "Census2020_Current";
 
 type TractFips = {
   stateFips: string;
@@ -46,14 +60,14 @@ async function geocodeToTract(lat: number, lng: number): Promise<TractFips | nul
   const url = new URL(GEOCODER_URL);
   url.searchParams.set("x", lng.toString());
   url.searchParams.set("y", lat.toString());
-  // Public_AR_Census2020 + Census2020_Current is the most reliably
-  // populated benchmark/vintage pair. We do NOT pass the `layers`
-  // filter — it narrows results to a single layer and the key
-  // name ("Census Tracts" vs "2020 Census Tracts") shifts per
-  // benchmark. Grabbing all geographies and picking the tract by
-  // regex is more robust.
-  url.searchParams.set("benchmark", "Public_AR_Census2020");
-  url.searchParams.set("vintage", "Census2020_Current");
+  // The Geocoder is strict about benchmark+vintage compatibility.
+  // See module-level constants for why this pairing is correct.
+  // We do NOT pass the `layers` filter — it narrows results to a
+  // single layer and the key name ("Census Tracts" vs "2020 Census
+  // Tracts") shifts per benchmark. Grabbing all geographies and
+  // picking the tract by regex is more robust.
+  url.searchParams.set("benchmark", GEOCODER_BENCHMARK);
+  url.searchParams.set("vintage", GEOCODER_VINTAGE);
   url.searchParams.set("format", "json");
 
   const res = await fetch(url, {
