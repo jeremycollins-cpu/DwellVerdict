@@ -54,10 +54,17 @@ export async function GET(
     return Response.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
+  // Defense in depth (M3.6 fix-forward): only surface errorMessage
+  // when the row is actually in a failed state. Stale errorMessage
+  // values from prior failed attempts that succeeded on regenerate
+  // shouldn't leak to polling clients even if the markVerdictReady
+  // null-out misses for some future reason.
+  const errorMessage =
+    verdict.status === "failed" ? verdict.errorMessage : null;
   return Response.json({
     ok: true,
     status: verdict.status,
     completedAt: verdict.completedAt?.toISOString() ?? null,
-    errorMessage: verdict.errorMessage,
+    errorMessage,
   });
 }

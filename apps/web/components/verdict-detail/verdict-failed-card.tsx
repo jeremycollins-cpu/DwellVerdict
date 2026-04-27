@@ -8,11 +8,20 @@ import { VerdictLoader } from "@/app/app/properties/[propertyId]/verdict-loader"
  * blocks narratives that include protected-class characterizations;
  * those failures need a separate explanation from generic AI /
  * data-source errors.
+ *
+ * Takes the verdict status as a prop and short-circuits if it's not
+ * `'failed'`. Page-level callers already gate on status, but the
+ * defense-in-depth check (M3.6 fix-forward) means that even if a
+ * row carries a stale `errorMessage` from a prior failed attempt
+ * AND a future caller mounts this card without the status check,
+ * we don't render a phantom failure banner on a ready verdict.
  */
 interface VerdictFailedCardProps {
   verdictId: string;
   propertyId: string;
   addressFull: string;
+  /** Live verdict status — only `'failed'` renders the banner. */
+  status: "pending" | "ready" | "failed";
   errorMessage: string | null;
 }
 
@@ -22,8 +31,10 @@ export function VerdictFailedCard({
   verdictId,
   propertyId,
   addressFull,
+  status,
   errorMessage,
 }: VerdictFailedCardProps) {
+  if (status !== "failed") return null;
   const isFhaBlock =
     typeof errorMessage === "string" && errorMessage.includes(FHA_BLOCK_MARKER);
 
