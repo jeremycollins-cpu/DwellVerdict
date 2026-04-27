@@ -14,6 +14,7 @@ import {
   settledSignal,
   type AirbnbCompsSignal,
   type PropertyValuation,
+  type SchoolsSignal,
   type SignalResult,
 } from "@dwellverdict/data-sources";
 import {
@@ -29,6 +30,7 @@ import type { Property } from "@dwellverdict/db";
 import { getDb } from "@/lib/db";
 import { getRegulatorySignal } from "@/lib/regulatory/lookup";
 import { getPlaceSentimentSignal } from "@/lib/place-sentiment/lookup";
+import { getSchoolsSignal } from "@/lib/schools/lookup";
 
 /**
  * Rules-first verdict orchestrator per ADR-6, M3.6 reframe.
@@ -105,6 +107,7 @@ export type SignalKey =
   | "redfin"
   | "regulatory"
   | "placeSentiment"
+  | "schools"
   | "revenue";
 
 export type VerdictProgressEvent =
@@ -369,9 +372,31 @@ export async function orchestrateVerdict(input: {
         (r) => r.ok,
       ),
     },
+    {
+      // M3.10 — schools is LLM-cached city-level data. Hits Haiku
+      // once per city per 90 days; subsequent properties in the
+      // same city read from data_source_cache for free. Wrapped
+      // with the LLM ceiling because cache miss = a Haiku call.
+      key: "schools" as const,
+      promise: wrap(
+        "schools",
+        settledSignal(
+          getSchoolsSignal({
+            db,
+            city,
+            state,
+            userId,
+            orgId,
+            verdictId,
+          }),
+          LLM_CACHED_FETCHER_TIMEOUT_MS,
+          "schools",
+        ),
+        () => [],
+        okFlag,
+      ),
+    },
   ];
-
-  void LLM_CACHED_FETCHER_TIMEOUT_MS;
 
   const settled = await Promise.allSettled(fetchers.map((f) => f.promise));
   const [
@@ -385,6 +410,7 @@ export async function orchestrateVerdict(input: {
     redfinResult,
     regulatorySignal,
     placeSentimentSignal,
+    schoolsResult,
   ] = settled.map((s, i) =>
     s.status === "fulfilled"
       ? s.value
@@ -409,6 +435,7 @@ export async function orchestrateVerdict(input: {
     SignalResult<PropertyValuation>,
     Awaited<ReturnType<typeof getRegulatorySignal>> | { ok: false; error: string; sourceUrls: string[] },
     Awaited<ReturnType<typeof getPlaceSentimentSignal>> | { ok: false; error: string },
+    SignalResult<SchoolsSignal>,
   ];
 
   emit({ type: "phase_complete", phase: "signals" });
@@ -429,6 +456,9 @@ export async function orchestrateVerdict(input: {
     : null;
   const regulatory = regulatorySignal.ok ? regulatorySignal : null;
   const placeSentiment = placeSentimentSignal.ok ? placeSentimentSignal : null;
+  const schools: SchoolsSignal | null = schoolsResult.ok
+    ? schoolsResult.data
+    : null;
 
   // Single structured log line summarizing fetcher outcomes per
   // verdict. M3.7 will use this to prioritize which broken fetcher
@@ -447,6 +477,9 @@ export async function orchestrateVerdict(input: {
       redfin: redfinResult.ok ? "ok" : "failed",
       regulatory: regulatorySignal.ok ? "ok" : "failed",
       placeSentiment: placeSentimentSignal.ok ? "ok" : "failed",
+      schools: schoolsResult.ok
+        ? `ok:${schoolsResult.data.dataQuality}`
+        : "failed",
     },
   });
 
@@ -576,6 +609,20 @@ export async function orchestrateVerdict(input: {
           lastVerifiedAt: placeSentiment.lastVerifiedAt,
         }
       : null,
+    schools: schools
+      ? {
+          city: schools.city,
+          state: schools.state,
+          dataQuality: schools.dataQuality,
+          elementarySchools: schools.elementarySchools,
+          middleSchools: schools.middleSchools,
+          highSchools: schools.highSchools,
+          districtSummary: schools.districtSummary,
+          notableFactors: schools.notableFactors,
+          summary: schools.summary,
+          sourceUrl: schools.sourceUrl,
+        }
+      : null,
   };
 
   emit({ type: "phase_complete", phase: "scoring" });
@@ -664,6 +711,7 @@ export async function orchestrateVerdict(input: {
     zillow,
     redfin,
     regulatory,
+    schools,
   });
 
   const finalVerdict: OrchestratedVerdict = {
@@ -778,6 +826,7 @@ function collectSources(signals: {
   zillow: PropertyValuation | null;
   redfin: PropertyValuation | null;
   regulatory: { sourceUrls: string[] } | null;
+  schools: SchoolsSignal | null;
 }): string[] {
   const urls = new Set<string>();
   for (const s of [
@@ -793,5 +842,12 @@ function collectSources(signals: {
   if (signals.zillow?.url) urls.add(signals.zillow.url);
   if (signals.redfin?.url) urls.add(signals.redfin.url);
   for (const u of signals.regulatory?.sourceUrls ?? []) urls.add(u);
+  // M3.10 — schools sourceUrl is the GreatSchools city search page,
+  // useful for users to verify the LLM's recall against the actual
+  // ratings. Surfaced only when the lookup wasn't 'unavailable' so
+  // we don't tease a search page that returns nothing useful.
+  if (signals.schools && signals.schools.dataQuality !== "unavailable") {
+    urls.add(signals.schools.sourceUrl);
+  }
   return [...urls];
 }

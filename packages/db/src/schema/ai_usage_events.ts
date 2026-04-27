@@ -37,6 +37,9 @@ export const AI_USAGE_TASKS = [
   "alerts",
   "compare",
   "portfolio",
+  // M3.10 — Haiku-cached city-level school quality lookup.
+  // Reads cheap on cache hits; first call per city pays ~$0.001.
+  "schools-lookup",
 ] as const;
 export type AiUsageTask = (typeof AI_USAGE_TASKS)[number];
 
@@ -110,7 +113,7 @@ export const aiUsageEvents = pgTable(
     ),
     taskCheck: check(
       "ai_usage_events_task_check",
-      sql`${table.task} IN ('regulatory-lookup', 'place-sentiment', 'scout-chat', 'verdict-narrative', 'briefs', 'alerts', 'compare', 'portfolio')`,
+      sql`${table.task} IN ('regulatory-lookup', 'place-sentiment', 'scout-chat', 'verdict-narrative', 'briefs', 'alerts', 'compare', 'portfolio', 'schools-lookup')`,
     ),
   }),
 );

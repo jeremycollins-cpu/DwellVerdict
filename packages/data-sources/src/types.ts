@@ -233,3 +233,48 @@ export const RevenueEstimateSchema = z.object({
   summary: z.string(),
 });
 export type RevenueEstimate = z.infer<typeof RevenueEstimateSchema>;
+
+// ----------------------------------------------------------------
+// School quality (M3.10)
+// ----------------------------------------------------------------
+
+/**
+ * Single school entry returned by the LLM-cached schools lookup.
+ * Rating is on the GreatSchools 1–10 scale; the LLM is instructed
+ * to anchor on that scale even when the underlying rating source
+ * (state report cards, district reputation, etc.) uses something
+ * else. Optional throughout — the LLM may know a school name
+ * without a confident rating, etc.
+ */
+export const SchoolEntrySchema = z.object({
+  name: z.string().min(1).max(120),
+  rating: z.number().min(1).max(10).optional(),
+  type: z.enum(["public", "private", "charter"]).optional(),
+  notes: z.string().max(200).optional(),
+});
+export type SchoolEntry = z.infer<typeof SchoolEntrySchema>;
+
+/**
+ * SchoolsSignal — city-level school context surfaced to the verdict
+ * narrative for LTR / Owner-occupied / House-hacking / Flipping
+ * theses (occupant- or resale-driven). Cached per (state, city) for
+ * 90 days via the shared data_source_cache.
+ *
+ * `data_quality` separates "the LLM doesn't know this area" (→
+ * `unavailable`, empty arrays) from "the LLM has decent recall"
+ * (`partial` / `rich`). The narrative prompt uses this flag to
+ * decide whether to mention schools at all.
+ */
+export const SchoolsSignalSchema = z.object({
+  city: z.string().min(1).max(120),
+  state: z.string().min(2).max(2),
+  elementarySchools: z.array(SchoolEntrySchema).max(5).default([]),
+  middleSchools: z.array(SchoolEntrySchema).max(5).default([]),
+  highSchools: z.array(SchoolEntrySchema).max(5).default([]),
+  districtSummary: z.string().max(400).optional().nullable(),
+  notableFactors: z.array(z.string().min(1).max(160)).max(5).default([]),
+  dataQuality: z.enum(["rich", "partial", "unavailable"]).default("partial"),
+  summary: z.string().min(1).max(500),
+  sourceUrl: z.string().url(),
+});
+export type SchoolsSignal = z.infer<typeof SchoolsSignalSchema>;
