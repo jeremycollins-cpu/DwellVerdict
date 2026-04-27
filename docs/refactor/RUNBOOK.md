@@ -16,8 +16,9 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 ## Recent activity
 
-Last updated: 2026-04-26
+Last updated: 2026-04-27
 
+- ✅ M3.5 shipped — **keystone milestone**: property thesis + intake form. 23 new columns on `properties` (thesis/goal/pricing/costs/STR-LTR-financing assumptions/intake state) replace the broken third-party fetcher reliance with user-input data architecture. New 7-step wizard at `/app/properties/[id]/intake` (thesis → goal → fundamentals → pricing → costs → thesis-specific → review) with per-step partial saves, save-and-finish-later resume, currency input, regional insurance callouts (CA wildfire, FL/Gulf hurricane), and thesis-goal compatibility validation. Property creation no longer charges a report slot or pre-creates a verdict — `submitIntakeAction` does both at the end of the wizard, fixing the "abandoned mid-onboarding charges a verdict" UX bug. Existing properties without `intake_completed_at` show a strong banner (no thesis) or soft banner (thesis backfilled), and verdict regenerate is gated until intake is complete. Backfill applied to all 5 production properties: 41 Maywood (LTR + both), 207 Corte Sendero (owner_occupied + appreciation), 295 Bend Avenue (STR + both), 2112 Heritage (LTR, thesis-only — soft banner prompts goal), 9505 Pinehurst (LTR + appreciation). 21 Zod schema tests pass; action-level DB tests deferred. **Schema migration `0013_property_intake_fields` requires manual production run** per M0.4 follow-up.
 - ✅ M2.5 shipped — marketing positioning refresh (platform vision). Landing hero subhead, secondary CTA, anatomy-of-verdict framing, pricing-preview cards, founder quote, and final CTA all rewritten to position the verdict as the lead-gen hook into an end-to-end platform. New `<PlatformPillars>` section between three-step explainer and anatomy renders the 9 v1.8 pillars (evaluation, buying, renovating, managing, tax strategy, Scout AI, briefs, alerts, portfolio) with tier tags. Pricing page hero copy, tier descriptions, comparison table (added per-property + portfolio-wide tax strategy rows; renamed "Scout AI chat" → "Scout AI conversations"), and FAQ (3 new platform questions inserted at top) also updated. Landing + pricing meta titles/descriptions reflect platform positioning. Copy-only — no visual redesign, no new infra.
 - ✅ M3.3 shipped — verdict detail page (mockup v4-verdict). Three architectural changes alongside the visual work: (1) **structured per-domain evidence** via verdict-narrative prompt v2 — `data_points` is now `{summary, metrics?, citations?}` per domain; pre-M3.3 verdicts in the legacy 4-string shape still render via type-guarding. (2) **Immutable verdicts with run history** — regenerate creates a new pending verdict row instead of overwriting; canonical URL is `/app/properties/[propertyId]/verdicts/[verdictId]`; property page redirects to the latest. (3) **`verdict_feedback` table** plus thumbs up/down + issue-category UI per verdict. Plus persisted `score_breakdown`, "Deep Analysis" badge surfaces in the static detail view, and FHA-aware copy on lint-failed verdicts. **Schema migration `0012_verdict_feedback_and_score_breakdown` requires manual production run** per M0.4 follow-up.
 - ✅ M3.2 shipped (commit accfca4) — streaming verdict generation. SSE-streamed `/api/verdicts/[id]/generate` emits `phase_start` / `signal_complete` / `narrative_ready` / `complete` / `error` events. New `StreamingVerdict` component renders mockup 04: 4-domain stream track ticking off as parallel signals settle, progress bar, live sources panel, and a typewriter-revealed narrative section with "Deep Analysis" badge for Sonnet (M3.0 routing). Cost-cap check from M3.0 wired in. Fallback to `/api/verdicts/[id]/status` polling on SSE connection failure. No schema migration needed.
@@ -34,7 +35,7 @@ Last updated: 2026-04-26
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M3.5 next — property thesis intake (per v1.8 sequence: M2.5 → M3.5 → M3.6 → M3.7 → M3.4 → M3.8 → M3.9; M3.4 ships after M3.5–M3.7 so user-level onboarding can pre-fill the per-property intake form)
+- ⏳ M3.6 next — user-input data architecture (wires intake fields into verdict generation; per v1.8 sequence: M3.5 ✅ → M3.6 → M3.7 → M3.4 → M3.8 → M3.9)
 
 ---
 
@@ -220,7 +221,7 @@ This is the order. Don't deviate without good reason.
 - [x] **M3.1** — Address input refresh — shipped (merge SHA pending)
 - [x] **M3.2** — Streaming verdict generation + cost optimization — shipped (merge SHA pending)
 - [x] **M3.3** — Verdict detail page (the centerpiece) + verdict feedback capture — shipped (merge SHA pending, requires manual production migration)
-- [ ] **M3.5** — Property thesis intake (next per v1.8 sequence)
+- [x] **M3.5** — Property thesis intake (keystone) — shipped (merge SHA pending, requires manual production migration)
 - [ ] **M3.6** — User-input data architecture
 - [ ] **M3.7** — Free fetcher repair (Zillow / Redfin / FEMA / Census)
 - [ ] **M3.4** — Onboarding intent flow + welcome email (ships after M3.5–M3.7 so user-level data pre-fills the per-property intake form)

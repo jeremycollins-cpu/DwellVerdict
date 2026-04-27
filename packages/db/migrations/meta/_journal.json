@@ -92,6 +92,13 @@
       "when": 1777018600000,
       "tag": "0012_verdict_feedback_and_score_breakdown",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1777018700000,
+      "tag": "0013_property_intake_fields",
+      "breakpoints": true
     }
   ]
 }

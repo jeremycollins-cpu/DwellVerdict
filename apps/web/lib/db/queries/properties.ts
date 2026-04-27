@@ -7,6 +7,10 @@ import type { Property } from "@dwellverdict/db";
 
 import { getDb } from "@/lib/db";
 import { type ParsedAddress, normalizeAddress } from "@/lib/address";
+import type {
+  IntakeStepNumber,
+  PropertyIntakeSubmitPayload,
+} from "@/lib/onboarding/schema";
 
 const { properties, verdicts } = schema;
 
@@ -171,4 +175,154 @@ export async function listPropertiesForOrg(params: {
     ...r,
     latestVerdictSignal: (r.latestVerdictSignal as "buy" | "watch" | "pass" | null) ?? null,
   }));
+}
+
+/**
+ * Persist a single step's worth of intake fields. Uses Drizzle's
+ * dynamic update so callers pass only the fields they own — null /
+ * undefined fields don't clobber existing values. Bumps
+ * `intake_step_completed` to the highest step the user has touched
+ * (so navigating back doesn't downgrade progress) and stamps
+ * `intake_last_saved_at` for the "saved 3m ago" UI.
+ *
+ * Scoped by org_id; returns null if the property doesn't belong to
+ * the caller's org. Does NOT stamp `intake_completed_at` — that
+ * happens only via `markIntakeComplete` after Step 7 submit.
+ */
+export async function savePartialIntake(params: {
+  propertyId: string;
+  orgId: string;
+  step: IntakeStepNumber;
+  fields: Partial<PropertyIntakeSubmitPayload>;
+}): Promise<Property | null> {
+  const db = getDb();
+  const { propertyId, orgId, step, fields } = params;
+
+  const existing = await getPropertyForOrg({ propertyId, orgId });
+  if (!existing) return null;
+
+  // Only bump step number forward; navigating back to step 2 from
+  // step 5 keeps `intake_step_completed=5` so we resume in the
+  // right place.
+  const nextStep = Math.max(existing.intakeStepCompleted ?? 0, step);
+
+  const [row] = await db
+    .update(properties)
+    .set({
+      ...intakeFieldsForUpdate(fields),
+      intakeStepCompleted: nextStep,
+      intakeLastSavedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(properties.id, propertyId),
+        eq(properties.orgId, orgId),
+        isNull(properties.deletedAt),
+      ),
+    )
+    .returning();
+
+  return row ?? null;
+}
+
+/**
+ * Final intake submit — writes the full validated payload + stamps
+ * `intake_completed_at = now()` so downstream gates (regenerate
+ * button, banner suppression, M3.6 thesis-aware verdict) treat the
+ * property as fully onboarded.
+ */
+export async function markIntakeComplete(params: {
+  propertyId: string;
+  orgId: string;
+  payload: PropertyIntakeSubmitPayload;
+}): Promise<Property | null> {
+  const db = getDb();
+  const { propertyId, orgId, payload } = params;
+
+  const now = new Date();
+  const [row] = await db
+    .update(properties)
+    .set({
+      ...intakeFieldsForUpdate(payload),
+      intakeStepCompleted: 7,
+      intakeCompletedAt: now,
+      intakeLastSavedAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(properties.id, propertyId),
+        eq(properties.orgId, orgId),
+        isNull(properties.deletedAt),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Translate the wizard's number-typed payload into Drizzle's
+ * insert/update shape. The numeric(p,s) columns (bathrooms,
+ * occupancy/vacancy/appreciation rates, mortgage rate, down
+ * payment) are typed as strings on the binding side to preserve
+ * precision, so we stringify here. Integer columns pass through.
+ *
+ * Drops `undefined` keys so the partial-save semantics stay
+ * unambiguous: only fields present in the payload get written.
+ * Explicit `null` does pass through, letting the wizard clear a
+ * previously-entered field.
+ */
+type IntakeUpdate = Partial<typeof properties.$inferInsert>;
+
+function intakeFieldsForUpdate(
+  payload: Partial<PropertyIntakeSubmitPayload>,
+): IntakeUpdate {
+  const NUMERIC_KEYS = new Set<keyof PropertyIntakeSubmitPayload>([
+    "bathrooms",
+    "strExpectedOccupancy",
+    "ltrVacancyRate",
+    "ltrExpectedAppreciationRate",
+    "downPaymentPercent",
+    "mortgageRate",
+  ]);
+
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(payload) as Array<keyof PropertyIntakeSubmitPayload>) {
+    const v = payload[k];
+    if (v === undefined) continue;
+    if (NUMERIC_KEYS.has(k) && typeof v === "number") {
+      out[k] = v.toString();
+    } else {
+      out[k] = v;
+    }
+  }
+  return out as IntakeUpdate;
+}
+
+/**
+ * "Has the user finished the intake wizard for this property?"
+ * — the canonical gate used by the regenerate button, the banner,
+ * and (post-M3.6) thesis-aware verdict generation.
+ */
+export function isIntakeComplete(property: Pick<Property, "intakeCompletedAt">): boolean {
+  return property.intakeCompletedAt !== null;
+}
+
+/**
+ * Three-state intake banner classification used by the property
+ * detail page:
+ *   - `none`: intake done, no banner
+ *   - `soft`: thesis backfilled (e.g. one of the 3 known properties)
+ *     but other fields blank — show "Add property details" prompt
+ *   - `hard`: nothing set — show "Complete property intake" gate
+ */
+export type IntakeBannerState = "none" | "soft" | "hard";
+
+export function classifyIntakeBanner(
+  property: Pick<Property, "intakeCompletedAt" | "thesisType">,
+): IntakeBannerState {
+  if (property.intakeCompletedAt) return "none";
+  if (property.thesisType) return "soft";
+  return "hard";
 }

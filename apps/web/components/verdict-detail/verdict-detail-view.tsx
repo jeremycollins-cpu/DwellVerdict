@@ -9,8 +9,10 @@ import {
   type EvidenceDomain,
 } from "@/components/verdict-detail/evidence-card";
 import { FeedbackControls } from "@/components/verdict-detail/feedback-controls";
+import { IntakePromptBanner } from "@/components/property-intake/intake-prompt-banner";
 import { VerdictLoader } from "@/app/app/properties/[propertyId]/verdict-loader";
 import type { Verdict, VerdictFeedback } from "@dwellverdict/db";
+import type { IntakeBannerState } from "@/lib/db/queries/properties";
 
 /**
  * Read-only verdict detail view (M3.3 / mockup v4-verdict). Pieces:
@@ -39,6 +41,13 @@ interface VerdictDetailViewProps {
   runHistory: ReadonlyArray<Verdict>;
   /** Caller's existing feedback for this verdict, if any. */
   myFeedback: VerdictFeedback | null;
+  /**
+   * Intake banner state for this property. When 'hard' or 'soft',
+   * we render <IntakePromptBanner> above the hero AND swap the
+   * regenerate button for an "intake required" stub.
+   */
+  intakeBannerState: IntakeBannerState;
+  intakeStepCompleted: number;
 }
 
 const SIGNAL_STYLE: Record<
@@ -81,6 +90,8 @@ export function VerdictDetailView({
   verdict,
   runHistory,
   myFeedback,
+  intakeBannerState,
+  intakeStepCompleted,
 }: VerdictDetailViewProps) {
   const signal = (verdict.signal ?? "watch") as "buy" | "watch" | "pass";
   const confidence = verdict.confidence ?? 0;
@@ -117,6 +128,16 @@ export function VerdictDetailView({
           <ArrowLeft className="size-3" />
           All properties
         </Link>
+
+        {intakeBannerState !== "none" ? (
+          <div className="mt-6">
+            <IntakePromptBanner
+              state={intakeBannerState}
+              propertyId={property.id}
+              resumeStep={intakeStepCompleted}
+            />
+          </div>
+        ) : null}
 
         {/* Hero */}
         <header className="mt-6 flex flex-col gap-6 rounded-2xl border border-hairline bg-card-ink p-6 md:p-8 lg:flex-row lg:items-start lg:gap-10">
@@ -160,11 +181,22 @@ export function VerdictDetailView({
             ) : null}
 
             <div className="mt-6">
-              <VerdictLoader
-                verdictId={verdict.id}
-                label="Regenerate verdict"
-                force
-              />
+              {intakeBannerState === "none" ? (
+                <VerdictLoader
+                  verdictId={verdict.id}
+                  label="Regenerate verdict"
+                  force
+                />
+              ) : (
+                <Link
+                  href={`/app/properties/${property.id}/intake`}
+                  className="inline-flex items-center gap-2 rounded-md border border-hairline-strong bg-card-ink px-4 py-2.5 text-sm text-ink-muted transition-colors hover:border-ink hover:text-ink"
+                  title="Complete the intake wizard before regenerating — gives the verdict the thesis-aware context it needs."
+                >
+                  Regenerate locked · Complete intake
+                  <ChevronRight className="size-3.5" />
+                </Link>
+              )}
             </div>
           </div>
 

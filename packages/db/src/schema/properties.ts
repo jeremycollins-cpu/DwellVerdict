@@ -77,6 +77,38 @@ export const PROPERTY_LIFECYCLE_STAGES = [
 export type PropertyLifecycleStage = (typeof PROPERTY_LIFECYCLE_STAGES)[number];
 
 /**
+ * Thesis classification — what the user plans to do with the property.
+ * Drives thesis-aware scoring in M3.8 and the conditional intake fields
+ * captured in step 6 of the M3.5 wizard. Source of truth for both the
+ * Zod validator in `apps/web/lib/onboarding/schema.ts` and the CHECK
+ * constraint enforced below.
+ */
+export const PROPERTY_THESIS_TYPES = [
+  "str",
+  "ltr",
+  "owner_occupied",
+  "house_hacking",
+  "flipping",
+  "other",
+] as const;
+export type PropertyThesisType = (typeof PROPERTY_THESIS_TYPES)[number];
+
+/**
+ * Goal classification — what the user is optimizing for. Allowed
+ * combinations with thesis are enforced in the application layer
+ * (VALID_GOALS_PER_THESIS in onboarding/schema.ts) rather than the
+ * database, because cross-column CHECK constraints get noisy fast.
+ */
+export const PROPERTY_GOAL_TYPES = [
+  "cap_rate",
+  "appreciation",
+  "both",
+  "lifestyle",
+  "flip_profit",
+] as const;
+export type PropertyGoalType = (typeof PROPERTY_GOAL_TYPES)[number];
+
+/**
  * properties — the atomic unit of the product.
  *
  * One row per real-world property, persistent across all five lifecycle
@@ -156,6 +188,69 @@ export const properties = pgTable(
     sourceUrl: text("source_url"),
     listingData: jsonb("listing_data"),
 
+    // ─── M3.5 property intake — user-input data architecture ───
+    // The columns below are the v1.8 keystone: replacing broken
+    // Zillow/Redfin/FEMA fetchers with user-verified inputs. All
+    // populated through the 7-step wizard at /app/properties/[id]/
+    // intake. M3.6 wires these into verdict generation; M3.8 makes
+    // scoring thesis-aware; M3.9 lets users adjust them in what-ifs.
+    thesisType: text("thesis_type"),
+    goalType: text("goal_type"),
+    thesisOtherDescription: text("thesis_other_description"),
+
+    // Pricing. `purchase_price` (above) is what the user actually paid
+    // at close; these three are pre-close inputs the user enters from
+    // listings and Zestimates. Stored in cents to match the
+    // user_report_usage and ai_usage_events conventions.
+    listingPriceCents: integer("listing_price_cents"),
+    userOfferPriceCents: integer("user_offer_price_cents"),
+    estimatedValueCents: integer("estimated_value_cents"),
+
+    // Annual carrying costs.
+    annualPropertyTaxCents: integer("annual_property_tax_cents"),
+    annualInsuranceEstimateCents: integer("annual_insurance_estimate_cents"),
+    monthlyHoaFeeCents: integer("monthly_hoa_fee_cents"),
+
+    // STR-specific (populated when thesis_type = 'str').
+    strExpectedNightlyRateCents: integer("str_expected_nightly_rate_cents"),
+    strExpectedOccupancy: numeric("str_expected_occupancy", {
+      precision: 3,
+      scale: 2,
+    }),
+    strCleaningFeeCents: integer("str_cleaning_fee_cents"),
+    strAvgLengthOfStayDays: integer("str_avg_length_of_stay_days"),
+
+    // LTR-specific (populated when thesis_type = 'ltr').
+    ltrExpectedMonthlyRentCents: integer("ltr_expected_monthly_rent_cents"),
+    ltrVacancyRate: numeric("ltr_vacancy_rate", { precision: 3, scale: 2 }),
+    ltrExpectedAppreciationRate: numeric("ltr_expected_appreciation_rate", {
+      precision: 4,
+      scale: 3,
+    }),
+
+    // Financing / owner-occupied / flipping fields.
+    downPaymentPercent: numeric("down_payment_percent", {
+      precision: 3,
+      scale: 2,
+    }),
+    mortgageRate: numeric("mortgage_rate", { precision: 4, scale: 3 }),
+    mortgageTermYears: integer("mortgage_term_years"),
+    renovationBudgetCents: integer("renovation_budget_cents"),
+    flippingArvEstimateCents: integer("flipping_arv_estimate_cents"),
+
+    // Intake state tracking. `intake_completed_at` is the canonical
+    // "intake done" flag — non-null means the user finished step 7.
+    // `intake_step_completed` tracks furthest step reached (0..7) so
+    // the wizard can resume. `intake_last_saved_at` exists so the UI
+    // can show "saved 3m ago" without a separate audit table.
+    intakeCompletedAt: timestamp("intake_completed_at", {
+      withTimezone: true,
+    }),
+    intakeStepCompleted: integer("intake_step_completed").notNull().default(0),
+    intakeLastSavedAt: timestamp("intake_last_saved_at", {
+      withTimezone: true,
+    }),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -208,6 +303,43 @@ export const properties = pgTable(
         'renovating',
         'managing'
       )`,
+    ),
+    thesisTypeCheck: check(
+      "properties_thesis_type_check",
+      sql`${table.thesisType} IS NULL OR ${table.thesisType} IN (
+        'str',
+        'ltr',
+        'owner_occupied',
+        'house_hacking',
+        'flipping',
+        'other'
+      )`,
+    ),
+    goalTypeCheck: check(
+      "properties_goal_type_check",
+      sql`${table.goalType} IS NULL OR ${table.goalType} IN (
+        'cap_rate',
+        'appreciation',
+        'both',
+        'lifestyle',
+        'flip_profit'
+      )`,
+    ),
+    intakeStepCheck: check(
+      "properties_intake_step_check",
+      sql`${table.intakeStepCompleted} >= 0 AND ${table.intakeStepCompleted} <= 7`,
+    ),
+    strOccupancyCheck: check(
+      "properties_str_occupancy_check",
+      sql`${table.strExpectedOccupancy} IS NULL OR (${table.strExpectedOccupancy} >= 0 AND ${table.strExpectedOccupancy} <= 1)`,
+    ),
+    ltrVacancyCheck: check(
+      "properties_ltr_vacancy_check",
+      sql`${table.ltrVacancyRate} IS NULL OR (${table.ltrVacancyRate} >= 0 AND ${table.ltrVacancyRate} <= 1)`,
+    ),
+    downPaymentCheck: check(
+      "properties_down_payment_check",
+      sql`${table.downPaymentPercent} IS NULL OR (${table.downPaymentPercent} >= 0 AND ${table.downPaymentPercent} <= 1)`,
     ),
   }),
 );

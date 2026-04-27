@@ -28,35 +28,31 @@ export function AddressEntry() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [rateLimited, setRateLimited] = useState<{ resetAt: string } | null>(null);
   const [resetKey, setResetKey] = useState(0);
   const [staged, setStaged] = useState<ParsedAddress | null>(null);
 
   const handleSelect = (address: ParsedAddress) => {
     setError(null);
-    setRateLimited(null);
     setStaged(address);
   };
 
+  // M3.5: property creation no longer charges a report slot or
+  // creates a verdict. The wizard at /intake handles both. This
+  // submit just creates the property row and routes onward — the
+  // property detail page redirects to /intake or /verdicts/[id]
+  // depending on intake state.
   const handleSubmit = () => {
     if (!staged || pending) return;
     const address = staged;
     startTransition(async () => {
       const result = await createPropertyAction(address);
       if (!result.ok) {
-        if (result.error === "rate_limited" && result.resetAt) {
-          setRateLimited({ resetAt: result.resetAt });
-        } else {
-          setError(
-            result.message ??
-              (result.error === "invalid_address"
-                ? "That address didn't look right. Try again with a full street address."
-                : result.error === "unauthorized"
-                  ? "Please sign in again."
-                  : "Something went wrong. Please try again."),
-          );
-        }
-        // Remount the input so the user can re-pick without stale state.
+        setError(
+          result.message ??
+            (result.error === "invalid_address"
+              ? "That address didn't look right. Try again with a full street address."
+              : "Please sign in again."),
+        );
         setStaged(null);
         setResetKey((k) => k + 1);
         return;
@@ -126,12 +122,12 @@ export function AddressEntry() {
             {pending ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />
-                <span className="hidden sm:inline">Creating&hellip;</span>
+                <span className="hidden sm:inline">Continue&hellip;</span>
               </>
             ) : (
               <>
-                <span className="hidden sm:inline">Generate verdict</span>
-                <span className="sm:hidden">Verdict</span>
+                <span className="hidden sm:inline">Continue to intake</span>
+                <span className="sm:hidden">Continue</span>
                 <ArrowRight className="size-3.5" strokeWidth={2} />
               </>
             )}
@@ -146,18 +142,6 @@ export function AddressEntry() {
           <div className="mt-4 flex items-start gap-2 rounded-md border border-pass-border bg-pass-soft px-3 py-2 text-sm text-pass">
             <AlertCircle className="mt-0.5 size-4 shrink-0" />
             <p>{error}</p>
-          </div>
-        ) : null}
-
-        {rateLimited ? (
-          <div className="mt-4 rounded-md border border-watch-border bg-watch-soft px-3 py-2.5 text-sm text-ink">
-            <p className="font-medium">
-              You&apos;ve used your verdict quota for this period.
-            </p>
-            <p className="mt-1 text-ink-muted">
-              Quota resets {new Date(rateLimited.resetAt).toLocaleDateString()}.
-              Upgrade your plan for a higher monthly cap.
-            </p>
           </div>
         ) : null}
       </div>
