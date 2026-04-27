@@ -134,6 +134,35 @@ describe("VerdictNarrativeOutputSchema (v2)", () => {
     });
     expect(bad.success).toBe(false);
   });
+
+  // M3.7 fix-forward: bumped from 300 → 500 chars after Kings Beach
+  // production verdict produced ~410-char regulatory summary (Placer
+  // County permit complexity) and ~380-char location summary (real
+  // walkability + amenities + flood + crime data) and got rejected.
+  // The new ceiling has to comfortably accept those.
+  it("accepts a per-domain summary up to 500 chars", () => {
+    const summary450 = "x".repeat(450);
+    const r = VerdictNarrativeOutputSchema.safeParse({
+      ...golden,
+      data_points: {
+        ...golden.data_points,
+        regulatory: { summary: summary450 },
+      },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects a per-domain summary over 500 chars", () => {
+    const summary501 = "x".repeat(501);
+    const r = VerdictNarrativeOutputSchema.safeParse({
+      ...golden,
+      data_points: {
+        ...golden.data_points,
+        location: { summary: summary501 },
+      },
+    });
+    expect(r.success).toBe(false);
+  });
 });
 
 describe("verdict-narrative fair-housing lint (v2 shape)", () => {

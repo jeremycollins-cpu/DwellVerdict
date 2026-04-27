@@ -56,7 +56,7 @@ const CitationSchema = z.object({
 });
 
 const CompsEvidenceSchema = z.object({
-  summary: z.string().min(1).max(300),
+  summary: z.string().min(1).max(500),
   metrics: z
     .object({
       count: z.number().int().nonnegative().optional(),
@@ -68,7 +68,7 @@ const CompsEvidenceSchema = z.object({
 });
 
 const RevenueEvidenceSchema = z.object({
-  summary: z.string().min(1).max(300),
+  summary: z.string().min(1).max(500),
   metrics: z
     .object({
       annual_estimate: z.number().nonnegative().optional(),
@@ -80,7 +80,7 @@ const RevenueEvidenceSchema = z.object({
 });
 
 const RegulatoryEvidenceSchema = z.object({
-  summary: z.string().min(1).max(300),
+  summary: z.string().min(1).max(500),
   metrics: z
     .object({
       str_status: z
@@ -96,7 +96,7 @@ const RegulatoryEvidenceSchema = z.object({
 });
 
 const LocationEvidenceSchema = z.object({
-  summary: z.string().min(1).max(300),
+  summary: z.string().min(1).max(500),
   metrics: z
     .object({
       walk_score: z.number().int().min(0).max(100).optional(),
@@ -524,9 +524,9 @@ export async function writeVerdictNarrative(
     response = await client.messages.create(
       {
         model: routing.model,
-        // Realistic worst-case output is ~1500 tokens: narrative
+        // Realistic worst-case output is ~1800 tokens: narrative
         // ≤2000 chars + summary ≤400 chars + 4 × data_points
-        // summary ≤300 chars each + optional metrics + ≤6
+        // summary ≤500 chars each + optional metrics + ≤6
         // citations × 4 domains + JSON envelope overhead. The
         // pre-fix 1000 cap saturated as inputs grew (post-M3.5
         // intake context + M3.6 fix-forward CRITICAL paragraph
