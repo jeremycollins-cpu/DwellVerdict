@@ -2,19 +2,19 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 
 const STARTER_FEATURES = [
-  "50 full reports per month",
-  "Finding, Evaluating, Buying, Renovating, Managing",
-  "CSV import (Airbnb, Hospitable, Guesty, Hostaway)",
-  "Schedule E tax summary",
+  "50 verdicts per month",
+  "Lifecycle stages (Buying / Renovating / Managing)",
+  "Tax strategy guidance",
+  "Scout AI questions",
   "PDF report export",
 ];
 
 const PRO_FEATURES = [
-  "200 full reports per month",
-  "Everything in DwellVerdict",
-  "Scout AI chat (30 / day · 300 / month)",
-  "Priority verdict queue",
-  "Best for active investors",
+  "200 verdicts per month",
+  "Scout AI conversations (30/day · 300/month)",
+  "Advanced tax strategy",
+  "Compare · Briefs · Alerts",
+  "Portfolio dashboard",
 ];
 
 /**
@@ -50,7 +50,7 @@ export function PricingPreview() {
           tier="DwellVerdict"
           price="$20"
           period="/ month"
-          desc="Most small operators. 1–5 properties, the full lifecycle, no AI chat."
+          desc="Generate verdicts. Plan your buying. Manage your operations. Get started for $20/month."
           features={STARTER_FEATURES}
           ctaLabel="See full pricing"
         />
@@ -58,7 +58,7 @@ export function PricingPreview() {
           tier="DwellVerdict Pro"
           price="$40"
           period="/ month"
-          desc="Adds Scout AI chat for property-specific questions and a higher cap."
+          desc="Everything in DwellVerdict plus the tools serious investors need."
           features={PRO_FEATURES}
           ctaLabel="Go Pro"
           featured

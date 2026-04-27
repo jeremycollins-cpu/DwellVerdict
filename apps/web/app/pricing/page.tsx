@@ -15,7 +15,7 @@ import { StructuredData } from "@/lib/seo/structured-data";
 
 const TITLE = "Pricing — DwellVerdict";
 const DESCRIPTION =
-  "Simple pricing for property verdict analysis. First verdict free, then $20/mo (50 verdicts) or $40/mo (200 verdicts + Scout AI). Flat per-account, cancel anytime.";
+  "Simple pricing for an end-to-end real estate investing platform. Free first verdict, then $20/mo for evaluation and lifecycle tools, $40/mo for Pro features including Scout AI and portfolio dashboard.";
 
 export const metadata: Metadata = {
   title: TITLE,

@@ -11,6 +11,18 @@
 
 export const PRICING_FAQS: ReadonlyArray<{ q: string; a: string }> = [
   {
+    q: "What does DwellVerdict do besides generate verdicts?",
+    a: "A lot. The verdict is the starting point. After that, we guide you through buying (offer planning, due diligence), renovating (scope tracking, cost segregation activation), managing (operations, tax tracking), and optimizing tax strategy (cost seg, STR loophole, 1031 exchanges, depreciation). It's an end-to-end platform.",
+  },
+  {
+    q: "How does the tax strategy guidance work?",
+    a: "We help you understand and apply tax strategies real estate investors use to keep more of what they earn. Cost segregation, the STR loophole, depreciation schedules, 1031 exchanges, Section 199A — we explain when each applies, walk you through implementation, and connect strategies across your portfolio. We're not a tax preparer or CPA; we're guidance for working WITH your CPA.",
+  },
+  {
+    q: "Can I track my whole portfolio?",
+    a: "Yes, with Pro. The portfolio dashboard shows performance across all your properties, identifies optimization opportunities, and tracks tax strategies across the portfolio.",
+  },
+  {
     q: "How does the free tier work?",
     a: "Every account gets one full verdict. It's the real product — no degraded preview, no watermark. Once you've used it, you'll need to subscribe to generate more. Spend it on a property you're seriously evaluating.",
   },

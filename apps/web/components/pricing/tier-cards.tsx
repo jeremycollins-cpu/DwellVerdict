@@ -13,9 +13,10 @@ const FREE_FEATURES = [
 
 const STARTER_FEATURES = [
   "50 verdicts per calendar month",
+  "Lifecycle stages (Buying / Renovating / Managing)",
+  "Tax strategy guidance",
   "Full Regulatory + Location evidence",
   "Full Comps with ADR + revenue",
-  "Lifecycle stages (Buying / Renovating / Managing)",
   "CSV import + Schedule E summary",
   "PDF report export",
 ];
@@ -23,9 +24,10 @@ const STARTER_FEATURES = [
 const PRO_FEATURES = [
   "Everything in DwellVerdict",
   "200 verdicts per calendar month",
-  "Scout AI chat (30/day · 300/month)",
-  "Compare · Briefs · Alerts · Portfolio",
-  "Priority verdict queue",
+  "Scout AI conversations (30/day · 300/month)",
+  "Advanced tax strategy",
+  "Compare · Briefs · Alerts",
+  "Portfolio dashboard",
 ];
 
 /**
@@ -50,11 +52,11 @@ export async function TierCards() {
           Pricing
         </div>
         <h1 className="mt-4 font-serif text-[40px] font-normal leading-[1.15] tracking-[-0.02em] text-ink md:text-[48px]">
-          Flat price. Per account, not per property.
+          Simple pricing for everything you need as a real estate investor.
         </h1>
         <p className="mt-4 text-[16px] leading-relaxed text-ink-muted md:text-[17px]">
-          Two paid tiers and a one-verdict free trial. No annual commitment,
-          no per-listing surcharges, no overage billing.
+          Two paid tiers and a one-verdict free trial. Flat per-account, no
+          per-listing surcharges, no overage billing.
         </p>
       </div>
 
@@ -63,7 +65,7 @@ export async function TierCards() {
           tier="Try Free"
           price="$0"
           period="/ forever"
-          desc="1 free verdict. Use it on a property you're seriously evaluating."
+          desc="1 verdict to try the platform. No credit card required."
           features={FREE_FEATURES}
           cta={
             <Link
@@ -78,7 +80,7 @@ export async function TierCards() {
           tier="DwellVerdict"
           price="$20"
           period="/ month"
-          desc="For evaluating individual properties. The full lifecycle, no AI chat."
+          desc="For evaluating individual properties end-to-end. Generate verdicts, plan your buying, track renovations, manage operations, and learn tax strategies."
           features={STARTER_FEATURES}
           cta={
             <CheckoutButton
@@ -93,7 +95,7 @@ export async function TierCards() {
           tier="Pro"
           price="$40"
           period="/ month"
-          desc="For active investors and agents. Adds Scout AI chat and a higher cap."
+          desc="For active investors with portfolios. Everything in DwellVerdict plus Scout AI conversations, advanced tax strategy, briefs for sharing, alerts, and portfolio insights."
           features={PRO_FEATURES}
           cta={
             <CheckoutButton

@@ -16,8 +16,9 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 ## Recent activity
 
-Last updated: 2026-04-25
+Last updated: 2026-04-26
 
+- ✅ M2.5 shipped — marketing positioning refresh (platform vision). Landing hero subhead, secondary CTA, anatomy-of-verdict framing, pricing-preview cards, founder quote, and final CTA all rewritten to position the verdict as the lead-gen hook into an end-to-end platform. New `<PlatformPillars>` section between three-step explainer and anatomy renders the 9 v1.8 pillars (evaluation, buying, renovating, managing, tax strategy, Scout AI, briefs, alerts, portfolio) with tier tags. Pricing page hero copy, tier descriptions, comparison table (added per-property + portfolio-wide tax strategy rows; renamed "Scout AI chat" → "Scout AI conversations"), and FAQ (3 new platform questions inserted at top) also updated. Landing + pricing meta titles/descriptions reflect platform positioning. Copy-only — no visual redesign, no new infra.
 - ✅ M3.3 shipped — verdict detail page (mockup v4-verdict). Three architectural changes alongside the visual work: (1) **structured per-domain evidence** via verdict-narrative prompt v2 — `data_points` is now `{summary, metrics?, citations?}` per domain; pre-M3.3 verdicts in the legacy 4-string shape still render via type-guarding. (2) **Immutable verdicts with run history** — regenerate creates a new pending verdict row instead of overwriting; canonical URL is `/app/properties/[propertyId]/verdicts/[verdictId]`; property page redirects to the latest. (3) **`verdict_feedback` table** plus thumbs up/down + issue-category UI per verdict. Plus persisted `score_breakdown`, "Deep Analysis" badge surfaces in the static detail view, and FHA-aware copy on lint-failed verdicts. **Schema migration `0012_verdict_feedback_and_score_breakdown` requires manual production run** per M0.4 follow-up.
 - ✅ M3.2 shipped (commit accfca4) — streaming verdict generation. SSE-streamed `/api/verdicts/[id]/generate` emits `phase_start` / `signal_complete` / `narrative_ready` / `complete` / `error` events. New `StreamingVerdict` component renders mockup 04: 4-domain stream track ticking off as parallel signals settle, progress bar, live sources panel, and a typewriter-revealed narrative section with "Deep Analysis" badge for Sonnet (M3.0 routing). Cost-cap check from M3.0 wired in. Fallback to `/api/verdicts/[id]/status` polling on SSE connection failure. No schema migration needed.
 - ✅ M3.1 shipped (commit 96b7bde) — address input refresh (mockup 03). New eyebrow + serif headline + boxed input row with pin icon and ink "Generate verdict" CTA. Two-step flow: pick suggestion → preview staged address → click CTA to submit (replaces the prior auto-submit-on-pick). Google Places integration preserved verbatim; the dropdown is themed via `.pac-container` rules in `globals.css` so the visual matches the mockup without rewriting the integration.
@@ -33,7 +34,7 @@ Last updated: 2026-04-25
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M3.4 next — onboarding intent flow + welcome email
+- ⏳ M3.5 next — property thesis intake (per v1.8 sequence: M2.5 → M3.5 → M3.6 → M3.7 → M3.4 → M3.8 → M3.9; M3.4 ships after M3.5–M3.7 so user-level onboarding can pre-fill the per-property intake form)
 
 ---
 
@@ -193,7 +194,7 @@ The milestone prompt template explicitly includes this step. If a PR ships witho
 
 ---
 
-## The full milestone sequence (34 total)
+## The full milestone sequence (45 total per v1.8)
 
 This is the order. Don't deviate without good reason.
 
@@ -211,14 +212,20 @@ This is the order. Don't deviate without good reason.
 - [x] **M2.1** — Landing page — shipped (merge SHA pending)
 - [x] **M2.2** — Pricing page — shipped (merge SHA pending)
 - [x] **M2.3** — Legal + Help pages (Terms, Privacy, Cookies, FAQ) — shipped (merge SHA pending)
-- [x] **M2.4** — SEO + GEO optimization — shipped (merge SHA pending). **Phase 2 complete.**
+- [x] **M2.4** — SEO + GEO optimization — shipped (merge SHA pending)
+- [x] **M2.5** — Marketing positioning refresh (platform vision) — shipped (merge SHA pending). **Phase 2 complete.**
 
 ### Phase 3 — Verdict surfaces
 - [x] **M3.0** — AI cost optimization foundation — shipped (merge SHA pending)
 - [x] **M3.1** — Address input refresh — shipped (merge SHA pending)
 - [x] **M3.2** — Streaming verdict generation + cost optimization — shipped (merge SHA pending)
 - [x] **M3.3** — Verdict detail page (the centerpiece) + verdict feedback capture — shipped (merge SHA pending, requires manual production migration)
-- [ ] **M3.4** — Onboarding intent flow + welcome email
+- [ ] **M3.5** — Property thesis intake (next per v1.8 sequence)
+- [ ] **M3.6** — User-input data architecture
+- [ ] **M3.7** — Free fetcher repair (Zillow / Redfin / FEMA / Census)
+- [ ] **M3.4** — Onboarding intent flow + welcome email (ships after M3.5–M3.7 so user-level data pre-fills the per-property intake form)
+- [ ] **M3.8** — Thesis-aware scoring (list price as first-class metric)
+- [ ] **M3.9** — What-if calculator
 
 ### Phase 4 — Property surfaces
 - [ ] **M4.1** — Dashboard route
@@ -227,9 +234,12 @@ This is the order. Don't deviate without good reason.
 - [ ] **M4.4** — Compare view
 
 ### Phase 5 — Lifecycle stage pages
-- [ ] **M5.1** — Buying stage
-- [ ] **M5.2** — Renovating stage
-- [ ] **M5.3** — Managing stage
+- [ ] **M5.1** — Buying stage (expanded scope per v1.8)
+- [ ] **M5.2** — Renovating stage (expanded scope per v1.8)
+- [ ] **M5.3** — Managing stage (expanded scope per v1.8)
+- [ ] **M5.4** — Tax strategy: cost segregation
+- [ ] **M5.5** — Tax strategy: STR loophole + depreciation
+- [ ] **M5.6** — Tax strategy: 1031 exchanges
 
 ### Phase 6 — AI surfaces
 - [ ] **M6.1** — Scout per-property + cost optimization + feedback capture
