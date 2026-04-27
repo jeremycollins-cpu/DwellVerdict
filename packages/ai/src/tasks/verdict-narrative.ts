@@ -22,13 +22,19 @@ import type { VerdictScore } from "../scoring";
 
 export const VERDICT_NARRATIVE_TASK_TYPE = "verdict_narrative";
 /**
+ * v3 (M3.6) — adds thesis context (thesis_type, goal_type, pricing,
+ * expense fields) so the narrative can frame around the user's
+ * actual investment plan rather than a generic STR view. The tool
+ * schema is unchanged from v2; only the prompt template gained
+ * `{{THESIS_*}}`, `{{GOAL_*}}`, and pricing/expense placeholders.
+ *
  * v2 (M3.3) — added structured `metrics` + `citations` per evidence
- * domain. Existing v1 verdict rows in production are preserved
- * verbatim (their `data_points` are 4 sentence strings); the M3.3
- * frontend type-guards on render and falls back to the legacy
- * 4-card layout when the shape predates the structured fields.
+ * domain. Existing v1/v2 verdict rows in production are preserved
+ * verbatim; the frontend type-guards on render and falls back to
+ * the legacy 4-card layout when the shape predates the structured
+ * fields.
  */
-export const VERDICT_NARRATIVE_PROMPT_VERSION = "v2";
+export const VERDICT_NARRATIVE_PROMPT_VERSION = "v3";
 
 /**
  * Default model for verdict-narrative. Kept exported for backward
@@ -286,10 +292,11 @@ const RENDER_VERDICT_NARRATIVE_TOOL: Anthropic.Messages.Tool = {
 
 function loadPromptTemplate(): string {
   const here = dirname(fileURLToPath(import.meta.url));
+  const filename = `verdict-narrative.${VERDICT_NARRATIVE_PROMPT_VERSION}.md`;
   const candidates = [
-    join(process.cwd(), "prompts", "verdict-narrative.v2.md"),
-    join(here, "..", "..", "..", "..", "prompts", "verdict-narrative.v2.md"),
-    join(process.cwd(), "..", "..", "prompts", "verdict-narrative.v2.md"),
+    join(process.cwd(), "prompts", filename),
+    join(here, "..", "..", "..", "..", "prompts", filename),
+    join(process.cwd(), "..", "..", "prompts", filename),
   ];
   let lastErr: unknown;
   for (const p of candidates) {
@@ -305,6 +312,69 @@ function loadPromptTemplate(): string {
   );
 }
 
+/**
+ * Property context for the v3 narrative prompt. The orchestrator
+ * pulls these straight off the loaded `properties` row (post-M3.5
+ * intake) and passes them in. Pricing/expense fields are nullable
+ * because intake makes them optional even when complete.
+ */
+export type VerdictNarrativePropertyContext = {
+  addressFull: string;
+  thesisType:
+    | "str"
+    | "ltr"
+    | "owner_occupied"
+    | "house_hacking"
+    | "flipping"
+    | "other"
+    | null;
+  goalType:
+    | "cap_rate"
+    | "appreciation"
+    | "both"
+    | "lifestyle"
+    | "flip_profit"
+    | null;
+  thesisOtherDescription: string | null;
+  listingPriceCents: number | null;
+  userOfferPriceCents: number | null;
+  estimatedValueCents: number | null;
+  annualPropertyTaxCents: number | null;
+  annualInsuranceEstimateCents: number | null;
+  monthlyHoaFeeCents: number | null;
+};
+
+const THESIS_LABEL: Record<
+  NonNullable<VerdictNarrativePropertyContext["thesisType"]>,
+  string
+> = {
+  str: "STR (short-term vacation rental, Airbnb/VRBO style)",
+  ltr: "LTR (long-term rental on annual leases)",
+  owner_occupied: "Owner-occupied (primary residence or second home)",
+  house_hacking: "House hacking (live-in-part, rent the rest)",
+  flipping: "Flipping (buy / renovate / sell within 12 months)",
+  other: "Other (see thesis_other_description)",
+};
+
+const GOAL_LABEL: Record<
+  NonNullable<VerdictNarrativePropertyContext["goalType"]>,
+  string
+> = {
+  cap_rate: "Cap rate (cash flow now; monthly profit primary)",
+  appreciation: "Appreciation (long-term value growth; can carry costs)",
+  both: "Both (balanced cap rate + appreciation)",
+  lifestyle: "Lifestyle (personal use primary; investment secondary)",
+  flip_profit: "Flip profit (renovation IS the investment)",
+};
+
+function formatMoney(cents: number | null): string {
+  if (cents == null) return "(not provided)";
+  return `$${(cents / 100).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function renderPrompt(vars: {
   addressFull: string;
   signal: string;
@@ -312,12 +382,25 @@ function renderPrompt(vars: {
   confidence: number;
   inputJson: string;
   breakdownJson: string;
+  property: VerdictNarrativePropertyContext | null;
 }): { system: string; user: string } {
   const template = loadPromptTemplate();
   const [, afterSystem] = template.split(/^## System\s*$/m);
   if (!afterSystem) throw new Error("prompt missing '## System' heading");
   const [systemText, userText] = afterSystem.split(/^## User\s*$/m);
   if (!systemText || !userText) throw new Error("prompt missing '## User' heading");
+
+  const property = vars.property;
+  const thesisType = property?.thesisType
+    ? THESIS_LABEL[property.thesisType]
+    : "(not provided)";
+  const goalType = property?.goalType
+    ? GOAL_LABEL[property.goalType]
+    : "(not provided)";
+  const thesisOther =
+    property?.thesisType === "other"
+      ? property.thesisOtherDescription ?? "(no description)"
+      : "n/a";
 
   const interpolate = (s: string) =>
     s
@@ -326,7 +409,34 @@ function renderPrompt(vars: {
       .replaceAll("{{SCORE}}", String(vars.score))
       .replaceAll("{{CONFIDENCE}}", String(vars.confidence))
       .replaceAll("{{INPUT_JSON}}", vars.inputJson)
-      .replaceAll("{{BREAKDOWN_JSON}}", vars.breakdownJson);
+      .replaceAll("{{BREAKDOWN_JSON}}", vars.breakdownJson)
+      .replaceAll("{{THESIS_TYPE}}", thesisType)
+      .replaceAll("{{THESIS_OTHER_DESCRIPTION}}", thesisOther)
+      .replaceAll("{{GOAL_TYPE}}", goalType)
+      .replaceAll(
+        "{{LISTING_PRICE}}",
+        formatMoney(property?.listingPriceCents ?? null),
+      )
+      .replaceAll(
+        "{{USER_OFFER_PRICE}}",
+        formatMoney(property?.userOfferPriceCents ?? null),
+      )
+      .replaceAll(
+        "{{ESTIMATED_VALUE}}",
+        formatMoney(property?.estimatedValueCents ?? null),
+      )
+      .replaceAll(
+        "{{ANNUAL_PROPERTY_TAX}}",
+        formatMoney(property?.annualPropertyTaxCents ?? null),
+      )
+      .replaceAll(
+        "{{ANNUAL_INSURANCE}}",
+        formatMoney(property?.annualInsuranceEstimateCents ?? null),
+      )
+      .replaceAll(
+        "{{MONTHLY_HOA}}",
+        formatMoney(property?.monthlyHoaFeeCents ?? null),
+      );
 
   return {
     system: interpolate(systemText).trim(),
@@ -339,6 +449,11 @@ export type VerdictNarrativeInput = {
   score: VerdictScore;
   /** Already-computed structured signals the narrative should cite. */
   signals: Record<string, unknown>;
+  /** M3.6: thesis + pricing context for the v3 prompt. Optional so
+   *  unit tests can render with a minimal fixture; production
+   *  callers (the orchestrator) always populate it from the
+   *  intake-completed property row. */
+  property?: VerdictNarrativePropertyContext;
   /** Optional userId so the call can be logged to ai_usage_events.
    *  When omitted (e.g. unit tests) usage logging silently no-ops. */
   userId?: string;
@@ -389,6 +504,7 @@ export async function writeVerdictNarrative(
       confidence: input.score.confidence,
       inputJson: JSON.stringify(input.signals, null, 2),
       breakdownJson: JSON.stringify(input.score.breakdown, null, 2),
+      property: input.property ?? null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -92,5 +92,6 @@ export {
   type VerdictNarrativeOutput,
   type VerdictNarrativeSuccess,
   type VerdictNarrativeFailure,
+  type VerdictNarrativePropertyContext,
 } from "./tasks/verdict-narrative";
 export { scoreVerdict, type VerdictInputs, type VerdictScore } from "./scoring";

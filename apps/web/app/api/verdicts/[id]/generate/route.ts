@@ -215,11 +215,7 @@ export async function POST(
 
       try {
         const result = await orchestrateVerdict({
-          addressFull,
-          city: property.city,
-          state: property.state,
-          lat,
-          lng,
+          property,
           userId: appUser.userId,
           orgId: appUser.orgId,
           verdictId: effectiveVerdictId,

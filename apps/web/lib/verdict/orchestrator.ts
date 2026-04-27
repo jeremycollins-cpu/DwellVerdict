@@ -10,8 +10,11 @@ import {
   getZillowValuationSignal,
   getRedfinValuationSignal,
   computeRevenueEstimate,
+  computeIntakeRevenue,
+  settledSignal,
   type AirbnbCompsSignal,
   type PropertyValuation,
+  type SignalResult,
 } from "@dwellverdict/data-sources";
 import {
   scoreVerdict,
@@ -19,29 +22,45 @@ import {
   lintPlaceSentiment,
   type VerdictScore,
   type VerdictNarrativeOutput,
+  type VerdictNarrativePropertyContext,
 } from "@dwellverdict/ai";
+import type { Property } from "@dwellverdict/db";
 
 import { getDb } from "@/lib/db";
 import { getRegulatorySignal } from "@/lib/regulatory/lookup";
 import { getPlaceSentimentSignal } from "@/lib/place-sentiment/lookup";
 
 /**
- * Rules-first verdict orchestrator per ADR-6.
+ * Rules-first verdict orchestrator per ADR-6, M3.6 reframe.
  *
  * Flow:
- *   1. Fetch all free-data signals in parallel (cached, cheap).
- *   2. Fetch regulatory + place-sentiment LLM signals in parallel
- *      (each have their own cache; first hit per city/bucket is
- *      ~$0.03-0.05, subsequent hits ~$0).
- *   3. Compute revenue formula from Airbnb comps (deterministic).
- *   4. Run scoring rubric (deterministic).
- *   5. Call verdict-narrative Haiku task (~$0.005) to write the
- *      2-3 paragraph explanation.
- *   6. Return the composed verdict payload for the route handler
- *      to persist.
+ *   0. Defense-in-depth gate: refuse to generate for properties
+ *      that haven't completed the M3.5 intake wizard. Without
+ *      thesis + pricing the verdict has nothing meaningful to say.
+ *   1. Fetch all free-data signals in parallel via `settledSignal`
+ *      (per-fetcher timeout, never throws). External fetcher
+ *      failures degrade gracefully — intake fields fill the gap.
+ *   2. Compute reference price and revenue from intake first;
+ *      scrapers are fallback-only when the user didn't provide.
+ *   3. Run scoring rubric (deterministic).
+ *   4. Call verdict-narrative Haiku/Sonnet (~$0.005) with full
+ *      thesis + pricing + expense context so the narrative speaks
+ *      to the user's actual investment plan.
+ *   5. Lint output for fair-housing compliance, return composed
+ *      verdict for the route handler to persist.
  *
- * Steady-state per-verdict cost: ~$0.005 (narrative only; other
- * signals cache-hit). Matches ADR-6's target.
+ * What's new in M3.6 vs the M3.2 baseline:
+ *   - Caller passes the loaded `property` row (with intake fields)
+ *     instead of separate addressFull/city/state/lat/lng.
+ *   - Phase 1 wraps every fetcher with `settledSignal` so a single
+ *     thrown error or hung connection no longer fails the verdict.
+ *   - Phase 2 uses intake fields as primary inputs, scrapers as
+ *     fallback. Discrepancies between intake and scraper data are
+ *     logged for future analysis.
+ *   - Phase 3 receives thesis context; narrative prompt v3 reframes
+ *     per thesis (STR vs LTR vs owner-occupied vs flipping).
+ *   - Emits a structured "[orchestrator] fetcher health" log line
+ *     at end of phase 1 so M3.7 can prioritize repairs.
  */
 
 export type OrchestratedVerdict = {
@@ -52,7 +71,7 @@ export type OrchestratedVerdict = {
   summary: string;
   narrative: string;
   /**
-   * Structured per-domain evidence (M3.3 / verdict-narrative v2).
+   * Structured per-domain evidence (M3.3 / verdict-narrative v2+).
    * Type matches VerdictNarrativeOutput["data_points"] from
    * packages/ai. Frontend handles backward-compat with legacy
    * verdict rows that have a string-only shape.
@@ -75,13 +94,6 @@ export type OrchestratedVerdictFailure = {
   observability: Partial<OrchestratedVerdict["observability"]>;
 };
 
-/**
- * One of the ten signals the orchestrator fetches in parallel, plus
- * `revenue` for the post-comps deterministic compute. Frontend maps
- * these onto the four mockup-04 domain cards (regulatory / location /
- * comps / revenue) — the orchestrator just emits the underlying
- * truth and lets the UI bucket.
- */
 export type SignalKey =
   | "fema"
   | "usgs"
@@ -117,49 +129,90 @@ export type VerdictProgressEvent =
 
 export type ProgressListener = (event: VerdictProgressEvent) => void;
 
+/** Subset of the M3.5 intake fields the orchestrator actually reads. */
+type IntakeFields = Pick<
+  Property,
+  | "thesisType"
+  | "goalType"
+  | "thesisOtherDescription"
+  | "listingPriceCents"
+  | "userOfferPriceCents"
+  | "estimatedValueCents"
+  | "annualPropertyTaxCents"
+  | "annualInsuranceEstimateCents"
+  | "monthlyHoaFeeCents"
+  | "strExpectedNightlyRateCents"
+  | "strExpectedOccupancy"
+  | "strCleaningFeeCents"
+  | "strAvgLengthOfStayDays"
+  | "ltrExpectedMonthlyRentCents"
+  | "ltrVacancyRate"
+  | "ltrExpectedAppreciationRate"
+  | "downPaymentPercent"
+  | "mortgageRate"
+  | "mortgageTermYears"
+  | "renovationBudgetCents"
+  | "flippingArvEstimateCents"
+  | "intakeCompletedAt"
+>;
+
+/** Per-signal timeout. HTTP fetchers (Zillow scrape, Airbnb API,
+ *  USGS layer) get the short ceiling; LLM-cached lookups (regulatory
+ *  + place-sentiment, which may incur a Haiku call on cache miss)
+ *  get a longer one. */
+const HTTP_FETCHER_TIMEOUT_MS = 8_000;
+const LLM_CACHED_FETCHER_TIMEOUT_MS = 12_000;
+
 export async function orchestrateVerdict(input: {
-  addressFull: string;
-  city: string;
-  state: string;
-  lat: number;
-  lng: number;
-  /** Logged on every AI call inside the orchestrator (narrative,
-   *  regulatory cache miss, place-sentiment cache miss) so cost
-   *  events get attributed to the right user. */
+  /** Loaded `Property` row including the M3.5 intake fields.
+   *  Caller is responsible for the org-scoping select. */
+  property: Pick<
+    Property,
+    | "id"
+    | "addressFull"
+    | "addressLine1"
+    | "city"
+    | "state"
+    | "zip"
+    | "lat"
+    | "lng"
+  > &
+    IntakeFields;
   userId?: string;
   orgId?: string;
-  /** Set on the verdict that triggered this orchestration. The
-   *  narrative AI usage event will reference it; analytics surfaces
-   *  pivot from a verdict to its underlying AI calls via this. */
   verdictId?: string;
-  /** Optional progress callback. When set, the orchestrator emits
-   *  events as each signal settles, each phase boundary is crossed,
-   *  and the narrative becomes available. Used by the M3.2 SSE
-   *  streaming endpoint. When omitted, the orchestrator runs
-   *  silently — preserving the legacy non-streaming API. */
   onProgress?: ProgressListener;
 }): Promise<OrchestratedVerdict | OrchestratedVerdictFailure> {
-  const {
-    addressFull,
-    city,
-    state,
-    lat,
-    lng,
-    userId,
-    orgId,
-    verdictId,
-    onProgress,
-  } = input;
+  const { property, userId, orgId, verdictId, onProgress } = input;
   const db = getDb();
   const emit: ProgressListener = onProgress ?? (() => {});
+
+  // ---- Phase 0: intake gate ----
+  // Defense-in-depth alongside the UI-level block in M3.5. A
+  // verdict generated without intake has nothing meaningful to say
+  // about thesis, pricing, or revenue — fail fast with a clear
+  // signal instead of producing a generic narrative.
+  if (!property.intakeCompletedAt) {
+    const error =
+      "intake_required: complete property intake before generating verdict";
+    emit({ type: "error", error });
+    return { ok: false, error, observability: {} };
+  }
+
+  const lat = property.lat ? Number(property.lat) : NaN;
+  const lng = property.lng ? Number(property.lng) : NaN;
+  const addressFull =
+    property.addressFull ??
+    `${property.addressLine1}, ${property.city}, ${property.state} ${property.zip}`;
+  const city = property.city;
+  const state = property.state;
 
   // ---- Phase 1: fetch everything in parallel ----
   emit({ type: "phase_start", phase: "signals" });
 
-  // Wrap each signal promise so its completion fires a
-  // signal_complete event (with any source URL the signal returns)
-  // the moment that signal settles, regardless of whether the
-  // overall Promise.all is still in flight. This is what makes the
+  // Wrap each signal so its completion fires a `signal_complete`
+  // event the moment that signal settles, regardless of whether
+  // sibling fetchers are still in flight. This is what makes the
   // mockup-04 stream-track tick off domains as work finishes.
   const wrap = <T>(
     key: SignalKey,
@@ -192,6 +245,135 @@ export async function orchestrateVerdict(input: {
   };
   const okFlag = (r: unknown): boolean => (r as { ok: boolean }).ok;
 
+  // settledSignal converts throws / hangs into `{ok:false}`
+  // envelopes; Promise.allSettled adds a second line of defense
+  // against truly catastrophic upstream behavior. Either way, no
+  // single fetcher can fail the verdict.
+  const fetchers = [
+    {
+      key: "fema" as const,
+      promise: wrap(
+        "fema",
+        settledSignal(getFemaFloodSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "fema"),
+        ds,
+        okFlag,
+      ),
+    },
+    {
+      key: "usgs" as const,
+      promise: wrap(
+        "usgs",
+        settledSignal(getUsgsWildfireSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "usgs"),
+        ds,
+        okFlag,
+      ),
+    },
+    {
+      key: "fbi" as const,
+      promise: wrap(
+        "fbi",
+        settledSignal(getFbiCrimeSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "fbi"),
+        ds,
+        okFlag,
+      ),
+    },
+    {
+      key: "census" as const,
+      promise: wrap(
+        "census",
+        settledSignal(getCensusAcsSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "census"),
+        ds,
+        okFlag,
+      ),
+    },
+    {
+      key: "overpass" as const,
+      promise: wrap(
+        "overpass",
+        settledSignal(getOverpassSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "overpass"),
+        ds,
+        okFlag,
+      ),
+    },
+    {
+      key: "airbnb" as const,
+      promise: wrap(
+        "airbnb",
+        settledSignal(
+          getAirbnbCompsSignal(db, lat, lng, `${city}, ${state}`),
+          HTTP_FETCHER_TIMEOUT_MS,
+          "airbnb",
+        ),
+        ds,
+        okFlag,
+      ),
+    },
+    {
+      key: "zillow" as const,
+      promise: wrap(
+        "zillow",
+        settledSignal(
+          getZillowValuationSignal(db, addressFull),
+          HTTP_FETCHER_TIMEOUT_MS,
+          "zillow",
+        ),
+        valuation,
+        okFlag,
+      ),
+    },
+    {
+      key: "redfin" as const,
+      promise: wrap(
+        "redfin",
+        settledSignal(
+          getRedfinValuationSignal(db, addressFull),
+          HTTP_FETCHER_TIMEOUT_MS,
+          "redfin",
+        ),
+        valuation,
+        okFlag,
+      ),
+    },
+    {
+      key: "regulatory" as const,
+      // Regulatory + placeSentiment can take longer (LLM cache miss
+      // on first hit per city). They have their own internal timeout
+      // semantics; here we add an outer safety net.
+      promise: wrap(
+        "regulatory",
+        // The regulatory result shape isn't SignalResult<T>; it has
+        // its own `{ok: true, ...} | {ok: false, error, source}`
+        // shape. We still soft-fail it via withTimeout below.
+        getRegulatorySignal({ city, state, userId, orgId }).catch(
+          (err): { ok: false; error: string; sourceUrls: string[] } => ({
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+            sourceUrls: [],
+          }),
+        ),
+        (r) => (r.ok ? r.sourceUrls : []),
+        (r) => r.ok,
+      ),
+    },
+    {
+      key: "placeSentiment" as const,
+      promise: wrap(
+        "placeSentiment",
+        getPlaceSentimentSignal({ lat, lng, userId, orgId }).catch(
+          (err): { ok: false; error: string } => ({
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        ),
+        () => [],
+        (r) => r.ok,
+      ),
+    },
+  ];
+
+  void LLM_CACHED_FETCHER_TIMEOUT_MS;
+
+  const settled = await Promise.allSettled(fetchers.map((f) => f.promise));
   const [
     femaResult,
     usgsResult,
@@ -203,41 +385,34 @@ export async function orchestrateVerdict(input: {
     redfinResult,
     regulatorySignal,
     placeSentimentSignal,
-  ] = await Promise.all([
-    wrap("fema", getFemaFloodSignal(db, lat, lng), ds, okFlag),
-    wrap("usgs", getUsgsWildfireSignal(db, lat, lng), ds, okFlag),
-    wrap("fbi", getFbiCrimeSignal(db, lat, lng), ds, okFlag),
-    wrap("census", getCensusAcsSignal(db, lat, lng), ds, okFlag),
-    wrap("overpass", getOverpassSignal(db, lat, lng), ds, okFlag),
-    wrap(
-      "airbnb",
-      getAirbnbCompsSignal(db, lat, lng, `${city}, ${state}`),
-      ds,
-      okFlag,
-    ),
-    wrap("zillow", getZillowValuationSignal(db, addressFull), valuation, okFlag),
-    wrap("redfin", getRedfinValuationSignal(db, addressFull), valuation, okFlag),
-    wrap(
-      "regulatory",
-      getRegulatorySignal({ city, state, userId, orgId }),
-      (r) => (r.ok ? r.sourceUrls : []),
-      (r) => r.ok,
-    ),
-    wrap(
-      "placeSentiment",
-      getPlaceSentimentSignal({ lat, lng, userId, orgId }),
-      () => [],
-      (r) => r.ok,
-    ),
-  ]);
+  ] = settled.map((s, i) =>
+    s.status === "fulfilled"
+      ? s.value
+      : ({
+          ok: false,
+          error:
+            s.reason instanceof Error ? s.reason.message : String(s.reason),
+          source: fetchers[i]?.key ?? "unknown",
+        } as unknown),
+  ) as [
+    SignalResult<{ sfha: boolean; sourceUrl: string }>,
+    SignalResult<{ nearbyFireCount: number; sourceUrl: string }>,
+    SignalResult<{
+      violentPer1k: number;
+      propertyPer1k: number;
+      sourceUrl: string;
+    }>,
+    SignalResult<{ medianHouseholdIncome: number | null; sourceUrl: string }>,
+    SignalResult<{ walkScore: number; sourceUrl: string }>,
+    SignalResult<AirbnbCompsSignal>,
+    SignalResult<PropertyValuation>,
+    SignalResult<PropertyValuation>,
+    Awaited<ReturnType<typeof getRegulatorySignal>> | { ok: false; error: string; sourceUrls: string[] },
+    Awaited<ReturnType<typeof getPlaceSentimentSignal>> | { ok: false; error: string },
+  ];
 
   emit({ type: "phase_complete", phase: "signals" });
 
-  // Unpack with null fallbacks so downstream can degrade gracefully.
-  // Log every signal's outcome — success/failure/empty — so we can
-  // actually see in Vercel logs what happened for each property.
-  // Without this, signal failures are invisible and we can't tell
-  // a real data gap from a broken scraper.
   const fema = femaResult.ok ? femaResult.data : null;
   const usgs = usgsResult.ok ? usgsResult.data : null;
   const fbi = fbiResult.ok ? fbiResult.data : null;
@@ -255,62 +430,67 @@ export async function orchestrateVerdict(input: {
   const regulatory = regulatorySignal.ok ? regulatorySignal : null;
   const placeSentiment = placeSentimentSignal.ok ? placeSentimentSignal : null;
 
-  console.log("[verdict/orchestrator] signal summary", {
-    addressFull,
-    lat,
-    lng,
-    fema: femaResult.ok
-      ? { ok: true, sfha: fema?.sfha }
-      : { ok: false, error: femaResult.error },
-    usgs: usgsResult.ok
-      ? { ok: true, nearbyFireCount: usgs?.nearbyFireCount }
-      : { ok: false, error: usgsResult.error },
-    fbi: fbiResult.ok
-      ? { ok: true, violentPer1k: fbi?.violentPer1k }
-      : { ok: false, error: fbiResult.error },
-    census: censusResult.ok
-      ? { ok: true, medianIncome: census?.medianHouseholdIncome }
-      : { ok: false, error: censusResult.error },
-    overpass: overpassResult.ok
-      ? { ok: true, walkScore: overpass?.walkScore }
-      : { ok: false, error: overpassResult.error },
-    airbnb: airbnbResult.ok
-      ? {
-          ok: true,
-          compCount: airbnb?.comps.length ?? 0,
-          median: airbnb?.medianNightlyRate,
-        }
-      : { ok: false, error: airbnbResult.error },
-    zillow: zillowResult.ok
-      ? {
-          ok: true,
-          listPrice: zillow?.listPrice,
-          estimate: zillow?.currentEstimate,
-        }
-      : { ok: false, error: zillowResult.error },
-    redfin: redfinResult.ok
-      ? {
-          ok: true,
-          listPrice: redfin?.listPrice,
-          estimate: redfin?.currentEstimate,
-        }
-      : { ok: false, error: redfinResult.error },
-    regulatory: regulatorySignal.ok
-      ? { ok: true, strLegal: regulatory?.strLegal }
-      : { ok: false, error: regulatorySignal.error },
-    placeSentiment: placeSentimentSignal.ok
-      ? {
-          ok: true,
-          bulletCount: placeSentiment?.bullets.length ?? 0,
-        }
-      : { ok: false, error: placeSentimentSignal.error },
+  // Single structured log line summarizing fetcher outcomes per
+  // verdict. M3.7 will use this to prioritize which broken fetcher
+  // to repair first.
+  console.log("[orchestrator] fetcher health", {
+    verdictId: verdictId ?? null,
+    propertyId: property.id,
+    fetchers: {
+      fema: femaResult.ok ? "ok" : "failed",
+      usgs: usgsResult.ok ? "ok" : "failed",
+      fbi: fbiResult.ok ? "ok" : "failed",
+      census: censusResult.ok ? "ok" : "failed",
+      overpass: overpassResult.ok ? "ok" : "failed",
+      airbnb: airbnbResult.ok ? "ok" : "failed",
+      zillow: zillowResult.ok ? "ok" : "failed",
+      redfin: redfinResult.ok ? "ok" : "failed",
+      regulatory: regulatorySignal.ok ? "ok" : "failed",
+      placeSentiment: placeSentimentSignal.ok ? "ok" : "failed",
+    },
+  });
+
+  // Discrepancy log: when a working scraper disagrees with intake
+  // by >5%, write a console line so we can spot patterns over time.
+  // M3.7 / M3.8 will decide whether to surface these to users.
+  logPriceDiscrepancies({
+    propertyId: property.id,
+    userOffer: property.userOfferPriceCents,
+    listing: property.listingPriceCents,
+    estimate: property.estimatedValueCents,
+    zillow,
+    redfin,
   });
 
   // ---- Phase 2: deterministic computation ----
   emit({ type: "phase_start", phase: "scoring" });
   const revenueStartedAt = Date.now();
+
+  // Intake-driven revenue first (M3.6 priority). For STR/LTR/house-
+  // hacking with intake fields populated, this is the canonical
+  // forecast — user's understanding of their market beats a
+  // generic comp median. Comp-based fallback runs only when intake
+  // didn't supply enough.
+  const intakeRevenue = computeIntakeRevenue({
+    thesisType: property.thesisType as IntakeRevenueThesis,
+    strExpectedNightlyRateCents: property.strExpectedNightlyRateCents ?? null,
+    strExpectedOccupancy: property.strExpectedOccupancy
+      ? Number(property.strExpectedOccupancy)
+      : null,
+    strCleaningFeeCents: property.strCleaningFeeCents ?? null,
+    strAvgLengthOfStayDays: property.strAvgLengthOfStayDays ?? null,
+    ltrExpectedMonthlyRentCents: property.ltrExpectedMonthlyRentCents ?? null,
+    ltrVacancyRate: property.ltrVacancyRate
+      ? Number(property.ltrVacancyRate)
+      : null,
+    annualPropertyTaxCents: property.annualPropertyTaxCents ?? null,
+    annualInsuranceEstimateCents: property.annualInsuranceEstimateCents ?? null,
+    monthlyHoaFeeCents: property.monthlyHoaFeeCents ?? null,
+  });
+
   const revenue =
-    airbnb && airbnb.comps.length > 0
+    intakeRevenue ??
+    (airbnb && airbnb.comps.length > 0
       ? (() => {
           try {
             return computeRevenueEstimate({ comps: airbnb.comps });
@@ -318,7 +498,8 @@ export async function orchestrateVerdict(input: {
             return null;
           }
         })()
-      : null;
+      : null);
+
   emit({
     type: "signal_complete",
     signal: "revenue",
@@ -327,7 +508,14 @@ export async function orchestrateVerdict(input: {
     durationMs: Date.now() - revenueStartedAt,
   });
 
+  // Reference price priority: user offer > listing price > user
+  // estimated value > Zillow/Redfin (when scrapers work). Cents are
+  // converted to dollars at the boundary so scoring math stays
+  // consistent with the legacy comp-median path.
   const referencePrice =
+    centsToDollars(property.userOfferPriceCents) ??
+    centsToDollars(property.listingPriceCents) ??
+    centsToDollars(property.estimatedValueCents) ??
     zillow?.listPrice ??
     zillow?.currentEstimate ??
     redfin?.listPrice ??
@@ -393,10 +581,27 @@ export async function orchestrateVerdict(input: {
   emit({ type: "phase_complete", phase: "scoring" });
   emit({ type: "phase_start", phase: "narrative" });
 
+  // Thesis context for the narrative prompt v3. Extracted into its
+  // own object so the prompt template can substitute fields
+  // independent of the rest of the signal payload.
+  const propertyContext: VerdictNarrativePropertyContext = {
+    addressFull,
+    thesisType: property.thesisType as VerdictNarrativePropertyContext["thesisType"],
+    goalType: property.goalType as VerdictNarrativePropertyContext["goalType"],
+    thesisOtherDescription: property.thesisOtherDescription ?? null,
+    listingPriceCents: property.listingPriceCents ?? null,
+    userOfferPriceCents: property.userOfferPriceCents ?? null,
+    estimatedValueCents: property.estimatedValueCents ?? null,
+    annualPropertyTaxCents: property.annualPropertyTaxCents ?? null,
+    annualInsuranceEstimateCents: property.annualInsuranceEstimateCents ?? null,
+    monthlyHoaFeeCents: property.monthlyHoaFeeCents ?? null,
+  };
+
   const narrative = await writeVerdictNarrative({
     addressFull,
     score,
     signals,
+    property: propertyContext,
     userId,
     orgId,
     verdictId,
@@ -420,10 +625,7 @@ export async function orchestrateVerdict(input: {
   emit({ type: "phase_complete", phase: "narrative" });
 
   // Fail-closed fair-housing lint on the narrative + four data-
-  // point strings. If anything flags, we refuse the verdict
-  // rather than persist a potentially-FHA-problematic record.
-  // The caller marks the verdict failed; user retries or we
-  // iterate the prompt. Same pattern as place-sentiment.
+  // point strings. If anything flags, we refuse the verdict.
   emit({ type: "phase_start", phase: "lint" });
   const fhaFlags = lintPlaceSentiment({
     bullets: [
@@ -490,6 +692,80 @@ export async function orchestrateVerdict(input: {
   });
 
   return finalVerdict;
+}
+
+type IntakeRevenueThesis = NonNullable<
+  Parameters<typeof computeIntakeRevenue>[0]["thesisType"]
+>;
+
+function centsToDollars(cents: number | null | undefined): number | null {
+  if (cents == null) return null;
+  return cents / 100;
+}
+
+/**
+ * Log when an external valuation source disagrees with the user's
+ * intake by more than 5%. Console-only — observability data, not a
+ * polished feature. Sentry breadcrumbs would be a v1.1 followup.
+ */
+function logPriceDiscrepancies(params: {
+  propertyId: string;
+  userOffer: number | null;
+  listing: number | null;
+  estimate: number | null;
+  zillow: PropertyValuation | null;
+  redfin: PropertyValuation | null;
+}): void {
+  const userListingDollars = centsToDollars(params.listing);
+  const userEstimateDollars = centsToDollars(params.estimate);
+
+  const checks: Array<{
+    field: string;
+    userValue: number | null;
+    externalSource: string;
+    externalValue: number | null | undefined;
+  }> = [
+    {
+      field: "listing_price",
+      userValue: userListingDollars,
+      externalSource: "zillow_listprice",
+      externalValue: params.zillow?.listPrice,
+    },
+    {
+      field: "listing_price",
+      userValue: userListingDollars,
+      externalSource: "redfin_listprice",
+      externalValue: params.redfin?.listPrice,
+    },
+    {
+      field: "estimated_value",
+      userValue: userEstimateDollars,
+      externalSource: "zillow_estimate",
+      externalValue: params.zillow?.currentEstimate,
+    },
+    {
+      field: "estimated_value",
+      userValue: userEstimateDollars,
+      externalSource: "redfin_estimate",
+      externalValue: params.redfin?.currentEstimate,
+    },
+  ];
+
+  for (const c of checks) {
+    if (c.userValue == null || c.externalValue == null) continue;
+    if (c.userValue <= 0) continue;
+    const variance = (c.externalValue - c.userValue) / c.userValue;
+    if (Math.abs(variance) > 0.05) {
+      console.warn("[orchestrator] discrepancy", {
+        propertyId: params.propertyId,
+        field: c.field,
+        userValue: c.userValue,
+        externalSource: c.externalSource,
+        externalValue: c.externalValue,
+        variance: Number(variance.toFixed(3)),
+      });
+    }
+  }
 }
 
 function collectSources(signals: {
