@@ -157,3 +157,5 @@ Their primary goal: **{{GOAL_TYPE}}**
 ```
 
 Write the narrative per the system rules — frame around the user's thesis and goal, prefer their intake numbers over scraper numbers when both exist — then call `render_verdict_narrative`.
+
+**CRITICAL — structured output requirement:** You MUST populate every field in `data_points`: `comps.summary`, `revenue.summary`, `regulatory.summary`, and `location.summary`. Each summary string is required even when underlying signals are null or "(not provided)" — in those cases, write a brief honest summary like "No comp data available for this property" or "Revenue projection not possible without rental income data" rather than skipping the field. Metrics objects and citations arrays are optional, but the four summary fields are not. The `render_verdict_narrative` tool call will fail validation if any of the four `summary` fields is missing.

@@ -648,6 +648,22 @@ export async function writeVerdictNarrative(
 
   const parsed = VerdictNarrativeOutputSchema.safeParse(renderCall.input);
   if (!parsed.success) {
+    // Diagnostic logging (added in M3.6 fix-forward). When Haiku
+    // returns a tool call that fails schema validation, the failure
+    // path used to drop the raw model input on the floor — making
+    // it impossible to diagnose without local repro. We can't
+    // reproduce locally because production secrets aren't exported
+    // via `vercel env pull`. Logging the raw input + the formatted
+    // Zod error here lets us paste a Vercel log line straight into
+    // a fix PR.
+    console.error(
+      "[verdict-narrative] schema validation failed — raw model output:",
+      JSON.stringify(renderCall.input, null, 2),
+    );
+    console.error(
+      "[verdict-narrative] validation error:",
+      JSON.stringify(parsed.error.format(), null, 2),
+    );
     return {
       ok: false,
       error:
