@@ -52,9 +52,17 @@ import type {
  * state so the user isn't staring at a frozen UI.
  *
  * Cost-control invariant from the legacy VerdictLoader is
- * preserved: generation is user-initiated via the button, never
- * auto-started on mount. Multiple page loads against a pending
- * verdict won't double-spend.
+ * preserved by default: generation is user-initiated via the
+ * button, never auto-started on mount. Multiple page loads against
+ * a pending verdict won't double-spend.
+ *
+ * Exception: when the page mounts with `autoStart={true}` (driven
+ * by `?auto=1` in the URL), we fire `start()` once on first render
+ * and immediately strip the query param so a subsequent refresh
+ * falls back to the click path. This is the post-intake flow —
+ * pressing Submit on step 7 IS the user's intent to generate, and
+ * forcing a second click on the next page is the kind of friction
+ * that makes the wizard feel broken.
  */
 
 type DomainKey = "regulatory" | "location" | "comps" | "revenue";
@@ -154,6 +162,11 @@ export interface StreamingVerdictProps {
   force?: boolean;
   /** Initial-button label override. */
   startLabel?: string;
+  /** Auto-fire generation once on mount, skipping the click. Used
+   *  by the post-intake redirect (`?auto=1`). The component strips
+   *  the query param after firing so a refresh falls back to the
+   *  manual button path and doesn't double-spend. */
+  autoStart?: boolean;
 }
 
 export function StreamingVerdict({
@@ -161,11 +174,13 @@ export function StreamingVerdict({
   addressFull,
   force = false,
   startLabel = "Generate verdict",
+  autoStart = false,
 }: StreamingVerdictProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [state, setState] = useState<ConnectionState>(initialState);
   const streamRef = useRef<{ abort: () => void } | null>(null);
+  const autoStartFiredRef = useRef(false);
 
   // Pull `propertyId` from the URL so we can navigate to the new
   // verdict's canonical /verdicts/[id] page on completion. The
@@ -295,6 +310,21 @@ export function StreamingVerdict({
     });
     streamRef.current = handle;
   }, [verdictId, force, handleEvent]);
+
+  // Post-intake auto-fire. Runs exactly once per mount when
+  // autoStart is true; immediately strips `?auto=1` from the URL
+  // so a refresh during streaming falls back to the manual click
+  // path and doesn't risk a duplicate orchestration kick (the
+  // server-side claim/dedupe is a M3.2 v1.1 follow-up).
+  useEffect(() => {
+    if (!autoStart) return;
+    if (autoStartFiredRef.current) return;
+    autoStartFiredRef.current = true;
+    start();
+    if (pathname) {
+      router.replace(pathname, { scroll: false });
+    }
+  }, [autoStart, pathname, router, start]);
 
   // If the user navigates away mid-stream we abort the fetch on
   // the client side. The orchestrator on the server keeps running
