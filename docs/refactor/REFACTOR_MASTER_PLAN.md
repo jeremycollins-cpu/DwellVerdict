@@ -1,9 +1,23 @@
 # DwellVerdict Engineering Refactor — Master Plan
 
-**Status:** Active · v1.7 · April 25, 2026
+**Status:** Active · v1.8 · April 26, 2026
 **Owner:** Jeremy Collins
 **Engineering executor:** Claude Code (autonomous)
-**Design reference:** 22 mockups in `/mnt/user-data/outputs/`
+**Design reference:** 22 mockups + v4-verdict in `docs/refactor/design-mockups/`
+
+---
+
+## Changelog
+
+**v1.8 (2026-04-26):** Major reframe. DwellVerdict is an end-to-end real estate platform; verdicts are the lead-gen hook into a longer user journey. Added platform positioning section, expanded lifecycle stage scope, added tax strategy as a new pillar (cost segregation, STR loophole, depreciation, 1031 exchanges), added user-input data architecture for affordability ($0 data infrastructure pre-launch), added regional risk awareness (wildfire-weighted scoring for California, etc.), added milestones M3.5-M3.9 for revised Phase 3 scope, added M2.5 marketing positioning refresh, added M5.4-M5.6 tax strategy milestones, revised M5.1-M5.3 lifecycle stages from "light treatment" to "core platform surfaces."
+
+**v1.7 (2026-04-25):** Reconciled cost optimization architecture with actual codebase state. Most planned infrastructure already existed; M3.0 reduced to additive enhancements. Updated CLAUDE.md inaccuracy (Sonnet→Haiku). Cache-read token cost math corrected.
+
+**v1.6 (2026-04-25):** Reconciled with production reality on verdict quotas (50/200 caps not "unlimited"), Scout availability (Pro-only currently, M6.1 to revisit), and M6.1 milestone framing.
+
+**v1.5 (2026-04-24):** Pricing pivot to $20/$40 two-tier (was three-tier). Mockups updated.
+
+Earlier versions: foundational planning, milestone catalog, locked engineering decisions.
 
 ---
 
@@ -17,11 +31,53 @@ The single source of truth for the DwellVerdict UI refactor. Every milestone pro
 
 ## North star
 
-Transform the existing DwellVerdict production app — which has working backend, working verdict generation, working Stripe, working Clerk auth, working Scout — into the UI represented by 22 design mockups. The product itself is sound. We're rebuilding the visual layer, the navigation, and several net-new surfaces while preserving every working piece of the data + AI infrastructure.
+**DwellVerdict is an end-to-end real estate platform that guides investors through every stage of property ownership — from evaluating a deal to executing on it to optimizing its tax treatment to managing it as part of a portfolio.**
 
-**Quality bar:** World-class. No shortcuts. No "coming soon" placeholders. Every surface ships to production polished.
+The verdict is the lead-gen hook. It's what gets users in the door — paste any address, get an AI-powered Buy/Watch/Pass verdict in seconds. But the platform is where the relationship lives. Once a user is in:
+
+- **Property evaluation** — verdicts, evidence, what-if calculator
+- **Buying lifecycle** — offer planning, due diligence checklists, contract guidance
+- **Renovating lifecycle** — renovation tracking, cost segregation activation, contractor management
+- **Managing lifecycle** — operational tracking, revenue management, ongoing tax tracking
+- **Tax strategy** — cost segregation, STR loophole, depreciation, 1031 exchanges (cross-cutting across lifecycle stages plus dedicated portfolio-wide view)
+- **Scout AI** — conversational advisor available everywhere
+- **Briefs** — shareable PDFs for partners, lenders, agents
+- **Alerts** — regulatory changes, market shifts, opportunity notifications
+- **Portfolio dashboard** — cross-property insights and strategy
+
+This is a SaaS relationship measured in years, not a one-time evaluation tool.
+
+**The refactor goal:** Transform the existing DwellVerdict production app — which has working backend, working verdict generation, working Stripe, working Clerk auth, working Scout — into the platform vision represented by 22 design mockups + new lifecycle and tax strategy surfaces. The product engineering is sound. We're rebuilding the visual layer, the navigation, several net-new surfaces, AND adding the platform pillars (lifecycle stages with substance, tax strategy as a new pillar) while preserving every working piece of the data + AI infrastructure.
+
+**Quality bar:** World-class. No shortcuts. No "coming soon" placeholders for v1 launch surfaces. Every surface ships to production polished.
 
 **Speed bar:** Pre-launch, no real users yet. Speed is prioritized over safety nets. Claude Code operates autonomously: opens PRs, runs CI, merges to main, deploys. Bugs get fixed forward. The optimization is "ship the v1 fast" not "zero defects."
+
+**Honest scope acknowledgment:** v1.8 expanded scope substantially over v1.6/v1.7. Lifecycle stages went from "light treatment" to "core platform surfaces." Tax strategy is a new pillar. Marketing positioning needs to reflect platform vision, not verdict-first framing. This adds approximately 5-7 milestones beyond the original plan and ~30-50 hours of additional Claude Code work. Worth it because the original plan would have shipped a verdict-first product that didn't match the actual platform vision.
+
+---
+
+## Product positioning
+
+**Tagline (working):** "Your real estate co-pilot. From verdict to ownership and beyond."
+
+**Pitch (working):** "DwellVerdict gives you a verdict on any property in seconds — but that's just the start. We guide you through buying, renovating, managing, and optimizing — including the tax strategies most investors miss. One platform for every stage of real estate investing."
+
+**Hook (the verdict, free):** Anyone can paste an address and get a thesis-aware Buy/Watch/Pass verdict. Pre-launch users get one verdict free; real launch users may get more demo verdicts. The verdict demonstrates the product's intelligence — accurate analysis grounded in user-verified data plus public sources, with thesis-specific scoring (STR vs LTR vs owner-occupied) and regional risk awareness (wildfire in California, hurricane in Florida, etc.).
+
+**The platform pillars (what subscribers get):**
+
+1. **Property evaluation** — Generate verdicts, run what-if scenarios, compare properties
+2. **Buying guidance** — Offer planning, due diligence, contract review checklists, closing prep
+3. **Renovating guidance** — Renovation tracking, cost-seg activation, contractor management
+4. **Managing guidance** — Operational tracking, revenue management, ongoing optimization
+5. **Tax strategy** — Cost segregation, STR loophole, depreciation, 1031 exchanges (per-property + portfolio-wide)
+6. **Scout AI** — Conversational advisor across all surfaces
+7. **Briefs** — Shareable PDFs for partners, lenders, agents
+8. **Alerts** — Regulatory changes, market shifts, opportunity notifications
+9. **Portfolio dashboard** — Cross-property insights and strategy
+
+**Marketing emphasis:** Platform positioning, not verdict-first. The verdict gets people in the door; the platform is what they pay for.
 
 ---
 
@@ -109,6 +165,87 @@ Every PR must pass CI before merge. Required checks:
 If CI fails, Claude Code attempts to fix the failure (up to 3 fix attempts), then merges. If after 3 attempts CI still fails, Claude Code documents the failure in the PR description, merges anyway with a "CI failure noted" tag, and continues. Bugs get fixed forward in subsequent milestones.
 
 This is intentionally aggressive. Pre-launch, the cost of a half-broken merge is much lower than the cost of stalling the refactor.
+
+---
+
+## User-input data architecture
+
+**Major architectural decision (v1.8):** Pre-launch, DwellVerdict does NOT depend on paid third-party data providers. Instead, users provide verified data inputs themselves through guided forms, supplemented by free public APIs (FEMA, USGS, Census, county records where available).
+
+**Why this is right for v1:**
+
+The audit conducted before M3.5 revealed that the existing scraper-based fetchers (Apify-driven Zillow, Redfin, Airbnb) have been at 100% failure rate in production. Fixing them would require either paying for reliable providers ($30-200/month for AirDNA, ATTOM, etc.) or accepting fragile scrapers that break frequently.
+
+The user-input architecture solves this by inverting the data sourcing model:
+
+- User provides listing price (verified from Zillow listing page)
+- User provides property value estimate (from Zestimate or Redfin estimate)
+- User provides expected rent / nightly rate / occupancy (from comp research with our guidance)
+- User provides insurance estimate (from quick quote with Lemonade or Geico)
+- User provides property tax (from Zillow listing or county records)
+- User confirms regulatory status (from our LLM lookup, with override option)
+
+This produces MORE accurate verdicts than scraped data because:
+- User-verified > scraper-guessed
+- User contextual judgment > rigid algorithms
+- User involvement creates buy-in to the verdict
+
+**The platform's job is to MAKE THIS EASY.** Each input field includes:
+- Clear guidance on where to find the data ("Open the Zillow listing → copy the price shown above the address")
+- Reasonable defaults when possible (regional averages, comp medians)
+- Optional confirmation checkbox ("I verified this from [source]")
+- Explanation of how it impacts the verdict
+
+**Future paid integration (post-launch):**
+
+Once DwellVerdict has 5+ paying users (~$100+/month revenue), upgrade triggers activate:
+- AirDNA basic ($30/month) for working STR comps replaces user-input expected nightly rate / occupancy
+- ATTOM Data ($50-100/month) for working property records replaces user-input listing price / value
+- User intake becomes optional override rather than required input
+
+When paid integrations land, existing user-input data stays as authoritative until the user opts to refresh from API. Smooth migration, not jarring replacement.
+
+**Tier 1/2/3 data architecture (long-term):**
+
+- **Tier 1 (premium):** Best-in-class data when available for free in a region (state public records, county assessors, local MLS feeds where free)
+- **Tier 2 (national free):** Reliable nationwide free APIs (FEMA, USGS, Census, federal regulatory)
+- **Tier 3 (premium paid):** Subscription-based providers added when revenue justifies (AirDNA, ATTOM, etc.)
+
+User input is the **temporary substitute for Tier 1/3 where data isn't free**. As paid tiers come online, user input migrates to optional/override mode.
+
+---
+
+## Regional risk awareness
+
+**Major scoring decision (v1.8):** Verdict scoring rubric must reflect regional risk realities, not apply a one-size-fits-all rubric to every property.
+
+**Specific regional adjustments for v1:**
+
+- **California (especially wildfire zones):** Wildfire risk weighted higher. Insurance cost factored heavily into ROI (CA insurer exits driving premiums up dramatically). Properties in Cal Fire high-risk zones flagged prominently. Required user input for insurance estimate.
+- **Florida (coastal + hurricane zones):** Hurricane + flood risk weighted higher. Insurance + flood insurance separated. Cat-bond exposure noted.
+- **Gulf Coast (TX, LA, AL, MS):** Hurricane + flood risk weighted higher.
+- **Tornado Alley (OK, KS, NE, TX panhandle, etc.):** Wind/storm damage risk weighted higher.
+- **Mountain West (CO, UT, MT, ID):** Wildfire + winter storm risk noted.
+- **Pacific Northwest (WA, OR):** Earthquake + wildfire risk noted.
+- **Northeast urban:** Default rubric (less specialized regional risk).
+
+**How regional risk integrates with thesis:**
+
+Risk weighting depends on BOTH region AND thesis:
+
+- STR in California fire zone → wildfire risk drops occupancy expectations (smoke season cancellations) AND drives insurance cost up; both hit ROI
+- LTR in California fire zone → tenant retention risk in repeat fire areas; insurance cost dominant
+- Owner-occupied in California fire zone → personal safety + insurance + appreciation impact
+
+**v1 implementation scope:**
+
+M3.8 (thesis-aware scoring) implements this. Rubric weights become a 2D table: `{thesis} × {region}` → weight overrides applied to base rules. Default rubric applies where no region-specific weighting is defined.
+
+**Out of scope for v1:**
+
+- Earthquake risk modeling (requires specialized geological data; default to noting state-level)
+- Climate change projections (out of scope for v1; Phase 10+ feature)
+- Insurer-specific pricing (we use user-provided estimates)
 
 ---
 
@@ -306,50 +443,17 @@ The customer-facing UI for capturing this feedback ships in M3.3 (verdict detail
 
 ## Cost optimization architecture
 
-This is a first-class concern of the refactor, not an afterthought. The product's unit economics depend on aggressive cost optimization in the AI layer.
+This is a first-class concern of the refactor, not an afterthought. The product's unit economics depend on aggressive cost optimization in the AI layer. Without it, heavy Pro users cost more in Anthropic API spend than they pay in subscription, and the business doesn't work.
 
-### State of the world after the M3.0 audit
+### The unit economics problem
 
-The original framing of M3.0 ("rebuild the AI infrastructure") was wrong against actual code. A pre-M3.0 audit found that most of the planned architecture already existed:
+At naive Sonnet 4.6 pricing across all AI operations:
 
-- ✅ Single SDK chokepoint at `packages/ai/src/anthropic.ts` (lazy singleton, test injection)
-- ✅ Prompt caching on every task — `cache_control: { type: "ephemeral" }` is already used in regulatory-lookup, place-sentiment, scout-chat, and verdict-narrative
-- ✅ Per-call cost tracking via `MODEL_PRICING` table + `computeCostCents()` flowing into `verdicts.cost_cents`, `scout_messages.cost_cents`, `regulatory_cache.cost_cents`, `place_sentiment_cache.cost_cents`
-- ✅ Cache-read token logging (`response.usage.cache_read_input_tokens` captured at call sites)
-- ✅ Pure-function rules-first scoring — `scoreVerdict()` and revenue computation are deterministic; AI synthesizes a 2-3 paragraph narrative from the scored signals
+- **Average verdict generation:** ~$0.72 per verdict (4 domain sub-calls × ~$0.18 each)
+- **Scout chat at heavy use:** ~$0.15 per message × 450 messages/month = $67.50/month per heavy user
+- **Heavy Pro user total:** ~$71/month in COGS against $40 in subscription revenue → **negative margin**
 
-**What didn't exist (M3.0 ships these):**
-
-- Model routing logic — every task hardcoded `claude-haiku-4-5`. Sonnet wasn't used anywhere despite being mentioned in legacy docs
-- Centralized AI usage log — costs were scattered across surface-specific tables, no single source of truth for analytics
-- Batch API client — no batched operations
-- Cost-cap framework — no degradation utilities
-- Cache discount math — `computeCostCents` billed cache-read tokens at full input rate, slightly over-stating cost on cached calls
-
-**What was wrong about the legacy docs:**
-
-- CLAUDE.md and pre-v1.6 master plan both claimed Sonnet was used for verdict synthesis. **Production runs Haiku for everything.**
-- Master plan unit-economics math was based on Sonnet pricing for verdicts (~$0.18 per domain × 4 sub-calls). Reality: one Haiku narrative call per verdict, ~$0.005 steady state with cached system prompt.
-- Master plan implied verdict generation was a multi-call AI synthesis. Actual flow is rules-first: 8 deterministic data fetches + 2 cached LLM lookups (regulatory, place-sentiment) + 1 narrative AI call.
-
-### The unit economics problem (revised against reality)
-
-Production today (Haiku 4.5 for every task, prompt caching on every system prompt, rules-first scoring with one narrative AI call per verdict):
-
-- **Verdict generation, steady state** (regulatory + place-sentiment cached, narrative only): ~$0.005 per verdict
-- **Verdict generation, cold caches** (regulatory miss + place-sentiment miss): ~$0.05 per verdict
-- **Verdict generation with Sonnet escalation** (low-confidence path, M3.0+): ~$0.05 per verdict
-- **Scout chat with property-context caching:** ~$0.005 first turn, ~$0.001 subsequent turns within the cache TTL
-
-Per-Pro-user heavy-use scenario (5 verdicts/month mixed cache state, 450 Scout messages/month session-cached):
-
-- Verdicts: 5 × $0.02 average = $0.10
-- Scout: 450 × $0.002 average = $0.90
-- **Total: ~$1.00/month against $40 revenue → 97% gross margin**
-
-The original v1.5 plan estimated ~$19/month per heavy Pro user. That number was based on Sonnet pricing across all calls. The Haiku-only reality is dramatically cheaper, which is why M3.0's scope shrunk: most of the infrastructure was already there because the cost was already low enough to not be an emergency.
-
-Even at much higher usage volumes, margin stays comfortably positive. M3.0's batch and cost-cap frameworks ship as defenses against future scale (when one outlier user could otherwise eat into margin), not against current spend.
+This is unsustainable. The optimization strategy below restructures these costs to land at roughly $20/month in COGS for a heavy Pro user, achieving ~50% gross margin even at the high end of usage.
 
 ### The four cost levers
 
@@ -469,21 +573,19 @@ A view or function `user_monthly_ai_spend(user_id, month)` aggregates this for t
 
 ### Expected post-optimization economics
 
-Numbers replaced in v1.7. Production runs Haiku 4.5 across all four AI tasks today, and the v1.5 estimates were anchored on Sonnet pricing. The Haiku-only reality is roughly an order of magnitude cheaper per call.
+**Per Pro user, heavy use scenario (5 verdicts/month, 450 Scout messages/month):**
 
-**Per Pro user, heavy use (5 verdicts/month, 450 Scout messages/month):**
+- Verdicts: 5 × $0.30 (caching + Haiku sub-routing) = $1.50
+- Scout: 450 messages, 80% Haiku-handled with context caching @ ~$0.03 each + 20% Sonnet-escalated with context caching @ ~$0.08 each = $10.80 + $7.20 = $18.00
+- **Total: ~$19.50/month against $40 revenue → 51% gross margin**
 
-- Verdicts: 5 × $0.02 average (mixed cache state, occasional Sonnet escalation) = $0.10
-- Scout: 450 × $0.002 average (first turn cold, subsequent turns benefit from property-context caching) = $0.90
-- **Total: ~$1.00/month against $40 revenue → 97% gross margin**
+**Per DwellVerdict user, average use (2 verdicts/month, 60 Scout messages/month — limited by tier):**
 
-**Per DwellVerdict user, average use (2 verdicts/month, no Scout — Pro-only feature):**
+- Verdicts: 2 × $0.30 = $0.60
+- Scout: 60 × ~$0.03 = $1.80
+- **Total: ~$2.40/month against $20 revenue → 88% gross margin**
 
-- Verdicts: 2 × $0.02 = $0.04
-- Scout: $0
-- **Total: ~$0.04/month against $20 revenue → 99.8% gross margin**
-
-These margins are comfortably positive even at the high end of usage. The cost-cap framework + Batch API plumbing are defenses against future scale (single outlier users, brief generation volume, alert evaluation runs) rather than a fix for current spend. The DwellVerdict scenario is barely meaningful at $0.04/mo — verdicts are nearly free at scale once caches are warm. Re-validate against real usage data post-launch.
+These projections are conservative. With real usage data post-launch, we'll have actuals to optimize against.
 
 ### Implementation across milestones
 
@@ -580,20 +682,35 @@ Public-facing pages: landing, pricing, legal, help, plus comprehensive SEO/GEO o
 **M2.4** — SEO + GEO optimization
 > Comprehensive search and generative-engine optimization across all public pages (landing, pricing, help, legal). Add structured data (JSON-LD) appropriate to each page: Organization schema on landing, Product schema on pricing, FAQPage schema on /help and /pricing FAQ section, Article schema on legal pages. Add per-page meta optimization: unique title tags (under 60 chars), unique descriptions (under 160 chars), canonical URLs, OpenGraph tags (og:title, og:description, og:image, og:url, og:type), Twitter Card tags (twitter:card, twitter:title, twitter:description, twitter:image). Build a designed OG share image (1200×630px) for landing page social sharing — terracotta + ink + verdict tagline. Generate `/sitemap.xml` automatically from the routes (use Next.js built-in sitemap generation). Create `/robots.txt` allowing all crawlers, pointing to sitemap. Install Plausible Analytics (or Google Analytics 4 if Jeremy prefers — Plausible is privacy-friendly, lightweight, ~$9/month — Plausible recommended) with the script tag in the public layout. Optimize landing page content for generative engines: clear topical authority via H1/H2 hierarchy, FAQ-style content blocks (AI engines cite these), explicit answers to questions a real estate investor might ask an AI ("what makes a property a good short-term rental investment", "how do I evaluate a vacation rental property", "what are the regulatory risks of owning an STR"). Run Lighthouse on the landing page and confirm Performance score >85, SEO score >95, Accessibility score >90 — if any score is below threshold, fix before merge. Verify OG cards render correctly using opengraph.xyz or similar.
 
+**M2.5** — Marketing positioning refresh (NEW in v1.8)
+> Update landing page (M2.1) and pricing page (M2.2) marketing copy to reflect end-to-end platform positioning rather than verdict-first framing. Per the v1.8 master plan reframe: verdicts are the lead-gen hook, the platform is end-to-end real estate guidance.
+>
+> **Landing page changes:**
+> - Update hero: keep "Paste any address. Know the verdict." headline (it works), but expand the subhead/explainer to communicate platform vision. New subhead reads roughly: "The verdict is just the start. DwellVerdict guides you through buying, renovating, managing, and optimizing — including the tax strategies most investors miss."
+> - Add a new section between three-step explainer and Anatomy of Verdict: "Beyond the verdict — your complete real estate co-pilot." Lists the 9 platform pillars with brief descriptions and visual treatment. Each pillar links to relevant lifecycle stage or tax strategy preview if user signs in.
+> - Update Anatomy of Verdict section to acknowledge it as "step one of your journey" not "the destination."
+> - Update pricing preview to emphasize platform value, not just verdict count.
+> - Add a "Why investors choose DwellVerdict" section showcasing the integrated journey (verdict → buy → renovate → tax-optimize → manage).
+> - Update final CTA: "Start with a verdict. Stay for the platform."
+> - Update meta description and OG copy to reflect platform positioning.
+>
+> **Pricing page changes:**
+> - Update tier descriptions to emphasize platform features, not just verdict access. DwellVerdict $20 includes "lifecycle stages (buying, renovating, managing) + tax strategy guidance + Scout AI questions"; Pro $40 adds "Compare, Briefs, Alerts, Portfolio dashboard, advanced tax strategy."
+> - Expand FAQ to address platform questions: "What does DwellVerdict do besides generate verdicts?", "How does tax strategy work?", "Can I track my whole portfolio?", "Do I get help during renovation?".
+> - Comparison table reflects platform features, not just verdict limits.
+>
+> **Founder quote** in landing page should reference the platform vision (rough draft: "I built DwellVerdict because every real estate decision touches twenty other decisions. The verdict tells you whether to buy. Then you have to actually buy it, renovate it, optimize the taxes, manage it, and decide what's next. We're the platform that walks you through all of it.").
+>
+> **Reasonable scope discipline:** Don't redesign visual treatment, just update copy. Don't add new sections that require new components; reuse the existing landing/pricing component structure. Update metadata (titles, descriptions, OG) consistently with platform positioning.
+>
+> **Production verification:** Visit dwellverdict.com after deploy. Read the landing page top to bottom. Confirm platform messaging is clear and consistent. Confirm pricing page reflects platform features. Verify OG card on opengraph.xyz updates correctly. Mobile readability check at 380px.
+
 ### Phase 3 — Verdict surfaces
 
 The core product: how users go from address to verdict to evidence. This phase opens with the AI cost optimization foundation (M3.0) — every milestone after this one consumes those abstractions rather than calling Anthropic directly.
 
 **M3.0** — AI cost optimization foundation
-> Pre-flight audit (April 25, 2026) confirmed the SDK chokepoint, prompt caching, per-call cost tracking, cache-read logging, and rules-first scoring already exist in `packages/ai/src/`. M3.0 is therefore additive plumbing rather than a rewrite.
->
-> Adds: `packages/ai/src/model-router.ts` (`routeVerdictNarrative(confidence)` escalates to Sonnet 4.6 when confidence < `VERDICT_NARRATIVE_SONNET_THRESHOLD`, default 70; everything else stays on Haiku 4.5), `packages/ai/src/usage-events.ts` (central `ai_usage_events` log alongside the existing surface-specific cost columns), `packages/ai/src/cost-cap.ts` (decision utility for future degradation; not consumed yet), `packages/ai/src/batch-client.ts` (Anthropic Batch API wrapper; first consumer is M7.1). Adds the `ai_usage_events` table via migration `0011_ai_usage_events.sql` with FKs to verdicts and scout_messages.
->
-> Updates: `computeCostCents` in `packages/ai/src/pricing.ts` now applies the 10% cache-read discount and 1.25x cache-write multiplier (was billing cache reads at full input rate, slightly over-stating cost on cached calls). All four task wrappers (regulatory-lookup, place-sentiment, scout-chat, verdict-narrative) thread `userId`/`orgId` and emit `logAiUsageEvent` after every call. The existing `verdicts.cost_cents`, `scout_messages.cost_cents`, `regulatory_cache.cost_cents`, `place_sentiment_cache.cost_cents` columns keep their current behavior — `ai_usage_events` is the source of truth for cross-surface analytics; the surface-specific columns are the fast path for surface UIs.
->
-> The M3.3 "Deep Analysis" badge reads from the existing `verdicts.model_version` column (already populated by `markVerdictReady`); no new column needed.
->
-> Hard rule preserved: no direct Anthropic SDK calls outside `packages/ai/src/tasks/*` and `packages/ai/src/batch-client.ts`.
+> Build the architectural foundation for cost-optimized AI usage that every later milestone depends on. Three new abstractions in `apps/web/lib/ai/`: `model-router.ts` (classifies request type and picks Haiku vs Sonnet vs Opus), `cache-helpers.ts` (wraps Anthropic SDK with prompt caching markers and TTL management), `batch-client.ts` (queues non-real-time AI operations through the Anthropic Batch API for 50% savings). Add `ai_usage_events` schema migration for per-call cost tracking. Add a `user_monthly_ai_spend(userId, month)` helper for cost-cap logic. Refactor existing AI code paths (verdict generation, Scout chat) to route through these abstractions — without changing behavior yet, just plumbing. Hard rule: no direct Anthropic SDK calls anywhere in the codebase outside these abstractions after this milestone ships.
 
 **M3.1** — Address input refresh (mockup #03)
 > Update the address input on `/app/properties` to match mockup 03 exactly. Preserve existing `AddressAutocomplete` component logic. Visual changes only.
@@ -604,8 +721,204 @@ The core product: how users go from address to verdict to evidence. This phase o
 **M3.3** — Verdict detail page (v4 mockup, the centerpiece)
 > Rebuild `/app/properties/[propertyId]/page.tsx` to match the v4 verdict mockup exactly. Hero with verdict dial + signal chip + confidence + headline. Hero metrics strip. Evidence grid (4 cards). Scout's Analysis narrative section in serif type. Right rail with verdict run history + soft paywall states for locked content. Add a small thumbs up/down feedback control near the bottom of the verdict (after Scout's Analysis) — clicking either thumb reveals an optional "tell us more" text input. Posts to a new `/api/verdicts/[id]/feedback` server action that writes to `verdict_feedback` table (schema in master plan § AI quality feedback). Feedback is unobtrusive: small, easy to skip, never required to access other features.
 
-**M3.4** — Onboarding intent flow (mockup #02)
-> New route `/onboarding/intent` shown to users who haven't completed onboarding. 4-card segment selection, strategy multi-select, target markets, deal range. On submit, write to user record and route to `/app/properties`.
+**M3.4** — User-level onboarding intent (REVISED in v1.8)
+> New route `/onboarding/intent` shown to users who haven't completed onboarding. 4-card segment selection (investor / shopper / agent / exploring), strategy multi-select (STR / LTR / house-hacking / flipping / owner-occupied), target markets, deal range. On submit, write to user record (M1.2 schema columns) and route to `/app/properties`.
+>
+> **Revised purpose (v1.8):** User-level onboarding captures investment focus that PRE-FILLS per-property thesis intake forms (M3.5). Reduces friction for investors evaluating many properties with consistent thesis. Schema columns from M1.2 (`intent_segment`, `strategy_focus`, `deal_range`) finally get used.
+>
+> Sequence note: M3.4 ships AFTER M3.5/M3.6/M3.7 because user-level data is most useful AFTER per-property intake exists.
+
+**M3.5** — Property thesis + intake form (NEW in v1.8)
+> The most important Phase 3 milestone. Build a comprehensive intake form that captures investment thesis + verified data inputs for every new property. Per the v1.8 master plan reframe, this intake is the foundation of the platform's user data — every subsequent surface (verdict, lifecycle stages, tax strategy, what-if calculator, briefs, portfolio dashboard) reads from this data.
+>
+> **Schema additions to `properties` table:**
+> - `thesis_type` (text, CHECK: 'str' / 'ltr' / 'owner_occupied' / 'house_hacking' / 'flipping' / 'other')
+> - `goal_type` (text, CHECK: 'cap_rate' / 'appreciation' / 'both' / 'lifestyle' / 'flip_profit')
+> - `listing_price` (integer, cents) — user-input, fetched from Zillow listing
+> - `user_offer_price` (integer, cents, nullable) — what the user plans to offer
+> - `estimated_value` (integer, cents) — Zestimate / Redfin estimate / appraisal
+> - `year_built` (integer)
+> - `bedrooms` (decimal)
+> - `bathrooms` (decimal)
+> - `square_footage` (integer)
+> - `lot_size_sqft` (integer)
+> - `annual_property_tax` (integer, cents)
+> - `annual_insurance_estimate` (integer, cents)
+> - `monthly_hoa_fee` (integer, cents, nullable)
+> - For STR: `expected_nightly_rate` (integer, cents), `expected_occupancy` (decimal, 0-1), `cleaning_fee_per_stay` (integer, cents), `average_length_of_stay` (integer, days)
+> - For LTR: `expected_monthly_rent` (integer, cents), `vacancy_rate_assumption` (decimal, 0-1), `expected_appreciation_rate` (decimal, 0-1)
+> - For owner-occupied: `down_payment_percent` (decimal, 0-1), `mortgage_rate` (decimal, 0-1), `mortgage_term_years` (integer), `renovation_budget` (integer, cents, nullable)
+> - `intake_completed_at` (timestamptz, nullable) — null until form fully submitted
+>
+> **Form flow:**
+>
+> User submits address (M3.1) → form opens BEFORE verdict generation:
+>
+> 1. **Thesis selection.** 6 cards: STR (vacation rental), LTR (long-term rental), Owner-occupied, House hacking, Flipping, Other. Pre-filled from user-level onboarding data if present. User selects one.
+> 2. **Goal selection.** Conditional on thesis: STR/LTR shows cap rate / appreciation / both; Owner-occupied shows lifestyle / appreciation / both; Flipping shows flip profit. User selects one.
+> 3. **Property fundamentals.** Year built, beds/baths, square footage, lot size. Each field includes guidance ("Find this on the Zillow listing 'Facts & features' section"). User confirms each.
+> 4. **Pricing data.** Listing price, estimated value, optional user offer price. Each field includes guidance ("Open Zillow → copy 'Listed at $X'"). User can skip any field but sees "this affects verdict accuracy" warning.
+> 5. **Cost data.** Property tax, insurance estimate (with regional guidance — California fire-prone areas $3K-8K/year; safe areas $1K-2K), HOA fees if applicable. Insurance guidance includes link to "Get a quick quote with Lemonade or Geico (60 seconds)" with disclosure these are referrals.
+> 6. **Thesis-specific inputs.** Conditional on thesis selection. STR sees nightly rate / occupancy / cleaning fee. LTR sees expected rent / vacancy / appreciation. Owner-occupied sees down payment / mortgage. Each includes guidance and reasonable defaults.
+> 7. **Review and confirm.** Single screen showing all entries with "edit" links per section. User submits. Property record updated with `intake_completed_at = NOW()`.
+> 8. **Verdict generation triggers automatically** with intake data flowing as inputs.
+>
+> **Form UX requirements:**
+> - Progress indicator showing 7 steps
+> - Each step uses guided input pattern: clear instructions + verification checkbox + impact note
+> - User can save and resume (intake_completed_at = null until submit)
+> - Skip individual fields with "I'll provide this later" option, but warn it impacts verdict
+> - Mobile-responsive (380px → desktop)
+> - Preserves existing M3.1 address input as step 0
+>
+> **Backfill for existing 5 production properties:**
+>
+> Add a backfill migration that sets thesis_type and goal_type for Jeremy's existing properties:
+> - 41 Maywood Ct (Roseville) — LTR, both (cap rate + appreciation, breakeven monthly target)
+> - 207 Corte Sendero (Lincoln) — Owner-occupied, appreciation
+> - 295 Bend Ave (Kings Beach) — STR, both (cap rate + appreciation)
+> - The other 2 properties — Jeremy will provide thesis values; until then, set thesis to NULL and require intake completion before next verdict regeneration
+>
+> Existing properties will have most other fields NULL. Future verdict regenerations on existing properties prompt user to complete intake form first.
+>
+> **Reasonable scope discipline:**
+> - Don't ask for what we can't use yet (e.g., no need for renovation tracking inputs in M3.5 — those go in M5.2)
+> - Don't ask for redundant data (if user provides listing price + year built, derive purchase year if/when needed)
+> - Don't gate verdict generation on optional fields; only thesis_type is hard required
+>
+> **Production verification:** Create a new test property end-to-end. Step through all 7 form steps. Verify all data persists to property record. Trigger verdict generation, confirm intake data flows through. Test thesis pre-fill from user-level onboarding (after M3.4 ships, retest). Mobile flow verification.
+
+**M3.6** — User-input data architecture for verdict generation (NEW in v1.8)
+> Wire intake form data (M3.5) into verdict generation. Per the v1.8 user-input data architecture decision, the verdict engine sources critical data from user input rather than scraped APIs.
+>
+> **Scope:**
+>
+> Update `apps/web/lib/verdict/orchestrator.ts` to read from `properties` row's intake fields BEFORE attempting any external fetcher. Specifically:
+> - Listing price → from `properties.listing_price` (replaces failed Zillow listPrice)
+> - Estimated value → from `properties.estimated_value` (replaces failed Zillow Zestimate / Redfin estimate)
+> - Expected revenue → from `properties.expected_nightly_rate * expected_occupancy * 365` for STR, or `expected_monthly_rent * 12` for LTR
+> - Expense estimates → property tax + insurance + HOA from intake
+>
+> External fetchers (Zillow, Redfin, Airbnb scrapers) become OPTIONAL enrichment, not critical path. If they succeed and confirm user input within reasonable variance, log "verified" status. If they fail or contradict, prefer user input but log the discrepancy for future review.
+>
+> Update `packages/ai/src/scoring.ts` to consume user-input values as primary inputs. The `referencePrice` field (used for cap rate calculation) becomes `listing_price ?? user_offer_price ?? estimated_value` from the intake, not from scraper.
+>
+> Update `packages/ai/src/tasks/verdict-narrative.ts` v2 prompt to:
+> - Include intake-provided thesis context ("This property is being evaluated as a [thesis_type] with goal [goal_type]")
+> - Include user-provided pricing in the context
+> - Include user-provided revenue assumptions in the context
+> - Note when user input was used vs. enriched from scraper
+>
+> **Production verification:** Regenerate verdicts on Jeremy's 3 existing properties (after M3.5 backfill). Verify verdicts now include real listing prices, real revenue projections (from intake), and thesis-aware narrative framing. Compare to pre-M3.6 verdicts to confirm meaningful improvement.
+
+**M3.7** — Free fetcher diagnostics & repair (NEW in v1.8)
+> Diagnose and fix the broken free public APIs that are currently failing in production. Per the audit conducted before this milestone, FEMA flood, USGS wildfire, Census ACS, and county records (where applicable) should all be working but are at 100% failure rate.
+>
+> **Investigation scope:**
+>
+> For each broken fetcher in `packages/data-sources/src/`:
+> 1. Determine the failure mode (auth issue, API change, rate limit, parse error, timeout)
+> 2. Test against fresh requests to verify current API state
+> 3. Fix what's fixable (most likely auth, headers, or response parsing)
+> 4. Document any genuinely broken or deprecated APIs and propose alternatives
+>
+> **Specific fetchers to investigate:**
+>
+> - **FEMA flood zones** — National Flood Hazard Layer API. Free public API. Critical for Florida/Gulf Coast/coastal properties.
+> - **Census ACS** — American Community Survey via Census API. Free with API key. Provides demographic context.
+> - **USGS wildfire** — already partially working but spotty. Verify reliability.
+> - **County records (selective)** — If quick wins exist for high-traffic states (CA, FL, TX), wire them up. Don't try to support every county; pick high-leverage ones.
+>
+> **Out of scope (this milestone):**
+>
+> - Fixing Zillow / Redfin scrapers (handled by M3.6 user-input fallback)
+> - Fixing Airbnb scraper (same)
+> - Adding paid integrations (deferred to post-launch revenue triggers)
+>
+> **Production verification:** Regenerate a verdict on Bend Ave (Kings Beach, near Tahoe — should have flood zone data, wildfire risk). Verify FEMA, Census, USGS data populate the verdict. Compare to pre-M3.7 verdict (where these were all empty).
+
+**M3.8** — Thesis-aware scoring with regional risk awareness (NEW in v1.8)
+> Update verdict scoring rubric to be thesis-aware AND regional-risk-aware. This is the biggest scoring change since the engine was built.
+>
+> **Scope:**
+>
+> Update `packages/ai/src/scoring.ts` to accept `thesis_type` and `goal_type` from the property record. Implement rubric weights as a 2D table indexed by `{thesis} × {region}` with default fallback when no specific override exists.
+>
+> **Thesis-specific weight examples:**
+>
+> | Rule | STR Destination | STR Urban | LTR Residential | Owner-occupied |
+> |------|----------------|-----------|-----------------|----------------|
+> | Walk Score | Low (5%) | High (15%) | Moderate (10%) | High (15%) |
+> | Schools | Off (0%) | Off (0%) | High (20%) | High (25%) |
+> | Proximity to attractions | Critical (25%) | Moderate (10%) | Low (5%) | Low (5%) |
+> | Cap rate vs price | Critical (20%) | Critical (20%) | Critical (20%) | Off (0%) |
+> | Seasonality | Critical (15%) | Low (5%) | Low (0%) | Off |
+> | Crime | Moderate (10%) | High (15%) | High (20%) | Critical (25%) |
+> | Permitting/regulatory | Critical (20%) | Critical (20%) | Lower (10%) | Lower (5%) |
+>
+> Note: percentages are illustrative — actual weights to be calibrated.
+>
+> **Regional risk overrides:**
+>
+> When property is in a specific risk region, additional rule weights apply on top of thesis weights:
+> - California: wildfire risk weight +15%, insurance cost factor multiplier 1.5x
+> - Florida: hurricane + flood weight +20%, flood insurance separate factor
+> - Gulf Coast (TX/LA/AL/MS): hurricane + flood +15%
+> - Tornado Alley: wind/storm risk +10%
+> - Mountain West: wildfire + winter storm +10%
+> - Pacific Northwest: earthquake + wildfire +5%
+>
+> Implementation: a `region_risk_factor(state, county_or_zip)` helper returns the active risk overrides. Combined with thesis weights via simple addition.
+>
+> **Listing price as first-class metric:**
+>
+> Update v2 narrative tool schema to include:
+> - `evidence.pricing.metrics.listing_price` (cents)
+> - `evidence.pricing.metrics.estimated_value` (cents)
+> - `evidence.pricing.metrics.user_offer_price` (cents, nullable)
+> - `evidence.pricing.metrics.price_to_value_ratio` (decimal)
+> - `evidence.pricing.summary` (string, narrative explanation of price context)
+>
+> A new "Pricing" evidence card displays alongside the existing 4 (Comps, Revenue, Regulatory, Location), making it 5 cards total.
+>
+> **Existing verdict migration:**
+>
+> Mark all existing verdicts as `legacy_rubric: true`. Render them with a small "Legacy verdict — regenerate for thesis-aware analysis" prompt at the top. Don't auto-regenerate (cost concern). Let user opt in.
+>
+> **Production verification:** Regenerate Kings Beach verdict (STR in CA fire zone) — wildfire weight should be high, insurance cost should factor heavily, low Walk Score should NOT drop the verdict significantly because STR destination thesis. Regenerate Roseville (LTR in CA suburbs) — wildfire moderate, schools and neighborhood quality matter more. Verify the verdicts feel meaningfully different in their reasoning.
+
+**M3.9** — What-if calculator (NEW in v1.8)
+> Build a "what-if" mode users enter from the verdict detail page. Lets users adjust the inputs they provided in M3.5 to stress-test the verdict.
+>
+> **Scope:**
+>
+> New route `/app/properties/[propertyId]/verdicts/[verdictId]/what-if` (or modal/sheet on the verdict page, designer's call).
+>
+> Adjustable inputs:
+> - Listing price (test "what if I offer $50K below asking")
+> - User offer price
+> - Expected nightly rate (STR) / monthly rent (LTR)
+> - Expected occupancy (STR)
+> - Vacancy rate assumption (LTR)
+> - Property tax (test "what if reassessed higher")
+> - Insurance estimate (test "what if California fire premiums go up")
+> - HOA fees (if applicable)
+> - Down payment % (owner-occupied)
+> - Mortgage rate (test "what if rates rise")
+> - Renovation budget (if applicable)
+> - Expected appreciation rate
+>
+> User adjusts any combination of inputs. Verdict signal/confidence/narrative recompute on the fly using `scoring.ts` directly (no AI call needed for what-if — uses the same scoring rubric M3.8 implements).
+>
+> User can save what-if scenarios as named entries on the property ("Aggressive offer at $25K below", "Insurance doubles", "Cancel STR strategy → LTR").
+>
+> **What's not in scope:**
+>
+> - Triggering AI narrative regeneration based on what-if inputs (uses cached narrative + flags as "what-if")
+> - Persisting what-if scenarios to a separate table (uses property record JSON field for v1)
+> - Sharing what-if scenarios with collaborators (post-launch)
+>
+> **Production verification:** Open Kings Beach verdict, click "What-if". Adjust nightly rate from $400 → $300 and verify cap rate calculation updates. Test thesis change (STR → LTR) and verify rubric reapplies. Save scenario, navigate away and back, confirm scenario persists.
 
 ### Phase 4 — Property surfaces
 
@@ -623,18 +936,189 @@ Cross-property views and the property list.
 **M4.4** — Compare view (mockup #10)
 > New route `/app/compare`. Side-by-side comparison of 2-4 properties (Pro tier). Property chip management. Domain-by-domain comparison rows. Winner highlighting. Scout-generated recommendation at bottom.
 
-### Phase 5 — Lifecycle stage pages
+### Phase 5 — Lifecycle stage pages + Tax strategy
 
-The 3 stage pages for properties under management.
+The 3 lifecycle stage pages plus dedicated tax strategy surfaces. **Per v1.8 master plan reframe, this phase is now CORE PRODUCT, not a "light treatment" afterthought.** Each lifecycle stage delivers substantive workflow tools that justify the platform's value beyond the verdict.
 
-**M5.1** — Buying stage (mockup #14)
-> Rebuild `/app/properties/[propertyId]/buying/page.tsx`. Hero row: countdown to next milestone, deal progress bar, closing budget burn. 2-column grid: vertical milestone timeline + notes feed, contacts grid + budget table. Preserve existing CRUD server actions.
+**M5.1** — Buying lifecycle stage (mockup #14, expanded scope in v1.8)
+> Rebuild `/app/properties/[propertyId]/buying/page.tsx` as a substantive workflow surface for users in the buying process.
+>
+> **Sections:**
+>
+> 1. **Hero row (from mockup):** Countdown to next milestone, deal progress bar, closing budget burn.
+>
+> 2. **Offer planning toolkit:**
+>    - Offer calculator (suggested offer based on verdict + user price preferences)
+>    - Counter-offer scenarios (what-if integration from M3.9)
+>    - Inspection contingency tracker
+>    - Financing contingency tracker
+>    - Estimated closing costs breakdown
+>
+> 3. **Due diligence checklist (thesis-aware):**
+>    - For STR: title check, HOA verification, STR permit verification, insurance quote validation, lender pre-approval for non-owner-occupied financing, comp validation, regulatory deep-dive
+>    - For LTR: title check, tenant rights review (state-specific), security deposit limits, vacancy assumptions validation
+>    - For owner-occupied: title check, structural inspection, HOA review, neighborhood walk-through
+>
+> 4. **Vertical milestone timeline + notes feed** (from mockup): user adds notes per milestone, status updates trigger reminders.
+>
+> 5. **Contacts grid** (from mockup): agent, lender, inspector, attorney, contractor; CRUD interface.
+>
+> 6. **Closing budget table** (from mockup): line items + actual vs. estimated, runs into Renovating stage budget if user proceeds.
+>
+> 7. **Cost segregation pre-planning (NEW):** If property qualifies (5+ unit residential, commercial, or STR with operating intent), surface a "Cost segregation eligible" callout linking to M5.4 tax strategy planning. Cost seg savings can be huge — surfacing the option here captures it before the user closes.
+>
+> 8. **Scout panel:** Quick-ask Scout questions like "Is this a fair offer?", "What contingencies should I include?", "What inspection issues are red flags for this property type?" Pulls property + verdict + intake context.
+>
+> Preserve existing CRUD server actions for property_stages, contacts, milestones. Add new server actions for offer planning, due diligence checklist state, cost-seg callout dismissal.
 
-**M5.2** — Renovating stage (mockup #15)
-> Rebuild `/app/properties/[propertyId]/renovating/page.tsx`. Hero row: budget burn donut, overdue tasks, days remaining. 2-column grid: scope items + tasks list, contractors + quotes. Preserve existing CRUD.
+**M5.2** — Renovating lifecycle stage (mockup #15, expanded scope in v1.8)
+> Rebuild `/app/properties/[propertyId]/renovating/page.tsx` as a substantive renovation tracking workflow.
+>
+> **Sections:**
+>
+> 1. **Hero row (from mockup):** Budget burn donut, overdue tasks, days remaining.
+>
+> 2. **Scope items + tasks list (from mockup, expanded):** Each scope item has tasks, contractor assignment, estimated and actual cost, completion percentage. Tasks roll up to scope item; scope items roll up to total project.
+>
+> 3. **Contractor management (from mockup, expanded):**
+>    - Contractor profiles (license verification status, references, scope assignments)
+>    - Quotes received per scope item
+>    - Payment schedule tracking
+>    - Lien waivers tracking
+>
+> 4. **Cost segregation activation (NEW, integrated):**
+>    - "Activate cost segregation" CTA on the page if property qualifies
+>    - Walks user through the steps: hire cost-seg study firm, identify eligible items, produce study report, file Form 3115 with tax return
+>    - Surfaces estimated tax savings based on renovation budget
+>    - Links to M5.4 tax strategy for portfolio-level coordination
+>    - Out of scope to AUTOMATE the study (requires CPA/firm); in scope to GUIDE through the process
+>
+> 5. **Renovation timeline:** Gantt-style or simplified timeline with milestone dependencies.
+>
+> 6. **Material/fixture decisions log:** Track choices for taxes, appraisal, depreciation later.
+>
+> 7. **Progress photos:** Simple upload/timeline (not a full project management tool, just enough for record-keeping).
+>
+> 8. **Scout panel:** "Is this contractor quote reasonable?", "What permits do I need for this scope?", "Should I capitalize or expense this?" with property + scope context.
+>
+> Preserve existing CRUD. Add cost-seg planning state, contractor management table, photo storage.
 
-**M5.3** — Managing stage (mockup #16)
-> Rebuild `/app/properties/[propertyId]/managing/page.tsx`. Time picker. PMS connection status. Hero row: revenue gauge + occupancy + ADR. P&L strip. 2-column grid: reservations + Schedule E roll-up + recent expenses. Preserve CSV import + existing CRUD.
+**M5.3** — Managing lifecycle stage (mockup #16, expanded scope in v1.8)
+> Rebuild `/app/properties/[propertyId]/managing/page.tsx` as a substantive operational tracking surface.
+>
+> **Sections:**
+>
+> 1. **Hero row (from mockup):** Revenue gauge, occupancy %, ADR (or monthly rent for LTR).
+>
+> 2. **PMS connection status (from mockup):** Existing PMS integrations + manual entry option.
+>
+> 3. **P&L strip (from mockup, expanded):** Monthly revenue, expenses by category, net cash flow, year-to-date, comparison to projected (from M3.5 intake assumptions).
+>
+> 4. **Reservations list (STR-specific) or rent roll (LTR-specific):** From mockup, expanded with status tracking.
+>
+> 5. **Schedule E roll-up (from mockup):** Tax-ready P&L organized by Schedule E line items. Exports to CSV for tax prep.
+>
+> 6. **Recent expenses (from mockup, expanded):**
+>    - Categorized by IRS expense type
+>    - Receipts attached
+>    - Capitalized vs expensed flag for renovation continuation
+>
+> 7. **Ongoing tax tracking (NEW):**
+>    - Depreciation schedule visualization (if cost seg done in M5.2)
+>    - Tax-loss harvesting opportunities (if multiple properties)
+>    - Estimated tax bill at current pace
+>    - Links to M5.5 tax strategy ongoing optimization
+>
+> 8. **Performance vs. projection:** Compares actual revenue/expenses to user-provided assumptions in M3.5 intake. Flags significant variances. "You projected $525 ADR; actual is $487. Want to update assumptions for the verdict?"
+>
+> 9. **Scout panel:** "Why was occupancy low last month?", "Should I raise nightly rate?", "What expense categories am I missing?" with operational context.
+>
+> Preserve CSV import + existing CRUD. Add tax tracking schema, performance comparison, expense categorization.
+
+**M5.4** — Tax strategy: per-property surface (NEW in v1.8)
+> New route `/app/properties/[propertyId]/tax-strategy/page.tsx`. Per-property tax strategy guidance, complementing the cross-cutting tax content embedded in M5.1-M5.3.
+>
+> **Sections:**
+>
+> 1. **Strategy overview:** Lists tax strategies applicable to this specific property based on thesis, ownership status, and lifecycle stage.
+>
+> 2. **Cost segregation (highlighted for STR/commercial):**
+>    - Eligibility check
+>    - Estimated savings calculator
+>    - When to do the study (during renovation typically)
+>    - How to engage a firm (links to firms — disclose any referral relationships)
+>    - Form 3115 filing reminder
+>
+> 3. **STR loophole (highlighted for STR):**
+>    - Explanation: STR with avg stay <7 days + material participation = treated as non-passive, losses offset W-2 income
+>    - Material participation tests (500 hours, 100 hours and most participation, etc.)
+>    - Tracking template for material participation hours
+>    - Example: bonus depreciation + cost seg + STR loophole stacked
+>    - Common mistakes (passive without realizing it)
+>
+> 4. **Depreciation schedule (highlighted post-purchase):**
+>    - 27.5-year residential straight-line baseline
+>    - Cost seg-accelerated schedule (if applicable)
+>    - Bonus depreciation eligibility
+>    - Annual deduction projections
+>
+> 5. **1031 exchange planning (highlighted for sale planning):**
+>    - Rules: like-kind, 45-day identification, 180-day completion
+>    - Qualified intermediary recommendations
+>    - Reverse 1031 considerations
+>    - Boot consequences
+>
+> 6. **Section 199A (QBI) deduction:** When 20% pass-through deduction applies to rental income.
+>
+> 7. **Disclaimers:** Strong, clear, repeated. "This is educational content, not tax advice. Engage a CPA familiar with real estate tax strategy." DwellVerdict is NOT a tax advisor.
+>
+> 8. **Scout panel:** "What tax strategies apply to my Kings Beach STR?", "Do I qualify for the STR loophole?", "When should I do cost seg?" with property context.
+>
+> **Out of scope:**
+> - Filing forms on user's behalf (we're not a tax preparer)
+> - Specific dollar-amount tax projections (would require user's full income picture)
+> - Connecting to QuickBooks or accounting software (post-launch)
+
+**M5.5** — Tax strategy: portfolio-wide surface (NEW in v1.8)
+> New route `/app/tax-strategy/page.tsx`. Portfolio-wide tax strategy view that complements per-property M5.4.
+>
+> **Sections:**
+>
+> 1. **Portfolio tax overview:** Total properties, tax classifications, current depreciation schedule, projected annual tax savings from current strategies.
+>
+> 2. **Strategy opportunities across properties:**
+>    - Properties eligible for cost seg that haven't done it
+>    - STR properties that haven't activated the STR loophole
+>    - Properties approaching 1031 exchange windows
+>    - Loss-harvesting opportunities (sell loss to offset gains elsewhere)
+>
+> 3. **Annual planning calendar:**
+>    - Q1: Tax filing prep
+>    - Q2: Mid-year review
+>    - Q3: Cost seg studies for properties acquired this year
+>    - Q4: 1031 identification windows, year-end purchase decisions
+>
+> 4. **Material participation tracker (cross-property):** For users with multiple STRs, total hours across properties to qualify for material participation.
+>
+> 5. **CPA/tax advisor coordination:** Generate a tax-strategy-summary PDF for sharing with the user's CPA. (M7.1 Briefs handles the actual PDF generation; M5.5 generates the content.)
+>
+> 6. **Educational content library:** Articles, calculators, examples covering each strategy.
+>
+> 7. **Scout panel:** Cross-property questions like "Which of my properties should I do cost seg on first?" or "Can I 1031 my Kings Beach STR into a multifamily?" with full portfolio context.
+
+**M5.6** — Tax strategy: integration polish (NEW in v1.8)
+> Cross-cutting integration milestone. Tax strategy lives in 3 places (M5.1 buying integration, M5.2 renovating integration, M5.3 managing integration, M5.4 per-property surface, M5.5 portfolio-wide surface). M5.6 ensures these are all discoverable, consistent, and well-cross-linked.
+>
+> **Scope:**
+>
+> 1. **Sidebar navigation:** Add "Tax Strategy" to the Workspace section of sidebar (M1.3 sidebar shell). Routes to /app/tax-strategy (M5.5).
+> 2. **Property-level tax tab:** Each property page gets a "Tax Strategy" tab that surfaces M5.4 per-property surface.
+> 3. **Lifecycle stage cross-references:** Buying stage links to M5.4 cost seg pre-planning; Renovating stage links to M5.4 cost seg activation; Managing stage links to M5.4 ongoing tax tracking.
+> 4. **Verdict detail integration:** Verdict detail page (M3.3) gets a small "Tax considerations" section showing thesis-relevant strategies (STR → STR loophole highlighted; LTR → depreciation highlighted).
+> 5. **Scout integration:** Scout AI (M6.1, M6.2) has access to tax strategy context for the property and portfolio.
+> 6. **Onboarding hint:** User-level onboarding (M3.4) mentions tax strategy as a platform pillar.
+>
+> Reasonable scope discipline: M5.6 is mostly UI integration, not new functionality. The actual tax strategy logic ships in M5.4-M5.5.
 
 ### Phase 6 — AI surfaces
 
@@ -723,20 +1207,30 @@ The "live in one tab" framing: Jeremy is both a user and an admin. The admin sec
 
 ---
 
-## Milestone count summary
+## Milestone count summary (v1.8)
 
 - Phase 0 — Operational foundation: 3 milestones (M0.1 email, M0.2 CI, M0.3 Sentry)
 - Phase 1 — Foundation: 3 milestones
-- Phase 2 — Public surfaces: 4 milestones (M2.1 landing, M2.2 pricing, M2.3 legal+help, M2.4 SEO+GEO)
-- Phase 3 — Verdict surfaces: 5 milestones (M3.0 cost optimization foundation + M3.1-M3.4)
+- Phase 2 — Public surfaces: 5 milestones (M2.1 landing, M2.2 pricing, M2.3 legal+help, M2.4 SEO+GEO, M2.5 marketing positioning refresh)
+- Phase 3 — Verdict surfaces: 10 milestones (M3.0 cost optimization, M3.1 address input, M3.2 streaming, M3.3 verdict detail, M3.4 user onboarding, M3.5 property thesis intake, M3.6 user-input data architecture, M3.7 free fetcher repair, M3.8 thesis-aware scoring, M3.9 what-if calculator)
 - Phase 4 — Property surfaces: 4 milestones
-- Phase 5 — Lifecycle stage pages: 3 milestones
+- Phase 5 — Lifecycle stages + Tax strategy: 6 milestones (M5.1 buying expanded, M5.2 renovating expanded, M5.3 managing expanded, M5.4 per-property tax, M5.5 portfolio tax, M5.6 tax integration polish)
 - Phase 6 — AI surfaces: 2 milestones
 - Phase 7 — Workspace surfaces: 5 milestones
 - Phase 8 — Settings surfaces: 4 milestones
-- Phase 9 — Embedded admin console: 3 milestones (Sentry already shipped in M0.3; M9.1 reads from existing Sentry, M9.3 displays in admin operations view)
+- Phase 9 — Embedded admin console: 3 milestones
 
-**Total: 36 milestones.** With autonomous Claude Code execution, estimated 34-46 hours of compute time, deliverable at Jeremy's pace of pasting prompts.
+**Total: 45 milestones (up from 36 in v1.6/v1.7).** Net additions in v1.8:
+- M2.5 marketing positioning refresh (1 new)
+- M3.5-M3.9 expanded Phase 3 (5 new)
+- M5.4-M5.6 tax strategy (3 new)
+- Plus M5.1-M5.3 expanded scope (same milestones, 2-3x the work each)
+
+With autonomous Claude Code execution, estimated 50-70 hours of compute time, deliverable at Jeremy's pace of pasting prompts.
+
+**Already shipped in this session (13 milestones):** M1.1, M0.2, M0.3, M0.1, M1.2, M1.3, M2.1, M2.2, M2.3, M2.4, M3.0, M3.1, M3.2, M3.3.
+
+**Remaining to ship: 32 milestones.** Substantial but achievable at the pace Jeremy has demonstrated.
 
 ---
 
