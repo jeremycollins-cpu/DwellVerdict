@@ -99,6 +99,13 @@
       "when": 1777018700000,
       "tag": "0013_property_intake_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1777018800000,
+      "tag": "0014_bust_stale_usgs_cache",
+      "breakpoints": true
     }
   ]
 }
