@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { PublicNav } from "@/components/public-nav";
 import { Hero } from "@/components/landing/hero";
 import { ThreeStepExplainer } from "@/components/landing/three-step-explainer";
+import { PlatformPillars } from "@/components/landing/platform-pillars";
 import { AnatomyOfVerdict } from "@/components/landing/anatomy-of-verdict";
 import { FounderQuote } from "@/components/landing/founder-quote";
 import { PricingPreview } from "@/components/landing/pricing-preview";
@@ -11,9 +12,10 @@ import { LandingFooter } from "@/components/landing/footer";
 import { organizationSchema, SITE_URL } from "@/lib/seo/schema";
 import { StructuredData } from "@/lib/seo/structured-data";
 
-const TITLE = "DwellVerdict — Carfax for homes";
+const TITLE =
+  "DwellVerdict — Your real estate co-pilot, from verdict to ownership";
 const DESCRIPTION =
-  "Paste any address. Get an AI-powered verdict on regulatory risk, location quality, comparable sales, and revenue potential. Built for real estate investors.";
+  "AI-powered property verdicts plus end-to-end guidance through buying, renovating, managing, and optimizing — including tax strategies most investors miss.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -42,6 +44,7 @@ export default function HomePage() {
       <main className="flex-1">
         <Hero />
         <ThreeStepExplainer />
+        <PlatformPillars />
         <AnatomyOfVerdict />
         <FounderQuote />
         <PricingPreview />

@@ -13,15 +13,16 @@ export function FinalCTA() {
     <section className="bg-ink px-6 py-24 text-center text-paper md:py-28">
       <div className="mx-auto max-w-[720px]">
         <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
-          The verdict is in
+          The whole journey
         </div>
         <h2 className="mt-4 font-serif text-[40px] font-normal leading-[1.1] tracking-[-0.025em] sm:text-[48px] md:text-[56px]">
-          Your next home decision shouldn&rsquo;t be a{" "}
-          <em className="italic text-terracotta">guess</em>.
+          Start with a verdict. Stay for the{" "}
+          <em className="italic text-terracotta">platform</em>.
         </h2>
-        <p className="mx-auto mt-5 max-w-[520px] text-[16px] leading-[1.6] text-paper/70 md:text-[17px]">
-          Get your first verdict free. No credit card. Works for any U.S.
-          residential property.
+        <p className="mx-auto mt-5 max-w-[560px] text-[16px] leading-[1.6] text-paper/70 md:text-[17px]">
+          Your first verdict is free. From there, DwellVerdict guides you
+          through buying, renovating, managing, and the tax strategies most
+          investors miss.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <SignedOut>

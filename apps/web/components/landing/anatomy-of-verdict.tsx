@@ -56,14 +56,15 @@ export function AnatomyOfVerdict() {
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
         <div>
           <h2 className="font-serif text-[36px] font-normal leading-[1.15] tracking-[-0.02em] text-ink md:text-[44px]">
-            Anatomy of a verdict.
+            Anatomy of a verdict — your starting point.
           </h2>
           <p className="mt-5 text-[16px] leading-[1.65] text-ink-70">
-            Every DwellVerdict is built on{" "}
+            Every verdict shows you the signal, the confidence, the{" "}
             <strong className="font-medium text-ink">
               four evidence domains
             </strong>
-            . We don&rsquo;t just spit out a number — we show our work.
+            , and Scout&rsquo;s analysis. Then we help you act on it — through
+            buying, renovating, managing, and tax strategy.
           </p>
           <p className="mt-4 text-[16px] leading-[1.65] text-ink-70">
             Each verdict cites its sources, flags its confidence level, and

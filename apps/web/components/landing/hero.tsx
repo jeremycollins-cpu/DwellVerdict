@@ -25,10 +25,10 @@ export function Hero() {
           <em className="italic text-terracotta">verdict</em>.
         </h1>
 
-        <p className="mx-auto mt-6 max-w-[620px] text-[17px] leading-relaxed text-ink-muted md:text-[19px]">
-          Paste any address. Get an AI-generated report on whether to buy,
-          watch, or pass — grounded in regulatory rules, comparable properties,
-          revenue estimates, and location signals. The record follows the home.
+        <p className="mx-auto mt-6 max-w-[680px] text-[17px] leading-relaxed text-ink-muted md:text-[19px]">
+          The verdict is just the start. DwellVerdict guides you through
+          buying, renovating, managing, and optimizing — including the tax
+          strategies most investors miss.
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-3">
@@ -51,10 +51,10 @@ export function Hero() {
             </Link>
           </SignedIn>
           <a
-            href="#how-it-works"
+            href="#platform"
             className="inline-flex items-center rounded-md border border-hairline-strong bg-transparent px-6 py-3.5 text-[15px] font-medium text-ink transition-colors hover:border-ink"
           >
-            See how it works
+            See the platform
           </a>
         </div>
 
