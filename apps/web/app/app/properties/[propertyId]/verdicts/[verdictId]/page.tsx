@@ -90,6 +90,7 @@ export default async function VerdictDetailPage({
             verdictId={verdict.id}
             propertyId={propertyId}
             addressFull={addressFull}
+            status={verdict.status as "pending" | "ready" | "failed"}
             errorMessage={verdict.errorMessage}
           />
         </div>

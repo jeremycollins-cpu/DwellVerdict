@@ -78,6 +78,14 @@ export async function markVerdictReady(params: {
       costCents: params.costCents,
       scoreBreakdown: params.scoreBreakdown ?? null,
       completedAt: sql`now()`,
+      // M3.6 fix-forward — regenerating a previously-failed verdict
+      // updates the same row in place (failed-retry semantics still
+      // overwrite; see RUNBOOK Known-followups on M3.3 immutability).
+      // Without this reset, the row carries forward the prior
+      // attempt's error_message even after status flips to 'ready'
+      // and the status endpoint + any UI surface reading errorMessage
+      // surfaces stale failure text on a successful verdict.
+      errorMessage: null,
     })
     .where(eq(verdicts.id, params.verdictId));
 }
