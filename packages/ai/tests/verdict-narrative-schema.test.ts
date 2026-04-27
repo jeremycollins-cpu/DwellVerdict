@@ -218,6 +218,52 @@ describe("VerdictNarrativeOutputSchema (v2)", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  // M3.10 fix-forward — citation URLs accept either real URLs or
+  // user-intake sentinels. The model emits sentinels when the
+  // cited source is the user's intake form.
+  it("accepts a citation with url='user-provided'", () => {
+    const r = VerdictNarrativeOutputSchema.safeParse({
+      ...golden,
+      data_points: {
+        ...golden.data_points,
+        revenue: {
+          summary: "Net STR ~$38K based on user-provided assumptions.",
+          citations: [{ url: "user-provided", label: "Expected nightly rate" }],
+        },
+      },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts a citation with url='intake-data'", () => {
+    const r = VerdictNarrativeOutputSchema.safeParse({
+      ...golden,
+      data_points: {
+        ...golden.data_points,
+        regulatory: {
+          summary: "Permitted per user intake.",
+          citations: [{ url: "intake-data", label: "User intake" }],
+        },
+      },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("still rejects an arbitrary non-URL string in citation url", () => {
+    const r = VerdictNarrativeOutputSchema.safeParse({
+      ...golden,
+      data_points: {
+        ...golden.data_points,
+        regulatory: {
+          summary: "Test.",
+          // Sentinel literals are accepted; arbitrary strings still aren't.
+          citations: [{ url: "not-a-url", label: "broken" }],
+        },
+      },
+    });
+    expect(r.success).toBe(false);
+  });
 });
 
 describe("verdict-narrative fair-housing lint (v2 shape)", () => {

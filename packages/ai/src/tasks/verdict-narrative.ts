@@ -50,8 +50,30 @@ export const VERDICT_NARRATIVE_MODEL = "claude-haiku-4-5";
  * metric (e.g. no HOA → no hoa_status). The model is instructed to
  * emit fields it has data for and omit the rest.
  */
+/**
+ * M3.10 fix-forward — citation `url` accepts either a real URL OR
+ * one of two non-URL sentinels (`"user-provided"` /
+ * `"intake-data"`). Rationale: when the model cites the user's
+ * intake answers as a source ("rent assumption per intake"), there
+ * is no clickable URL to point at — the prior `.url()` validator
+ * was rejecting otherwise-valid tool calls. The UI checks for
+ * these sentinels and renders a non-clickable "From your intake"
+ * chip instead of an `<a>`. See evidence-card.tsx.
+ *
+ * Future sentinels can be added as new literal values without
+ * loosening the URL validation for the actual-URL case.
+ */
+export const CITATION_URL_SENTINELS = ["user-provided", "intake-data"] as const;
+export type CitationUrlSentinel = (typeof CITATION_URL_SENTINELS)[number];
+
+const CitationUrlSchema = z.union([
+  z.string().url(),
+  z.literal("user-provided"),
+  z.literal("intake-data"),
+]);
+
 const CitationSchema = z.object({
-  url: z.string().url(),
+  url: CitationUrlSchema,
   label: z.string().min(1).max(120),
 });
 

@@ -41,16 +41,21 @@ const SchoolEntryToolSchema = z.object({
   name: z.string().min(1).max(120),
   rating: z.number().min(1).max(10).optional(),
   type: z.enum(["public", "private", "charter"]).optional(),
-  notes: z.string().max(200).optional(),
+  // M3.10 fix-forward — see SchoolEntrySchema in
+  // packages/data-sources/src/types.ts. Limits must stay in sync
+  // between the LLM tool output schema (here) and the persisted
+  // signal schema (there) or the cache write fails after a tool
+  // call that the data-sources layer would have accepted.
+  notes: z.string().max(280).optional(),
 });
 
 export const SchoolsLookupOutputSchema = z.object({
   elementary_schools: z.array(SchoolEntryToolSchema).max(5).default([]),
   middle_schools: z.array(SchoolEntryToolSchema).max(5).default([]),
   high_schools: z.array(SchoolEntryToolSchema).max(5).default([]),
-  district_summary: z.string().max(400).optional().nullable(),
+  district_summary: z.string().max(500).optional().nullable(),
   notable_factors: z
-    .array(z.string().min(1).max(160))
+    .array(z.string().min(1).max(280))
     .max(5)
     .default([]),
   data_quality: z.enum(["rich", "partial", "unavailable"]).default("partial"),
