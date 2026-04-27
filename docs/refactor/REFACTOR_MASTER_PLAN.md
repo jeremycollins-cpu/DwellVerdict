@@ -1,6 +1,6 @@
 # DwellVerdict Engineering Refactor — Master Plan
 
-**Status:** Active · v1.8 · April 26, 2026
+**Status:** Active · v1.9 · April 27, 2026
 **Owner:** Jeremy Collins
 **Engineering executor:** Claude Code (autonomous)
 **Design reference:** 22 mockups + v4-verdict in `docs/refactor/design-mockups/`
@@ -8,6 +8,8 @@
 ---
 
 ## Changelog
+
+**v1.9 (2026-04-27):** Phase 3 expansion driven by Jeremy's observation while reviewing M3.6 production verdicts: thesis-aware narrative was correct but underlying data was still STR-flavored for non-STR theses. Added thesis-specific data signals architecture (LLM-first, paid-integration upgrade path post-revenue), 5 new milestones (M3.10 schools, M3.11 LTR rental comps, M3.12 sales comps + days-on-market, M3.13 thesis-specific regulatory expansion, plus M3.8 scope expansion to include thesis-aware fetcher selection). Phase 3 sequence updated to prioritize user-visible improvements: M3.7 → M3.10 → M3.13 → M3.11 → M3.8 → M3.4 → M3.9 → M3.12. Phase 3 grew from 10 to 14 milestones.
 
 **v1.8 (2026-04-26):** Major reframe. DwellVerdict is an end-to-end real estate platform; verdicts are the lead-gen hook into a longer user journey. Added platform positioning section, expanded lifecycle stage scope, added tax strategy as a new pillar (cost segregation, STR loophole, depreciation, 1031 exchanges), added user-input data architecture for affordability ($0 data infrastructure pre-launch), added regional risk awareness (wildfire-weighted scoring for California, etc.), added milestones M3.5-M3.9 for revised Phase 3 scope, added M2.5 marketing positioning refresh, added M5.4-M5.6 tax strategy milestones, revised M5.1-M5.3 lifecycle stages from "light treatment" to "core platform surfaces."
 
@@ -249,6 +251,81 @@ M3.8 (thesis-aware scoring) implements this. Rubric weights become a 2D table: `
 
 ---
 
+## Thesis-specific data signals
+
+**Major architectural decision (v1.9):** Different investment theses need different underlying data. M3.6 made narrative thesis-aware but kept data-fetching uniform — verdicts on LTR properties were still pulling Airbnb-style comps and STR-flavored regulatory data. v1.9 corrects this by routing fetchers based on thesis_type and adding thesis-specific data sources.
+
+**Data sources required per thesis:**
+
+| Signal | STR | LTR | Owner-occupied | House-hacking | Flipping |
+|--------|-----|-----|----------------|---------------|----------|
+| STR comps (ADR + occupancy) | Critical | — | — | If renting portion | — |
+| LTR rental comps (monthly rent) | — | Critical | — | If renting portion | — |
+| Sales comps (recent sold prices) | — | Appreciation | Appreciation | Appreciation | Critical |
+| Days-on-market trends | — | — | — | — | Critical |
+| Schools | — | Critical | Critical | Critical | — |
+| Tenant rights laws | — | Critical | — | If renting portion | — |
+| STR regulatory (permits/registration) | Critical | — | — | If renting portion | — |
+| ADU regulations | — | — | — | Critical | — |
+| Multi-unit zoning | — | — | — | Critical | Sometimes |
+| Wildfire/flood/hurricane risk | Critical | High | High | High | Moderate |
+| Crime trends | Moderate | High | Critical | High | Low |
+| Walkability | Low | Moderate | High | Moderate | Moderate |
+| Tourism volume / event calendars | Critical | — | — | If STR portion | — |
+| Airport proximity | Critical | — | Low | If STR portion | — |
+| Public transit | — | Moderate | Moderate | Moderate | Low |
+| Job market / employer concentration | — | Critical | Moderate | Moderate | Low |
+| Population trends | — | Critical | High | High | Moderate |
+| Demographics / community fit | — | Moderate | Critical | Moderate | Low |
+| Property tax trajectory | — | Moderate | High | Moderate | Critical |
+| Renovation cost benchmarks | — | — | — | Sometimes | Critical |
+
+**LLM-first architecture (v1):**
+
+Per the cost optimization decisions, paid data integrations are deferred until 5+ paying users. v1 implements thesis-specific signals as LLM-cached lookups where possible:
+
+- **Schools:** GreatSchools free tier (when API key works) with LLM fallback for ratings
+- **LTR rental comps:** LLM lookup using current market knowledge ("estimate fair monthly rent for [property] based on city, beds, baths, sqft, and recent comparable rentals") — cached per zip+thesis
+- **Sales comps:** LLM lookup for recent comparable sales — cached per zip
+- **Days-on-market:** LLM lookup for area trends — cached per zip
+- **Tenant rights:** LLM lookup extending existing regulatory pattern — cached per state
+- **ADU regulations:** LLM lookup — cached per city
+- **Multi-unit zoning:** LLM lookup — cached per address
+- **Tourism volume / events:** LLM lookup with date awareness — cached per destination + season
+- **Renovation cost benchmarks:** LLM lookup — cached per region
+- **Demographics, transit, job market:** Census ACS + BLS (free public APIs once M3.7 fixes them)
+
+LLM cached lookups are cheap (Haiku 4.5 + cache reads = pennies per lookup, free on subsequent hits within cache TTL). Cache invalidation per signal class is appropriate (regulatory weekly, sales comps monthly, etc.).
+
+**Fetcher routing (v1):**
+
+The orchestrator selects which fetchers to call based on `thesis_type`:
+
+```
+STR → STR comps + STR regulatory + tourism + airport + wildfire + crime
+LTR → LTR rental comps + tenant rights + schools + crime + transit + job market + population trends
+Owner-occupied → schools + walkability + crime + commute + demographics + climate + appreciation comps
+House-hacking → ADU regulations + multi-unit zoning + LTR comps + STR comps (if applicable) + schools
+Flipping → sales comps + days-on-market + ARV indicators + renovation costs + permit complexity
+Other → all signals (catch-all)
+```
+
+This is implemented in M3.8 (originally just "thesis-aware scoring" — expanded in v1.9 to also include "thesis-aware fetcher selection").
+
+**Paid integration upgrade path (v1.1+):**
+
+When revenue justifies, replace LLM-based estimates with verified paid sources:
+
+- AirDNA ($30/month) — replaces STR comp LLM lookup with verified ADR/occupancy data
+- Rentometer Pro ($25/month) — replaces LTR rental comp LLM lookup
+- ATTOM Data ($50-100/month) — replaces sales comp + days-on-market LLM lookups with verified data
+- GreatSchools paid tier — replaces school rating LLM fallback
+- RemodelMax / RSMeans — replaces renovation cost LLM lookup
+
+Triggers: 5 paying users for AirDNA basic; 20 paying users for ATTOM; 50 paying users for full paid stack.
+
+---
+
 ## Schema changes required
 
 Production schema lives in `packages/db/src/schema/`. The refactor introduces these new fields/tables:
@@ -395,7 +472,7 @@ The existence of admin must not leak to customers. A non-admin viewing page sour
 
 **Effect 2: Implicit Pro tier access.**
 Super admins have full Pro tier access automatically, without requiring a Stripe subscription:
-- All Pro-gated features unlocked: Compare, Briefs unlimited, Scout at Pro tier limits, Portfolio dashboard, Alerts
+- All Pro-gated features unlocked: Compare, Briefs, Scout at Pro tier limits, Portfolio dashboard, Alerts
 - All quota enforcement treats `is_super_admin = true` as if `subscription_tier = 'pro'`
 - The existing `consumeReport()` and similar quota functions must check `is_super_admin` first and skip quota checks if true
 - Billing settings page for super admins should still display gracefully (showing whatever subscription state they actually have, if any) but does not gate access
@@ -707,6 +784,15 @@ Public-facing pages: landing, pricing, legal, help, plus comprehensive SEO/GEO o
 
 ### Phase 3 — Verdict surfaces
 
+**Phase 3 ship sequence (v1.9, user-visible improvements first):**
+
+```
+M3.0 ✅ → M3.1 ✅ → M3.2 ✅ → M3.3 ✅ → M3.5 ✅ → M3.6 ✅ → 
+M3.7 → M3.10 → M3.13 → M3.11 → M3.8 → M3.4 → M3.9 → M3.12
+```
+
+This sequence prioritizes the milestones most likely to make verdicts feel meaningfully better to users (schools, regulatory expansion, LTR comps) before the structural milestones (thesis-aware scoring, what-if calculator). M3.4 (user-level onboarding) ships AFTER per-property intake exists so it can pre-fill defaults. M3.12 (sales comps + days-on-market) ships LAST in Phase 3 because flipping is a smaller user segment than STR/LTR/owner-occupied.
+
 The core product: how users go from address to verdict to evidence. This phase opens with the AI cost optimization foundation (M3.0) — every milestone after this one consumes those abstractions rather than calling Anthropic directly.
 
 **M3.0** — AI cost optimization foundation
@@ -837,26 +923,45 @@ The core product: how users go from address to verdict to evidence. This phase o
 >
 > **Production verification:** Regenerate a verdict on Bend Ave (Kings Beach, near Tahoe — should have flood zone data, wildfire risk). Verify FEMA, Census, USGS data populate the verdict. Compare to pre-M3.7 verdict (where these were all empty).
 
-**M3.8** — Thesis-aware scoring with regional risk awareness (NEW in v1.8)
-> Update verdict scoring rubric to be thesis-aware AND regional-risk-aware. This is the biggest scoring change since the engine was built.
+**M3.8** — Thesis-aware scoring + thesis-aware fetcher selection (EXPANDED in v1.9)
+> Two integrated changes that make the verdict engine thesis-coherent: (1) the scoring rubric weights different rules differently per thesis, and (2) the orchestrator routes which fetchers to call based on thesis. v1.8 originally specced just the scoring half; v1.9 expanded after Jeremy observed that LTR verdicts were still pulling STR-flavored data in M3.6 production verification. Without thesis-aware fetching, thesis-aware scoring still applies the wrong rubric weights to the wrong data.
 >
-> **Scope:**
+> **Part 1 — Thesis-aware fetcher selection:**
+>
+> Update `apps/web/lib/verdict/orchestrator.ts` to select which signals to call based on `property.thesis_type`:
+>
+> - **STR thesis:** STR comp lookup, STR regulatory, tourism volume, event calendars, airport proximity, wildfire, crime (light), HOA STR specifics
+> - **LTR thesis:** LTR rental comps (M3.11), tenant rights regulatory (M3.13), schools (M3.10), crime (heavy), public transit, job market (BLS via M3.7), population trends, walkability (moderate)
+> - **Owner-occupied thesis:** Schools (M3.10), walkability, crime (heavy), commute analysis, demographics (Census via M3.7), climate/water security, sales comp appreciation (M3.12)
+> - **House-hacking thesis:** ADU regulations (M3.13), multi-unit zoning (M3.13), LTR rental comps (M3.11), STR comps if applicable, schools (M3.10), owner-occupied financing context
+> - **Flipping thesis:** Sales comps (M3.12), days-on-market (M3.12), ARV indicators (M3.12), renovation cost benchmarks, permit complexity (M3.13)
+> - **Other thesis:** All signals (catch-all — user describes their thesis, Scout AI handles specifics)
+>
+> Implementation: a `signalsForThesis(thesisType)` helper returns the fetcher list. Each fetcher is opt-in per thesis. Reduces wasted Anthropic + API calls on irrelevant signals.
+>
+> **Part 2 — Thesis-aware scoring rubric:**
 >
 > Update `packages/ai/src/scoring.ts` to accept `thesis_type` and `goal_type` from the property record. Implement rubric weights as a 2D table indexed by `{thesis} × {region}` with default fallback when no specific override exists.
 >
 > **Thesis-specific weight examples:**
 >
-> | Rule | STR Destination | STR Urban | LTR Residential | Owner-occupied |
-> |------|----------------|-----------|-----------------|----------------|
-> | Walk Score | Low (5%) | High (15%) | Moderate (10%) | High (15%) |
-> | Schools | Off (0%) | Off (0%) | High (20%) | High (25%) |
-> | Proximity to attractions | Critical (25%) | Moderate (10%) | Low (5%) | Low (5%) |
-> | Cap rate vs price | Critical (20%) | Critical (20%) | Critical (20%) | Off (0%) |
-> | Seasonality | Critical (15%) | Low (5%) | Low (0%) | Off |
-> | Crime | Moderate (10%) | High (15%) | High (20%) | Critical (25%) |
-> | Permitting/regulatory | Critical (20%) | Critical (20%) | Lower (10%) | Lower (5%) |
+> | Rule | STR Destination | STR Urban | LTR Residential | Owner-occupied | Flipping |
+> |------|----------------|-----------|-----------------|----------------|----------|
+> | Walk Score | Low (5%) | High (15%) | Moderate (10%) | High (15%) | Low (5%) |
+> | Schools | Off (0%) | Off (0%) | High (20%) | High (25%) | Off (0%) |
+> | Proximity to attractions | Critical (25%) | Moderate (10%) | Low (5%) | Low (5%) | Off |
+> | Cap rate vs price | Critical (20%) | Critical (20%) | Critical (20%) | Off (0%) | Off |
+> | Sales comps + ARV | Off | Off | Appreciation (10%) | Appreciation (15%) | Critical (25%) |
+> | Days-on-market | Off | Off | Off | Off | Critical (15%) |
+> | Seasonality | Critical (15%) | Low (5%) | Low (0%) | Off | Off |
+> | Crime | Moderate (10%) | High (15%) | High (20%) | Critical (25%) | Low (5%) |
+> | Permitting/regulatory | Critical (20%) | Critical (20%) | Tenant rights (15%) | Lower (5%) | Permit complexity (10%) |
 >
-> Note: percentages are illustrative — actual weights to be calibrated.
+> Note: percentages are illustrative — actual weights to be calibrated during M3.8 development.
+>
+> **Owner-occupied + flipping null revenue handling (noted by Claude Code during M3.6):**
+>
+> Owner-occupied and flipping theses don't generate rental revenue, so `cap_rate` rule scores zero. The rubric handles this by reweighting toward appreciation potential and (for flipping) ARV calculations. Don't penalize properties for missing revenue when revenue isn't part of the thesis.
 >
 > **Regional risk overrides:**
 >
@@ -872,7 +977,7 @@ The core product: how users go from address to verdict to evidence. This phase o
 >
 > **Listing price as first-class metric:**
 >
-> Update v2 narrative tool schema to include:
+> Update v3 narrative tool schema to include a "Pricing" evidence card with:
 > - `evidence.pricing.metrics.listing_price` (cents)
 > - `evidence.pricing.metrics.estimated_value` (cents)
 > - `evidence.pricing.metrics.user_offer_price` (cents, nullable)
@@ -885,7 +990,7 @@ The core product: how users go from address to verdict to evidence. This phase o
 >
 > Mark all existing verdicts as `legacy_rubric: true`. Render them with a small "Legacy verdict — regenerate for thesis-aware analysis" prompt at the top. Don't auto-regenerate (cost concern). Let user opt in.
 >
-> **Production verification:** Regenerate Kings Beach verdict (STR in CA fire zone) — wildfire weight should be high, insurance cost should factor heavily, low Walk Score should NOT drop the verdict significantly because STR destination thesis. Regenerate Roseville (LTR in CA suburbs) — wildfire moderate, schools and neighborhood quality matter more. Verify the verdicts feel meaningfully different in their reasoning.
+> **Production verification:** Regenerate Kings Beach verdict (STR in CA fire zone) — wildfire weight should be high, insurance cost should factor heavily, low Walk Score should NOT drop the verdict significantly because STR destination thesis. Regenerate Roseville (LTR in CA suburbs) — wildfire moderate, schools and neighborhood quality matter more. Verify the verdicts feel meaningfully different in their reasoning AND pull different underlying data per thesis.
 
 **M3.9** — What-if calculator (NEW in v1.8)
 > Build a "what-if" mode users enter from the verdict detail page. Lets users adjust the inputs they provided in M3.5 to stress-test the verdict.
@@ -919,6 +1024,119 @@ The core product: how users go from address to verdict to evidence. This phase o
 > - Sharing what-if scenarios with collaborators (post-launch)
 >
 > **Production verification:** Open Kings Beach verdict, click "What-if". Adjust nightly rate from $400 → $300 and verify cap rate calculation updates. Test thesis change (STR → LTR) and verify rubric reapplies. Save scenario, navigate away and back, confirm scenario persists.
+
+**M3.10** — Schools data integration (NEW in v1.9)
+> Add school quality data as a thesis-relevant signal. Driven by Jeremy's M3.6 production observation: LTR and Owner-occupied verdicts were missing school context, which is a primary driver for both family renters and homebuyers.
+>
+> **Scope:**
+>
+> Add new fetcher `packages/data-sources/src/schools.ts`:
+>
+> - **Primary path:** GreatSchools API free tier (requires API key). Returns nearby school ratings (1-10), name, type (public/private/charter), grade levels, distance from property
+> - **LLM fallback:** When GreatSchools fails or no API key, use cached LLM lookup ("provide school quality assessment for [city, state] including elementary/middle/high school ratings and notable schools nearby")
+> - Cache TTL: 90 days (school ratings change slowly)
+> - Returns up to 5 nearest schools per level (elementary, middle, high)
+>
+> Add evidence handling:
+>
+> - Update v3 narrative prompt to include schools context for LTR/Owner-occupied/House-hacking theses
+> - For STR/Flipping theses, schools data is fetched but de-emphasized (only mentioned if exceptional)
+> - Update tool schema to include `evidence.location.metrics.school_ratings` and `evidence.location.metrics.notable_schools`
+>
+> Surface in UI:
+>
+> - For thesis-relevant cases, display schools section in location evidence card with ratings + names
+> - For non-relevant theses, schools available in expanded view but not prominent
+>
+> **Out of scope:**
+>
+> - School zoning lookups (which specific school the property is zoned for) — requires school district APIs which vary by district
+> - Test score breakdowns or specialty programs (defer to v1.1 with paid GreatSchools tier)
+>
+> **Production verification:** Regenerate Roseville LTR verdict — schools section should appear in evidence with ratings for nearby elementary/middle/high schools. Regenerate Kings Beach STR verdict — schools data fetched but not prominent in narrative.
+
+**M3.11** — LTR rental comps (NEW in v1.9)
+> Add long-term rental comp lookups for LTR thesis verdicts. Currently the orchestrator pulls Airbnb-style STR comps even for LTR properties, which is structurally wrong. M3.11 adds proper LTR rental comp data.
+>
+> **Scope:**
+>
+> Add new fetcher `packages/data-sources/src/ltr-comps.ts`:
+>
+> - **LLM-based lookup (v1):** Cached prompt asking model to estimate fair monthly rent for the property based on city, beds, baths, square footage, and recent comparable rental listings the model knows about. Returns median monthly rent estimate, range (low/high), and contextual notes about local rental market dynamics.
+> - Cache TTL: 30 days, keyed on `{city, state, beds, baths, sqft_bucket}`
+> - Future: replace LLM lookup with Rentometer Pro ($25/month) or Zillow rentals API when revenue justifies
+>
+> Add to orchestrator's LTR thesis fetch list (M3.8 fetcher routing). Replaces Airbnb comps for LTR thesis verdicts.
+>
+> Update v3 narrative prompt to include LTR rental comp context when thesis_type='ltr':
+> - Median monthly rent for comparable units
+> - Whether user's `ltr_expected_monthly_rent_cents` (from intake) aligns with market
+> - Vacancy assumptions in context of local market conditions
+>
+> Update tool schema:
+> - `evidence.revenue.metrics.median_ltr_rent_monthly` (cents)
+> - `evidence.revenue.metrics.ltr_rent_range_low` / `_high` (cents)
+> - `evidence.revenue.metrics.user_rent_vs_market_pct` (decimal — flags if user's intake rent is meaningfully off-market)
+>
+> **Production verification:** Regenerate Roseville LTR verdict — should now show LTR rental comp context in revenue evidence. The verdict should evaluate whether the user's expected monthly rent (from intake) aligns with comparable rentals in the area.
+
+**M3.12** — Sales comps + days-on-market (NEW in v1.9)
+> Add recent sales comp data and days-on-market trends for Flipping (critical) and Owner-occupied appreciation (supporting) theses. Currently no sales comp signal exists in the verdict engine.
+>
+> **Scope:**
+>
+> Add new fetchers:
+>
+> - `packages/data-sources/src/sales-comps.ts` — LLM-based lookup for recent comparable sales. Returns up to 10 comps with sale price, sqft, beds/baths, distance, days-on-market, sold date. Cache TTL: 30 days.
+> - `packages/data-sources/src/market-velocity.ts` — LLM-based lookup for area days-on-market trends. Returns median DOM for last 90 days, sale-to-list ratio, inventory levels, market temperature classification (hot/warm/cool/cold). Cache TTL: 14 days.
+> - Future: replace with ATTOM Data ($50-100/month) when revenue justifies
+>
+> For Flipping thesis, add ARV indicator logic:
+> - Use sales comps to estimate ARV based on similar renovated properties in area
+> - Compute potential profit margin: ARV − purchase_price − renovation_budget − holding_costs
+> - Flag when margin is too thin for typical flipping economics
+>
+> Update v3 narrative prompt for Flipping thesis to include market velocity + ARV analysis. Update for Owner-occupied to include appreciation context based on sales velocity trends.
+>
+> Update tool schema:
+> - `evidence.pricing.metrics.recent_sales_median` (cents)
+> - `evidence.pricing.metrics.days_on_market_median` (integer days)
+> - `evidence.pricing.metrics.sale_to_list_ratio` (decimal)
+> - `evidence.pricing.metrics.market_temperature` (enum: hot/warm/cool/cold)
+> - For Flipping: `evidence.revenue.metrics.estimated_arv` (cents), `evidence.revenue.metrics.potential_flip_margin` (cents)
+>
+> **Out of scope:**
+>
+> - Off-market sales (only MLS/public records visible to LLM)
+> - Granular comp adjustments for renovation level / condition
+> - Investment property cap rate sales (different market dynamics)
+>
+> **Production verification:** When a flipping-thesis property is created, verdict should include market velocity + ARV indicators. For owner-occupied properties, sales comp context should appear in pricing evidence.
+
+**M3.13** — Thesis-specific regulatory expansion (NEW in v1.9)
+> Extend the existing regulatory LLM lookup to capture thesis-specific regulatory dimensions. Currently `regulatory_cache` covers STR permitting (designed for STR thesis); v1.9 expands it to handle LTR tenant rights, House-hacking ADU/zoning, and Flipping permit complexity.
+>
+> **Scope:**
+>
+> Update `packages/ai/src/tasks/regulatory-lookup.ts` to accept thesis_type parameter and produce thesis-appropriate regulatory analysis:
+>
+> - **STR thesis (existing):** STR permitting, registration, transient occupancy tax, length-of-stay rules, HOA STR restrictions
+> - **LTR thesis (NEW):** Tenant rights overview (security deposit limits, eviction process, notice requirements), rent control / rent stabilization status, Section 8 considerations, lease term limits, just-cause eviction laws
+> - **Owner-occupied thesis (NEW):** HOA detailed analysis (CC&Rs, fee history if discoverable, restrictions), homestead exemption, property tax trajectory (Prop 13 in CA, CAP rate elsewhere), local building code complexity for future modifications
+> - **House-hacking thesis (NEW):** ADU regulations (allowed unit size, owner-occupancy requirements, parking requirements), multi-unit zoning, FHA owner-occupancy multi-unit rules
+> - **Flipping thesis (NEW):** Permit complexity (timeline, fees, common rejections), contractor licensing requirements, transfer tax / capital gains state rules
+>
+> Update `regulatory_cache` schema to include thesis_dimension column so the same property can have multiple cached regulatory analyses (one per thesis dimension that applies to its evaluations).
+>
+> Update v3 narrative prompt to emit thesis-relevant regulatory context. The Regulatory evidence card now shows thesis-appropriate concerns instead of always showing STR-flavored permit data.
+>
+> **Out of scope:**
+>
+> - Real-time regulatory monitoring (regulatory changes happen, but pre-launch we accept 90-day cache TTL)
+> - Specific HOA document analysis (requires the documents themselves)
+> - Tax law specifics beyond high-level (defer to M5.4-M5.5 tax strategy)
+>
+> **Production verification:** Regenerate Roseville LTR verdict — regulatory section should now discuss tenant rights / rent control instead of STR permits. Regenerate Lincoln Owner-occupied — regulatory should discuss HOA + property tax trajectory. Both should feel substantively different from pre-M3.13 verdicts on the same properties.
 
 ### Phase 4 — Property surfaces
 
@@ -1207,12 +1425,12 @@ The "live in one tab" framing: Jeremy is both a user and an admin. The admin sec
 
 ---
 
-## Milestone count summary (v1.8)
+## Milestone count summary (v1.9)
 
 - Phase 0 — Operational foundation: 3 milestones (M0.1 email, M0.2 CI, M0.3 Sentry)
 - Phase 1 — Foundation: 3 milestones
 - Phase 2 — Public surfaces: 5 milestones (M2.1 landing, M2.2 pricing, M2.3 legal+help, M2.4 SEO+GEO, M2.5 marketing positioning refresh)
-- Phase 3 — Verdict surfaces: 10 milestones (M3.0 cost optimization, M3.1 address input, M3.2 streaming, M3.3 verdict detail, M3.4 user onboarding, M3.5 property thesis intake, M3.6 user-input data architecture, M3.7 free fetcher repair, M3.8 thesis-aware scoring, M3.9 what-if calculator)
+- Phase 3 — Verdict surfaces: 14 milestones (M3.0 cost optimization, M3.1 address input, M3.2 streaming, M3.3 verdict detail, M3.4 user onboarding, M3.5 property thesis intake, M3.6 user-input data architecture, M3.7 free fetcher repair, M3.8 thesis-aware scoring + thesis-aware fetcher selection, M3.9 what-if calculator, M3.10 schools data, M3.11 LTR rental comps, M3.12 sales comps + days-on-market, M3.13 thesis-specific regulatory expansion)
 - Phase 4 — Property surfaces: 4 milestones
 - Phase 5 — Lifecycle stages + Tax strategy: 6 milestones (M5.1 buying expanded, M5.2 renovating expanded, M5.3 managing expanded, M5.4 per-property tax, M5.5 portfolio tax, M5.6 tax integration polish)
 - Phase 6 — AI surfaces: 2 milestones
@@ -1220,17 +1438,19 @@ The "live in one tab" framing: Jeremy is both a user and an admin. The admin sec
 - Phase 8 — Settings surfaces: 4 milestones
 - Phase 9 — Embedded admin console: 3 milestones
 
-**Total: 45 milestones (up from 36 in v1.6/v1.7).** Net additions in v1.8:
-- M2.5 marketing positioning refresh (1 new)
-- M3.5-M3.9 expanded Phase 3 (5 new)
-- M5.4-M5.6 tax strategy (3 new)
-- Plus M5.1-M5.3 expanded scope (same milestones, 2-3x the work each)
+**Total: 49 milestones (up from 45 in v1.8, 36 in v1.6/v1.7).** Net additions in v1.9:
+- M3.10 schools data integration (1 new)
+- M3.11 LTR rental comps (1 new)
+- M3.12 sales comps + days-on-market (1 new)
+- M3.13 thesis-specific regulatory expansion (1 new)
+- Plus M3.8 expanded scope (thesis-aware fetcher selection added to thesis-aware scoring)
 
-With autonomous Claude Code execution, estimated 50-70 hours of compute time, deliverable at Jeremy's pace of pasting prompts.
+**Already shipped in this session (15 milestones):** M1.1, M0.2, M0.3, M0.1, M1.2, M1.3, M2.1, M2.2, M2.3, M2.4, M3.0, M3.1, M3.2, M3.3, M2.5, M3.5, M3.6.
 
-**Already shipped in this session (13 milestones):** M1.1, M0.2, M0.3, M0.1, M1.2, M1.3, M2.1, M2.2, M2.3, M2.4, M3.0, M3.1, M3.2, M3.3.
+**Remaining to ship in Phase 3: 8 milestones** in this sequence:
+M3.7 → M3.10 → M3.13 → M3.11 → M3.8 → M3.4 → M3.9 → M3.12
 
-**Remaining to ship: 32 milestones.** Substantial but achievable at the pace Jeremy has demonstrated.
+**Remaining to ship total: 34 milestones.** Substantial. With autonomous Claude Code execution, estimated 75-100 hours of compute time at this scope, deliverable at Jeremy's pace of pasting prompts.
 
 ---
 
@@ -1277,9 +1497,13 @@ Each Claude Code PR includes:
 
 ## Risks and mitigations
 
-### Risk: Streaming verdict implementation is complex
+### Risk: Thesis-specific data architecture quality
 
-M3.2 is the highest-risk technical milestone. Server-Sent Events with Anthropic streaming is non-trivial. If it stalls in CI repeatedly, fall back to incremental polling for v1 launch and revisit streaming post-launch.
+M3.10–M3.13 ship LLM-based lookups for schools, LTR comps, sales comps, and expanded regulatory dimensions in lieu of paid integrations. LLM lookups can hallucinate plausible-but-wrong specifics (school ratings, recent sale prices, days-on-market trends) — and unlike the verdict narrative, these signals are presented as facts, not interpretation. Mitigations: (1) tight cache TTLs so stale data doesn't compound, (2) clear "estimated" labeling on all LLM-sourced numerics in the UI, (3) golden-file regression tests per signal class, (4) spot-check feedback loop in M9.3 admin AI quality dashboard. Upgrade trigger to paid sources (AirDNA, Rentometer, ATTOM, GreatSchools paid) at 5+ paying users for the highest-stakes signals.
+
+### Risk: Phase 3 scope expansion delay
+
+Phase 3 grew from 5 → 10 → 14 milestones across v1.7 → v1.8 → v1.9. Each expansion added user-visible value but pushed the v1 launch date. Mitigation: ship Phase 3 in the prioritized v1.9 sequence (M3.7 → M3.10 → M3.13 → M3.11 → M3.8 → M3.4 → M3.9 → M3.12) — each milestone delivers a meaningful improvement on its own, so we can launch from any point in the sequence if real-user signal demands earlier shipping. Worst case: M3.12 (sales comps + flipping ARV) ships in v1.1 because flipping is a smaller user segment than STR/LTR/owner-occupied.
 
 ### Risk: PDF brief generation has weight
 
@@ -1296,6 +1520,10 @@ If Hospitable/Guesty OAuth registration can't be completed pre-launch, ship M8.3
 ### Risk: Autonomous merge breaking production
 
 Pre-launch with no users, this risk is acceptable. Post-launch, this engagement model should be reconsidered — at that point, manual PR review for sensitive surfaces (Stripe, auth, billing) becomes worth the time cost.
+
+### Retired risks
+
+- ~~**Streaming verdict implementation is complex** (M3.2)~~ — Shipped clean in M3.2 (commit `accfca4`) with SSE + abort-signal-driven polling fallback. No regressions in production; the retroactive fix-forwards (M3.5 auto-trigger, M3.6 narrative data_points + stale errorMessage) were prompt/UX issues, not streaming-protocol issues. Risk is closed.
 
 ---
 
@@ -1320,7 +1548,7 @@ These come post-launch.
 
 The refactor is "complete" when:
 
-1. All 36 milestones have shipped to production
+1. All 49 milestones have shipped to production
 2. dwellverdict.com matches the 22 mockups visually
 3. All new schema migrations are applied
 4. No "coming soon" placeholders remain
