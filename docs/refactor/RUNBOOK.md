@@ -18,6 +18,7 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 Last updated: 2026-04-27
 
+- ✅ M3.7 shipped — free fetcher diagnostics & repair (FEMA + Census + USGS). All three were at 100% failure in production. Live diagnostic against actual endpoints surfaced three independent bugs: (1) **FEMA** — code pointed at `services.arcgis.com/HAJAw18hMX4YJMdE/.../FeatureServer/{27,28}` which returns 400 "Invalid URL"; the canonical home is `hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28` (still alive — the prior comment claiming FEMA "retired" it was wrong). Plus parser bug: `STATIC_BFE = -9999` sentinel for "not applicable" was being treated as a real BFE in the narrative — now filtered to null. (2) **Census** — geocoder pairing `Public_AR_Census2020` benchmark with `Census2020_Current` vintage returns 400 "Invalid vintage in request"; valid pairing is `Public_AR_Current` + `Census2020_Current`. Plus bumped ACS dataset 2022 → 2023. `CENSUS_API_KEY` is optional at our volume — works without it. (3) **USGS** — `services3.arcgis.com/.../US_Wildfires_v1/FeatureServer/0` returns 400 "Invalid URL" (service retired); canonical replacement is `InterAgencyFirePerimeterHistory_All_Years_View/FeatureServer/0` with renamed fields (`INCIDENT` / `GIS_ACRES` / `FIRE_YEAR_INT`). 7 new vitest regression tests pin the parser bugs; 24 data-sources tests pass. Live verification against Kings Beach + Roseville coords confirmed all three fetchers now return real data (Kings Beach: FEMA Zone X, Census 42% vacancy / $42K median income, USGS 9 fires including Martis 2001 14.4K acres). No schema migration; no env vars needed.
 - 🔧 M3.6 fix-forward — stale `error_message` displayed on successfully-regenerated verdicts. When a previously-failed verdict was retried and succeeded, the row's status flipped to `'ready'` but `error_message` carried forward from the prior attempt; the status endpoint surfaced the stale text and the verdict-detail page rendered it. Two changes: (1) `markVerdictReady` now sets `errorMessage: null` in the same UPDATE — primary fix, plus a new DB-backed regression test (`apps/web/tests/verdicts-mark-ready.test.ts`); (2) defense-in-depth — `/api/verdicts/[id]/status` only returns `errorMessage` when `status === 'failed'`, and `<VerdictFailedCard>` now takes a `status` prop and short-circuits to null if it's not `'failed'`. Vitest config gained a `server-only` → empty-stub alias so the new query test can import server-only modules. No schema migration.
 - 🔧 M3.6 fix-forward — narrative regression on sparse-intake properties. v3 prompt's H2-heavy user message + repeated "(not provided)" placeholders were causing Haiku to call `render_verdict_narrative` with `narrative` + `summary` only, omitting `data_points` entirely (Zod then rejected with `data_points: Required`). Fix is two parts: (1) appended a CRITICAL paragraph at the very end of the v3 user message restating that the four `summary` strings are required even when underlying signals are null — recency bias on Haiku makes the last instruction the strongest; (2) added diagnostic `console.error` of the raw `renderCall.input` + formatted Zod error before the failure return so future schema rejections surface in Vercel logs without needing local repro (which is blocked by Vercel masking the production `ANTHROPIC_API_KEY` on env-pull). No schema migration; observability-only on the logging side.
 - ✅ M3.6 shipped — user-input data architecture for verdict generation. Orchestrator now accepts a fully-loaded `Property` row (including M3.5 intake fields) instead of separate address fields, gates verdict generation on `intake_completed_at` (server-side defense in depth), and wraps every external fetcher in `settledSignal` (timeout + soft-fail envelope) so a single broken scraper can no longer fail the verdict. Reference price priority: user offer → listing → estimated value → Zillow → Redfin → null. New `computeIntakeRevenue()` runs first when thesis fields are populated (STR: nightly × occupancy × 365; LTR: rent × 12 × (1−vacancy); owner-occupied/flipping: null) — comp-derived `computeRevenueEstimate` is now fallback-only. Narrative gets thesis context via prompt v3 (`prompts/verdict-narrative.v3.md`) — same tool schema as v2, new `{{THESIS_TYPE}}`/`{{GOAL_TYPE}}`/pricing/expense placeholders so the narrative frames around the user's actual investment plan instead of a generic STR view. Console-only discrepancy logging when scraper price disagrees with intake by >5%; structured `[orchestrator] fetcher health` log line per verdict so M3.7 can prioritize repairs. 17 new tests (intake-revenue + utils) pass; existing 66 AI tests still green; v3 prompt loader is filename-derived from `VERDICT_NARRATIVE_PROMPT_VERSION` so future bumps don't require touching the loader. No schema migration.
@@ -39,7 +40,7 @@ Last updated: 2026-04-27
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M3.7 next — free fetcher diagnostics & repair (Zillow / Redfin / FEMA / Census / Airbnb — fix the actually-broken APIs surfaced by the M3.6 fetcher-health log; per v1.8 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 → M3.4 → M3.8 → M3.9)
+- ⏳ M3.10 next — schools data integration (per v1.9 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 ✅ → M3.10 → M3.13 → M3.11 → M3.8 → M3.4 → M3.9 → M3.12)
 
 ---
 
@@ -49,6 +50,50 @@ Tracked work that's been explicitly deferred past the v1 launch window. Each ent
 
 - **M0.4 — Auto-migration in Vercel build pipeline.** Required before next schema-change milestone. Until shipped, manually run `pnpm --filter @dwellverdict/db db:migrate` against production after schema migrations merge.
 - **M3.3 — Verify regenerate immutability.** The `/api/verdicts/[id]/generate` route inserts a new pending row only when `verdict.status === "ready" && force === true`. Failed-retry and pending-retry paths still UPDATE the same row in place — meaning a prior failed attempt's tokens / error / cost are overwritten on a successful retry, contradicting the M3.3 immutable-run-history goal. Investigate before run-history UI matters in production: either route failed-retries through a new pending row too, or document the in-place semantics as intentional and align M3.3 docs. Surfaced during the M3.6 stale `error_message` diagnosis (verdict 7a72b67f-1a6c-48d4-9a0f-e72e1b0e4e01).
+
+---
+
+## Diagnostic queries
+
+Run these against production (Neon SQL editor or local `psql` with `DATABASE_URL` from `vercel env pull`) when investigating issues. Reads only — none of these mutate state.
+
+### Fetcher health snapshot
+
+After M3.7, this query shows which free fetchers are actually populating the cache and which are silently failing.
+
+```sql
+SELECT
+  source,
+  COUNT(*) AS cache_entries,
+  MAX(fetched_at) AS last_successful_fetch,
+  ROUND(EXTRACT(EPOCH FROM (NOW() - MAX(fetched_at))) / 3600, 1) AS hours_since_last_success
+FROM data_source_cache
+GROUP BY source
+ORDER BY hours_since_last_success DESC NULLS FIRST;
+```
+
+A healthy snapshot has FEMA / Census / USGS / Overpass all with `hours_since_last_success` under 24 (assuming verdicts were generated in that window). A row with `hours_since_last_success` over 168 (one week) is a strong signal that fetcher is broken. Cross-reference with the per-verdict `[orchestrator] fetcher health` log line in Vercel logs to see which calls are failing live.
+
+### Per-property verdict run history
+
+```sql
+SELECT
+  v.id,
+  v.status,
+  v.signal,
+  v.confidence,
+  v.model_version,
+  v.prompt_version,
+  v.cost_cents,
+  v.created_at,
+  v.completed_at
+FROM verdicts v
+JOIN properties p ON p.id = v.property_id
+WHERE p.address_line1 ILIKE '%41 Maywood%'
+ORDER BY v.created_at DESC;
+```
+
+Replace the `ILIKE` clause for any address. Useful when triaging "why did this verdict regenerate?" or "did the fix-forward land?".
 
 ---
 
@@ -229,7 +274,7 @@ This is the order. Don't deviate without good reason.
 - [x] **M3.5** — Property thesis intake (keystone) — shipped (merge SHA pending, requires manual production migration)
 - [x] **M3.6** — User-input data architecture for verdict generation — shipped (merge SHA pending)
 - [ ] **M3.6** — User-input data architecture
-- [ ] **M3.7** — Free fetcher repair (Zillow / Redfin / FEMA / Census)
+- [x] **M3.7** — Free fetcher repair (FEMA + Census + USGS) — shipped (merge SHA pending). Zillow/Redfin/Airbnb deferred to user-input fallback per v1.8 architecture; county records deferred to v1.1.
 - [ ] **M3.4** — Onboarding intent flow + welcome email (ships after M3.5–M3.7 so user-level data pre-fills the per-property intake form)
 - [ ] **M3.8** — Thesis-aware scoring (list price as first-class metric)
 - [ ] **M3.9** — What-if calculator

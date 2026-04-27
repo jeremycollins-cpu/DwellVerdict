@@ -8,33 +8,27 @@ import {
 /**
  * USGS / NIFC Historic Wildfire Perimeters client per ADR-6.
  *
- * USGS ScienceBase hosts the consolidated US wildfire perimeter
- * dataset with a public ArcGIS REST endpoint. We query for fires
- * within a 5-mile radius of the target lat/lng to measure wildfire
- * exposure — not definitive (a one-time fire N years ago doesn't
- * mean future risk), but a useful signal alongside flood zone.
+ * NIFC publishes the consolidated US wildfire perimeter dataset as
+ * a public ArcGIS Feature Service. We query for fires within a
+ * 5-mile radius of the target lat/lng to measure wildfire exposure
+ * — not definitive (a one-time fire N years ago doesn't mean
+ * future risk), but a useful signal alongside flood zone.
  *
  * Free, no API key required. 30-day TTL — the dataset updates a
  * few times per year.
  *
- * Service:
- *   https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/
- *   WFIGS_Interagency_Perimeters_YearToDate/FeatureServer/0/query
- *
- * For historical perimeters (multi-year), the NIFC dataset is
- * authoritative:
- *   https://data-nifc.opendata.arcgis.com/datasets/nifc::wfigs-
- *   interagency-fire-perimeters-in-gacc/about
- *
- * We use the broader historical service for v0. If latency becomes
- * an issue we can switch to the year-to-date service (smaller but
- * enough for "anything burned here recently?").
+ * Service (M3.7 fix): the canonical home for the multi-year
+ * perimeter history is the InterAgencyFirePerimeterHistory view.
+ * The pre-M3.7 endpoint at `US_Wildfires_v1/FeatureServer/0` was
+ * retired and returns 400 "Invalid URL" today. The view below has
+ * the same shape but renamed fields (INCIDENT, GIS_ACRES,
+ * FIRE_YEAR_INT) — see parser below.
  */
 
 const NIFC_URL =
-  "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/US_Wildfires_v1/FeatureServer/0/query";
+  "https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/InterAgencyFirePerimeterHistory_All_Years_View/FeatureServer/0/query";
 const SOURCE_URL =
-  "https://data-nifc.opendata.arcgis.com/datasets/us-wildfires";
+  "https://data-nifc.opendata.arcgis.com/datasets/nifc::interagencyfireperimeterhistory-all-years-view";
 const RADIUS_MILES = 5;
 
 export async function fetchUsgsWildfire(
@@ -49,7 +43,12 @@ export async function fetchUsgsWildfire(
   url.searchParams.set("spatialRel", "esriSpatialRelIntersects");
   url.searchParams.set("distance", String(RADIUS_MILES));
   url.searchParams.set("units", "esriSRUnit_StatuteMile");
-  url.searchParams.set("outFields", "IncidentName,GISAcres,FireDiscoveryDateTime");
+  // M3.7 field rename: the InterAgencyFirePerimeterHistory view
+  // exposes INCIDENT / GIS_ACRES / FIRE_YEAR_INT (the prior
+  // US_Wildfires_v1 layer used IncidentName / GISAcres /
+  // FireDiscoveryDateTime). FIRE_YEAR_INT is already an integer
+  // year, so we don't need date parsing.
+  url.searchParams.set("outFields", "INCIDENT,GIS_ACRES,FIRE_YEAR_INT");
   url.searchParams.set("returnGeometry", "false");
   url.searchParams.set("resultRecordCount", "500");
 
@@ -67,23 +66,21 @@ export async function fetchUsgsWildfire(
   const payload = (await res.json()) as {
     features?: Array<{
       attributes: {
-        IncidentName?: string | null;
-        GISAcres?: number | null;
-        FireDiscoveryDateTime?: number | string | null;
+        INCIDENT?: string | null;
+        GIS_ACRES?: number | null;
+        FIRE_YEAR_INT?: number | null;
       };
     }>;
   };
 
   const features = payload.features ?? [];
   const acres = features
-    .map((f) => f.attributes.GISAcres ?? 0)
+    .map((f) => f.attributes.GIS_ACRES ?? 0)
     .filter((a) => a > 0);
   const years = features
     .map((f) => {
-      const raw = f.attributes.FireDiscoveryDateTime;
-      if (!raw) return null;
-      const d = typeof raw === "number" ? new Date(raw) : new Date(raw);
-      return isNaN(d.getTime()) ? null : d.getUTCFullYear();
+      const y = f.attributes.FIRE_YEAR_INT;
+      return typeof y === "number" && y > 1900 && y < 2100 ? y : null;
     })
     .filter((y): y is number => y !== null);
 
