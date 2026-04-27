@@ -2,7 +2,10 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 
 import { resolveAppUser } from "@/lib/db/queries/users";
-import { getPropertyForOrg } from "@/lib/db/queries/properties";
+import {
+  classifyIntakeBanner,
+  getPropertyForOrg,
+} from "@/lib/db/queries/properties";
 import {
   getVerdictForOrg,
   listVerdictsForProperty,
@@ -105,6 +108,8 @@ export default async function VerdictDetailPage({
       verdict={verdict}
       runHistory={runHistory}
       myFeedback={myFeedback}
+      intakeBannerState={classifyIntakeBanner(property)}
+      intakeStepCompleted={property.intakeStepCompleted ?? 0}
     />
   );
 }
