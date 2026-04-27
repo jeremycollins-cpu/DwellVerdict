@@ -24,10 +24,13 @@ import { VerdictFailedCard } from "@/components/verdict-detail/verdict-failed-ca
  */
 export default async function VerdictDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ propertyId: string; verdictId: string }>;
+  searchParams: Promise<{ auto?: string }>;
 }) {
   const { propertyId, verdictId } = await params;
+  const { auto } = await searchParams;
   await auth.protect();
 
   const { userId: clerkUserId } = await auth();
@@ -58,7 +61,11 @@ export default async function VerdictDetailPage({
 
   const propertyForView = { id: propertyId, addressFull };
 
-  // Pending: render the M3.2 streaming UI in place.
+  // Pending: render the M3.2 streaming UI in place. `?auto=1` set
+  // by `submitIntakeAction` flips the wizard's "Submit and generate"
+  // button into a single click — autoStart fires generation on
+  // mount instead of forcing the user to click "Generate verdict"
+  // again.
   if (verdict.status === "pending") {
     return (
       <div className="flex flex-1 flex-col bg-paper">
@@ -66,6 +73,7 @@ export default async function VerdictDetailPage({
           <StreamingVerdict
             verdictId={verdict.id}
             addressFull={addressFull}
+            autoStart={auto === "1"}
           />
         </div>
       </div>

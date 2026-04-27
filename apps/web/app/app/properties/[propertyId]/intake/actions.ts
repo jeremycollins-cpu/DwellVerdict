@@ -183,5 +183,11 @@ export async function submitIntakeAction(params: {
   // pages reflect the new intake state without a hard refresh.
   revalidatePath(`/app/properties`);
   revalidatePath(`/app/properties/${params.propertyId}`);
-  redirect(`/app/properties/${params.propertyId}/verdicts/${verdictId}`);
+  // `?auto=1` tells the verdict-detail page to mount StreamingVerdict
+  // with autoStart=true so generation kicks off immediately instead
+  // of asking the user to click "Generate verdict" again. Pressing
+  // Submit on step 7 is already the user's intent.
+  redirect(
+    `/app/properties/${params.propertyId}/verdicts/${verdictId}?auto=1`,
+  );
 }
