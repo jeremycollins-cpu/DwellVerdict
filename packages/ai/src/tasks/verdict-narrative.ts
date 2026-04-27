@@ -524,7 +524,19 @@ export async function writeVerdictNarrative(
     response = await client.messages.create(
       {
         model: routing.model,
-        max_tokens: 1000,
+        // Realistic worst-case output is ~1500 tokens: narrative
+        // ≤2000 chars + summary ≤400 chars + 4 × data_points
+        // summary ≤300 chars each + optional metrics + ≤6
+        // citations × 4 domains + JSON envelope overhead. The
+        // pre-fix 1000 cap saturated as inputs grew (post-M3.5
+        // intake context + M3.6 fix-forward CRITICAL paragraph
+        // + M3.7 fetchers actually returning data) — Haiku was
+        // truncating the tool call mid-write before emitting
+        // `data_points`, producing a misleading `data_points:
+        // Required` Zod error. 4000 gives ~2.5x headroom; output
+        // tokens are billed only when actually generated, so the
+        // ceiling change is essentially free at typical usage.
+        max_tokens: 4000,
         system: [
           {
             type: "text",
