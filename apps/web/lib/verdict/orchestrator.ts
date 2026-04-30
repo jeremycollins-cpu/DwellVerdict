@@ -28,7 +28,10 @@ import {
 import type { Property } from "@dwellverdict/db";
 
 import { getDb } from "@/lib/db";
-import { getRegulatorySignal } from "@/lib/regulatory/lookup";
+import {
+  getRegulatorySignal,
+  mapThesisToRegulatoryDimension,
+} from "@/lib/regulatory/lookup";
 import { getPlaceSentimentSignal } from "@/lib/place-sentiment/lookup";
 import { getSchoolsSignal } from "@/lib/schools/lookup";
 
@@ -112,7 +115,10 @@ export type SignalKey =
 
 export type VerdictProgressEvent =
   | { type: "phase_start"; phase: "signals" | "scoring" | "narrative" | "lint" }
-  | { type: "phase_complete"; phase: "signals" | "scoring" | "narrative" | "lint" }
+  | {
+      type: "phase_complete";
+      phase: "signals" | "scoring" | "narrative" | "lint";
+    }
   | {
       type: "signal_complete";
       signal: SignalKey;
@@ -209,6 +215,11 @@ export async function orchestrateVerdict(input: {
     `${property.addressLine1}, ${property.city}, ${property.state} ${property.zip}`;
   const city = property.city;
   const state = property.state;
+  // M3.13: regulatory research now branches on the user's investment
+  // thesis. 'other' falls back to STR (broadest baseline).
+  const regulatoryDimension = mapThesisToRegulatoryDimension(
+    property.thesisType,
+  );
 
   // ---- Phase 1: fetch everything in parallel ----
   emit({ type: "phase_start", phase: "signals" });
@@ -257,7 +268,11 @@ export async function orchestrateVerdict(input: {
       key: "fema" as const,
       promise: wrap(
         "fema",
-        settledSignal(getFemaFloodSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "fema"),
+        settledSignal(
+          getFemaFloodSignal(db, lat, lng),
+          HTTP_FETCHER_TIMEOUT_MS,
+          "fema",
+        ),
         ds,
         okFlag,
       ),
@@ -266,7 +281,11 @@ export async function orchestrateVerdict(input: {
       key: "usgs" as const,
       promise: wrap(
         "usgs",
-        settledSignal(getUsgsWildfireSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "usgs"),
+        settledSignal(
+          getUsgsWildfireSignal(db, lat, lng),
+          HTTP_FETCHER_TIMEOUT_MS,
+          "usgs",
+        ),
         ds,
         okFlag,
       ),
@@ -275,7 +294,11 @@ export async function orchestrateVerdict(input: {
       key: "fbi" as const,
       promise: wrap(
         "fbi",
-        settledSignal(getFbiCrimeSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "fbi"),
+        settledSignal(
+          getFbiCrimeSignal(db, lat, lng),
+          HTTP_FETCHER_TIMEOUT_MS,
+          "fbi",
+        ),
         ds,
         okFlag,
       ),
@@ -284,7 +307,11 @@ export async function orchestrateVerdict(input: {
       key: "census" as const,
       promise: wrap(
         "census",
-        settledSignal(getCensusAcsSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "census"),
+        settledSignal(
+          getCensusAcsSignal(db, lat, lng),
+          HTTP_FETCHER_TIMEOUT_MS,
+          "census",
+        ),
         ds,
         okFlag,
       ),
@@ -293,7 +320,11 @@ export async function orchestrateVerdict(input: {
       key: "overpass" as const,
       promise: wrap(
         "overpass",
-        settledSignal(getOverpassSignal(db, lat, lng), HTTP_FETCHER_TIMEOUT_MS, "overpass"),
+        settledSignal(
+          getOverpassSignal(db, lat, lng),
+          HTTP_FETCHER_TIMEOUT_MS,
+          "overpass",
+        ),
         ds,
         okFlag,
       ),
@@ -347,13 +378,17 @@ export async function orchestrateVerdict(input: {
         // The regulatory result shape isn't SignalResult<T>; it has
         // its own `{ok: true, ...} | {ok: false, error, source}`
         // shape. We still soft-fail it via withTimeout below.
-        getRegulatorySignal({ city, state, userId, orgId }).catch(
-          (err): { ok: false; error: string; sourceUrls: string[] } => ({
-            ok: false,
-            error: err instanceof Error ? err.message : String(err),
-            sourceUrls: [],
-          }),
-        ),
+        getRegulatorySignal({
+          city,
+          state,
+          thesisDimension: regulatoryDimension,
+          userId,
+          orgId,
+        }).catch((err): { ok: false; error: string; sourceUrls: string[] } => ({
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+          sourceUrls: [],
+        })),
         (r) => (r.ok ? r.sourceUrls : []),
         (r) => r.ok,
       ),
@@ -433,8 +468,14 @@ export async function orchestrateVerdict(input: {
     SignalResult<AirbnbCompsSignal>,
     SignalResult<PropertyValuation>,
     SignalResult<PropertyValuation>,
-    Awaited<ReturnType<typeof getRegulatorySignal>> | { ok: false; error: string; sourceUrls: string[] },
-    Awaited<ReturnType<typeof getPlaceSentimentSignal>> | { ok: false; error: string },
+    (
+      | Awaited<ReturnType<typeof getRegulatorySignal>>
+      | { ok: false; error: string; sourceUrls: string[] }
+    ),
+    (
+      | Awaited<ReturnType<typeof getPlaceSentimentSignal>>
+      | { ok: false; error: string }
+    ),
     SignalResult<SchoolsSignal>,
   ];
 
@@ -556,9 +597,15 @@ export async function orchestrateVerdict(input: {
     null;
 
   const score = scoreVerdict({
-    regulatory: regulatory
-      ? { strLegal: regulatory.strLegal ?? null }
-      : null,
+    // M3.13: scoring's regulatory input is STR-specific (str_legal
+    // gates BUY for STR thesis). For non-STR theses we have no
+    // strLegal field, and the regulatory penalty doesn't apply —
+    // scoring receives null and falls back to thesis-agnostic
+    // weighting on the other signals.
+    regulatory:
+      regulatory && regulatory.thesisDimension === "str"
+        ? { strLegal: regulatory.strLegal ?? null }
+        : null,
     flood: fema ? { sfha: fema.sfha } : null,
     wildfire: usgs ? { nearbyFireCount: usgs.nearbyFireCount } : null,
     crime: fbi
@@ -588,19 +635,10 @@ export async function orchestrateVerdict(input: {
     zillow,
     redfin,
     revenue,
-    regulatory: regulatory
-      ? {
-          strLegal: regulatory.strLegal,
-          permitRequired: regulatory.permitRequired,
-          ownerOccupiedOnly: regulatory.ownerOccupiedOnly,
-          capOnNonOwnerOccupied: regulatory.capOnNonOwnerOccupied,
-          renewalFrequency: regulatory.renewalFrequency,
-          minimumStayDays: regulatory.minimumStayDays,
-          summary: regulatory.summary,
-          sourceUrls: regulatory.sourceUrls,
-          lastVerifiedAt: regulatory.lastVerifiedAt,
-        }
-      : null,
+    // M3.13: forward the full thesis-aware regulatory signal. The
+    // narrative prompt v3 branches on `thesisDimension` to surface
+    // thesis-relevant fields (LTR rent control vs OO homestead etc.).
+    regulatory: regulatory ? regulatorySignalForNarrative(regulatory) : null,
     placeSentiment: placeSentiment
       ? {
           bullets: placeSentiment.bullets,
@@ -633,7 +671,8 @@ export async function orchestrateVerdict(input: {
   // independent of the rest of the signal payload.
   const propertyContext: VerdictNarrativePropertyContext = {
     addressFull,
-    thesisType: property.thesisType as VerdictNarrativePropertyContext["thesisType"],
+    thesisType:
+      property.thesisType as VerdictNarrativePropertyContext["thesisType"],
     goalType: property.goalType as VerdictNarrativePropertyContext["goalType"],
     thesisOtherDescription: property.thesisOtherDescription ?? null,
     listingPriceCents: property.listingPriceCents ?? null,
@@ -749,6 +788,95 @@ type IntakeRevenueThesis = NonNullable<
 function centsToDollars(cents: number | null | undefined): number | null {
   if (cents == null) return null;
   return cents / 100;
+}
+
+/**
+ * Project the thesis-aware regulatory signal into the JSON shape
+ * the narrative prompt expects. STR rows surface their typed
+ * fields directly; non-STR rows surface their thesis-specific
+ * fields under `thesisFields`. Common fields (summary, sources,
+ * notableFactors, lastVerifiedAt, thesisDimension) are always
+ * present so the prompt can branch on `thesisDimension` to choose
+ * which fields to read.
+ */
+function regulatorySignalForNarrative(
+  reg: NonNullable<
+    Awaited<ReturnType<typeof getRegulatorySignal>> & { ok: true }
+  >,
+): Record<string, unknown> {
+  const common = {
+    thesisDimension: reg.thesisDimension,
+    summary: reg.summary,
+    sourceUrls: reg.sourceUrls,
+    notableFactors: reg.notableFactors,
+    lastVerifiedAt: reg.lastVerifiedAt,
+  };
+
+  switch (reg.thesisDimension) {
+    case "str":
+      return {
+        ...common,
+        strLegal: reg.strLegal,
+        permitRequired: reg.permitRequired,
+        ownerOccupiedOnly: reg.ownerOccupiedOnly,
+        capOnNonOwnerOccupied: reg.capOnNonOwnerOccupied,
+        renewalFrequency: reg.renewalFrequency,
+        minimumStayDays: reg.minimumStayDays,
+      };
+    case "ltr":
+      return {
+        ...common,
+        thesisFields: {
+          rentControl: reg.rentControl,
+          rentIncreaseCap: reg.rentIncreaseCap,
+          justCauseEviction: reg.justCauseEviction,
+          securityDepositCap: reg.securityDepositCap,
+          rentalRegistrationRequired: reg.rentalRegistrationRequired,
+          sourceOfIncomeProtection: reg.sourceOfIncomeProtection,
+          evictionFriendliness: reg.evictionFriendliness,
+        },
+      };
+    case "owner_occupied":
+      return {
+        ...common,
+        thesisFields: {
+          homesteadExemption: reg.homesteadExemption,
+          homesteadExemptionSummary: reg.homesteadExemptionSummary,
+          propertyTaxRateSummary: reg.propertyTaxRateSummary,
+          transferTax: reg.transferTax,
+          hoaDisclosureRequired: reg.hoaDisclosureRequired,
+          hoaApprovalRequired: reg.hoaApprovalRequired,
+          specialAssessmentsCommon: reg.specialAssessmentsCommon,
+        },
+      };
+    case "house_hacking":
+      return {
+        ...common,
+        thesisFields: {
+          aduLegal: reg.aduLegal,
+          jaduLegal: reg.jaduLegal,
+          roomRentalLegal: reg.roomRentalLegal,
+          maxUnrelatedOccupants: reg.maxUnrelatedOccupants,
+          ownerOccupiedStrCarveout: reg.ownerOccupiedStrCarveout,
+          ownerOccupiedStrSummary: reg.ownerOccupiedStrSummary,
+          parkingRequirementPerUnit: reg.parkingRequirementPerUnit,
+        },
+      };
+    case "flipping":
+      return {
+        ...common,
+        thesisFields: {
+          permitTimelineSummary: reg.permitTimelineSummary,
+          gcLicenseThresholdSummary: reg.gcLicenseThresholdSummary,
+          historicDistrictRisk: reg.historicDistrictRisk,
+          historicDistrictSummary: reg.historicDistrictSummary,
+          flipperSurtax: reg.flipperSurtax,
+          flipperSurtaxSummary: reg.flipperSurtaxSummary,
+          transferTaxAtSale: reg.transferTaxAtSale,
+          disclosureRequirementsSummary: reg.disclosureRequirementsSummary,
+        },
+      };
+  }
 }
 
 /**

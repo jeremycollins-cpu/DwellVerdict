@@ -11,52 +11,210 @@ import { logAiUsageEvent } from "../usage-events";
 
 /**
  * regulatory-lookup — Haiku + web_search sub-task that researches
- * STR regulations for a US (city, state) pair per ADR-6.
+ * jurisdiction-level regulations relevant to a specific investment
+ * thesis (M3.13).
  *
- * Results are cached 30 days in the regulatory_cache table and
- * reused across every property in that city. The Inngest-backed
- * background refresh is deferred — for v0 cache misses (or TTL
- * expiry) block the caller while we fetch.
+ * Pre-M3.13 this task always asked the STR-regulations question.
+ * After M3.13 the prompt + tool + output schema branch on
+ * `thesis_dimension`:
+ *   - str            → STR permitting / OO-only carveouts / caps
+ *   - ltr            → rent control / tenant rights / eviction
+ *   - owner_occupied → homestead exemption / property tax / HOA
+ *   - house_hacking  → ADU / room rental / OO STR carveouts
+ *   - flipping       → permit timeline / transfer tax / flipper surtax
  *
- * Fair-housing guardrails live in the prompt file; this module
- * just wires the API call + output validation.
+ * Common fields across all theses: summary, notable_factors, sources.
+ * Thesis-specific structured fields live under the discriminated
+ * union arm and are persisted to regulatory_cache.thesis_specific_fields.
+ *
+ * Results are cached 30 days in regulatory_cache, scoped by
+ * (city, state, thesis_dimension). Each (city, dimension) is one
+ * cache row. Fair-housing guardrails live in the prompt files.
  */
 
 export const REGULATORY_LOOKUP_TASK_TYPE = "regulatory_lookup";
 export const REGULATORY_LOOKUP_PROMPT_VERSION = "v1";
 export const REGULATORY_LOOKUP_MODEL = "claude-haiku-4-5";
 
-/**
- * Structured regulatory record. Every field nullable — the LLM is
- * instructed to return null rather than guess.
- */
-export const RegulatoryLookupOutputSchema = z.object({
+export const REGULATORY_THESIS_DIMENSIONS = [
+  "str",
+  "ltr",
+  "owner_occupied",
+  "house_hacking",
+  "flipping",
+] as const;
+export type RegulatoryThesisDimension =
+  (typeof REGULATORY_THESIS_DIMENSIONS)[number];
+
+// ---- Common per-arm trailing fields ------------------------------
+// Every thesis arm shares `summary`, `notable_factors`, `sources`.
+// Surfaces have their own validated structured shape per arm.
+
+const summarySchema = z.string().min(1).max(1500);
+const sourcesSchema = z.array(z.string().url()).min(1).max(6);
+const notableFactorsSchema = z
+  .array(z.string().min(1).max(280))
+  .max(5)
+  .default([]);
+
+// ---- STR arm ----------------------------------------------------
+
+export const RegulatoryStrFieldsSchema = z.object({
   str_legal: z.enum(["yes", "restricted", "no", "unclear"]).nullable(),
   permit_required: z.enum(["yes", "no", "unclear"]).nullable(),
   owner_occupied_only: z.enum(["yes", "no", "depends", "unclear"]).nullable(),
-  cap_on_non_oo: z.string().nullable(),
+  cap_on_non_oo: z.string().max(500).nullable(),
   renewal_frequency: z.enum(["annual", "biennial", "none"]).nullable(),
   minimum_stay_days: z.number().int().nullable(),
-  // Narrative-length summary. Real municipal STR code is messy —
-  // Placer County's program alone has six categories with different
-  // caps and permit rules. 1500 chars lets the model be precise
-  // without truncating; the UI clamps for display anyway.
-  summary: z.string().min(1).max(1500),
-  // At least one source. Some small jurisdictions have exactly one
-  // primary document (a municipal code section); previous minimum
-  // of 2 was rejecting otherwise-valid lookups.
-  sources: z.array(z.string().url()).min(1).max(6),
 });
-export type RegulatoryLookupOutput = z.infer<typeof RegulatoryLookupOutputSchema>;
+export type RegulatoryStrFields = z.infer<typeof RegulatoryStrFieldsSchema>;
 
-/**
- * render_regulatory — the tool Haiku is required to call once.
- * Mirrors RegulatoryLookupOutputSchema as JSON Schema.
- */
-const RENDER_REGULATORY_TOOL: Anthropic.Messages.Tool = {
-  name: "render_regulatory",
+export const RegulatoryStrOutputSchema = RegulatoryStrFieldsSchema.extend({
+  thesis_dimension: z.literal("str"),
+  notable_factors: notableFactorsSchema,
+  summary: summarySchema,
+  sources: sourcesSchema,
+});
+
+// ---- LTR arm ----------------------------------------------------
+
+export const RegulatoryLtrFieldsSchema = z.object({
+  rent_control: z
+    .enum(["none", "state_cap", "local_strict", "unclear"])
+    .nullable(),
+  rent_increase_cap: z.string().max(500).nullable(),
+  just_cause_eviction: z.enum(["yes", "no", "unclear"]).nullable(),
+  security_deposit_cap: z.string().max(500).nullable(),
+  rental_registration_required: z.enum(["yes", "no", "unclear"]).nullable(),
+  source_of_income_protection: z.enum(["yes", "no", "unclear"]).nullable(),
+  eviction_friendliness: z
+    .enum(["landlord_favorable", "balanced", "tenant_favorable", "unclear"])
+    .nullable(),
+});
+export type RegulatoryLtrFields = z.infer<typeof RegulatoryLtrFieldsSchema>;
+
+export const RegulatoryLtrOutputSchema = RegulatoryLtrFieldsSchema.extend({
+  thesis_dimension: z.literal("ltr"),
+  notable_factors: notableFactorsSchema,
+  summary: summarySchema,
+  sources: sourcesSchema,
+});
+
+// ---- Owner-occupied arm -----------------------------------------
+
+export const RegulatoryOwnerOccupiedFieldsSchema = z.object({
+  homestead_exemption: z.enum(["yes", "no", "unclear"]).nullable(),
+  homestead_exemption_summary: z.string().max(500).nullable(),
+  property_tax_rate_summary: z.string().max(500).nullable(),
+  transfer_tax: z.string().max(500).nullable(),
+  hoa_disclosure_required: z.enum(["yes", "no", "unclear"]).nullable(),
+  hoa_approval_required: z.enum(["yes", "no", "depends", "unclear"]).nullable(),
+  special_assessments_common: z.enum(["yes", "no", "unclear"]).nullable(),
+});
+export type RegulatoryOwnerOccupiedFields = z.infer<
+  typeof RegulatoryOwnerOccupiedFieldsSchema
+>;
+
+export const RegulatoryOwnerOccupiedOutputSchema =
+  RegulatoryOwnerOccupiedFieldsSchema.extend({
+    thesis_dimension: z.literal("owner_occupied"),
+    notable_factors: notableFactorsSchema,
+    summary: summarySchema,
+    sources: sourcesSchema,
+  });
+
+// ---- House-hacking arm -------------------------------------------
+
+export const RegulatoryHouseHackingFieldsSchema = z.object({
+  adu_legal: z.enum(["yes", "restricted", "no", "unclear"]).nullable(),
+  jadu_legal: z.enum(["yes", "no", "unclear"]).nullable(),
+  room_rental_legal: z.enum(["yes", "no", "unclear"]).nullable(),
+  max_unrelated_occupants: z.number().int().nullable(),
+  owner_occupied_str_carveout: z.enum(["yes", "no", "unclear"]).nullable(),
+  owner_occupied_str_summary: z.string().max(500).nullable(),
+  parking_requirement_per_unit: z.string().max(500).nullable(),
+});
+export type RegulatoryHouseHackingFields = z.infer<
+  typeof RegulatoryHouseHackingFieldsSchema
+>;
+
+export const RegulatoryHouseHackingOutputSchema =
+  RegulatoryHouseHackingFieldsSchema.extend({
+    thesis_dimension: z.literal("house_hacking"),
+    notable_factors: notableFactorsSchema,
+    summary: summarySchema,
+    sources: sourcesSchema,
+  });
+
+// ---- Flipping arm ------------------------------------------------
+
+export const RegulatoryFlippingFieldsSchema = z.object({
+  permit_timeline_summary: z.string().max(500).nullable(),
+  gc_license_threshold_summary: z.string().max(500).nullable(),
+  historic_district_risk: z.enum(["yes", "none", "unclear"]).nullable(),
+  historic_district_summary: z.string().max(500).nullable(),
+  flipper_surtax: z.enum(["yes", "no", "unclear"]).nullable(),
+  flipper_surtax_summary: z.string().max(500).nullable(),
+  transfer_tax_at_sale: z.string().max(500).nullable(),
+  disclosure_requirements_summary: z.string().max(500).nullable(),
+});
+export type RegulatoryFlippingFields = z.infer<
+  typeof RegulatoryFlippingFieldsSchema
+>;
+
+export const RegulatoryFlippingOutputSchema =
+  RegulatoryFlippingFieldsSchema.extend({
+    thesis_dimension: z.literal("flipping"),
+    notable_factors: notableFactorsSchema,
+    summary: summarySchema,
+    sources: sourcesSchema,
+  });
+
+// ---- Discriminated union over all five arms ---------------------
+
+export const RegulatoryLookupOutputSchema = z.discriminatedUnion(
+  "thesis_dimension",
+  [
+    RegulatoryStrOutputSchema,
+    RegulatoryLtrOutputSchema,
+    RegulatoryOwnerOccupiedOutputSchema,
+    RegulatoryHouseHackingOutputSchema,
+    RegulatoryFlippingOutputSchema,
+  ],
+);
+export type RegulatoryLookupOutput = z.infer<
+  typeof RegulatoryLookupOutputSchema
+>;
+
+// Per-arm tool definitions. Each tool is exposed only when the
+// matching prompt is loaded — Haiku gets one render tool per call.
+type ToolDef = Anthropic.Messages.Tool;
+
+const SHARED_TOOL_TRAILER = {
+  notable_factors: {
+    type: "array",
+    items: { type: "string" },
+    maxItems: 5,
+    description:
+      "Up to 5 short strings (≤280 chars each) capturing wrinkles a small operator should know — e.g. recent enforcement, HOA gotchas, special-district assessments. Empty array if nothing notable.",
+  },
+  summary: {
+    type: "string",
+    description:
+      "2-4 plain-prose sentences describing the regulatory posture for this thesis. Lead with the most-binding rule.",
+  },
+  sources: {
+    type: "array",
+    items: { type: "string" },
+    description:
+      "1-6 URLs the model actually read. Prefer primary government / municipal sources.",
+  },
+} as const;
+
+const STR_TOOL: ToolDef = {
+  name: "render_regulatory_str",
   description:
-    "Emit the structured STR regulation record. Call this exactly once after you've read 2-4 authoritative sources.",
+    "Emit the structured STR regulation record. Call this exactly once after reading 2-4 authoritative sources.",
   input_schema: {
     type: "object",
     properties: {
@@ -73,7 +231,8 @@ const RENDER_REGULATORY_TOOL: Anthropic.Messages.Tool = {
       owner_occupied_only: {
         type: ["string", "null"],
         enum: ["yes", "no", "depends", "unclear", null],
-        description: "Whether STRs are restricted to owner-occupied primary residences.",
+        description:
+          "Whether STRs are restricted to owner-occupied primary residences.",
       },
       cap_on_non_oo: {
         type: ["string", "null"],
@@ -90,17 +249,7 @@ const RENDER_REGULATORY_TOOL: Anthropic.Messages.Tool = {
         description:
           "Minimum rental duration in nights. e.g., 30 means under-30-night stays are banned.",
       },
-      summary: {
-        type: "string",
-        description:
-          "2-4 plain-prose sentences summarizing the regulatory posture. Capture nuance (permit categories, caps, zones) — do not oversimplify.",
-      },
-      sources: {
-        type: "array",
-        items: { type: "string" },
-        description:
-          "1-6 URLs the model actually read. Prefer primary sources (municipal code, county STR page).",
-      },
+      ...SHARED_TOOL_TRAILER,
     },
     required: [
       "str_legal",
@@ -109,18 +258,295 @@ const RENDER_REGULATORY_TOOL: Anthropic.Messages.Tool = {
       "cap_on_non_oo",
       "renewal_frequency",
       "minimum_stay_days",
+      "notable_factors",
       "summary",
       "sources",
     ],
   },
 };
 
-function loadPromptTemplate(): string {
+const LTR_TOOL: ToolDef = {
+  name: "render_regulatory_ltr",
+  description:
+    "Emit the structured LTR landlord-tenant regulation record for this jurisdiction.",
+  input_schema: {
+    type: "object",
+    properties: {
+      rent_control: {
+        type: ["string", "null"],
+        enum: ["none", "state_cap", "local_strict", "unclear", null],
+        description:
+          "Whether rent control / rent stabilization applies — none, state-level cap, local strict ordinance, or unclear.",
+      },
+      rent_increase_cap: {
+        type: ["string", "null"],
+        description:
+          "One-sentence description of the numeric cap if any. Else null.",
+      },
+      just_cause_eviction: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description:
+          "Whether the jurisdiction requires a just cause for eviction beyond non-renewal.",
+      },
+      security_deposit_cap: {
+        type: ["string", "null"],
+        description:
+          "Legal max security deposit. e.g., '2 months unfurnished'. Else null.",
+      },
+      rental_registration_required: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description:
+          "Whether the city/county requires landlord rental registration / inspection.",
+      },
+      source_of_income_protection: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description:
+          "Whether refusing Section 8 / housing-voucher tenants is prohibited.",
+      },
+      eviction_friendliness: {
+        type: ["string", "null"],
+        enum: [
+          "landlord_favorable",
+          "balanced",
+          "tenant_favorable",
+          "unclear",
+          null,
+        ],
+        description:
+          "Overall posture of the eviction process for this jurisdiction.",
+      },
+      ...SHARED_TOOL_TRAILER,
+    },
+    required: [
+      "rent_control",
+      "rent_increase_cap",
+      "just_cause_eviction",
+      "security_deposit_cap",
+      "rental_registration_required",
+      "source_of_income_protection",
+      "eviction_friendliness",
+      "notable_factors",
+      "summary",
+      "sources",
+    ],
+  },
+};
+
+const OWNER_OCCUPIED_TOOL: ToolDef = {
+  name: "render_regulatory_owner_occupied",
+  description:
+    "Emit the structured owner-occupant regulation record (homestead, property tax, HOA, transfer tax).",
+  input_schema: {
+    type: "object",
+    properties: {
+      homestead_exemption: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description:
+          "Whether the state offers a homestead exemption that reduces assessed value.",
+      },
+      homestead_exemption_summary: {
+        type: ["string", "null"],
+        description: "One-sentence specifics of the homestead exemption.",
+      },
+      property_tax_rate_summary: {
+        type: ["string", "null"],
+        description:
+          "Effective property tax rate range with specifics (e.g., '~2.0% effective').",
+      },
+      transfer_tax: {
+        type: ["string", "null"],
+        description:
+          "Real estate transfer tax rate at purchase or null if none.",
+      },
+      hoa_disclosure_required: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description:
+          "Whether sellers must provide HOA documents / financials before closing.",
+      },
+      hoa_approval_required: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "depends", "unclear", null],
+        description:
+          "Whether HOAs in this jurisdiction commonly require buyer-approval / right-of-first-refusal.",
+      },
+      special_assessments_common: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description:
+          "Whether special-district assessments (Mello-Roos, CDD, school bonds) are common.",
+      },
+      ...SHARED_TOOL_TRAILER,
+    },
+    required: [
+      "homestead_exemption",
+      "homestead_exemption_summary",
+      "property_tax_rate_summary",
+      "transfer_tax",
+      "hoa_disclosure_required",
+      "hoa_approval_required",
+      "special_assessments_common",
+      "notable_factors",
+      "summary",
+      "sources",
+    ],
+  },
+};
+
+const HOUSE_HACKING_TOOL: ToolDef = {
+  name: "render_regulatory_house_hacking",
+  description:
+    "Emit the structured house-hacking regulation record (ADU/JADU, room rental, OO STR carveouts).",
+  input_schema: {
+    type: "object",
+    properties: {
+      adu_legal: {
+        type: ["string", "null"],
+        enum: ["yes", "restricted", "no", "unclear", null],
+        description:
+          "Whether ADUs are permitted by-right on the relevant lot type.",
+      },
+      jadu_legal: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description: "Whether Junior ADUs (interior conversions) are allowed.",
+      },
+      room_rental_legal: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description:
+          "Whether renting bedrooms in an owner-occupied home is explicitly allowed.",
+      },
+      max_unrelated_occupants: {
+        type: ["integer", "null"],
+        description:
+          "Local cap on unrelated occupants per dwelling unit (U+2 / U+3), or null if none.",
+      },
+      owner_occupied_str_carveout: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description:
+          "Whether the STR ordinance treats owner-occupied STRs differently from non-owner-occupied.",
+      },
+      owner_occupied_str_summary: {
+        type: ["string", "null"],
+        description:
+          "One-sentence summary of the OO STR rules if a carveout exists.",
+      },
+      parking_requirement_per_unit: {
+        type: ["string", "null"],
+        description:
+          "Off-street parking requirement when adding a unit, or null if none.",
+      },
+      ...SHARED_TOOL_TRAILER,
+    },
+    required: [
+      "adu_legal",
+      "jadu_legal",
+      "room_rental_legal",
+      "max_unrelated_occupants",
+      "owner_occupied_str_carveout",
+      "owner_occupied_str_summary",
+      "parking_requirement_per_unit",
+      "notable_factors",
+      "summary",
+      "sources",
+    ],
+  },
+};
+
+const FLIPPING_TOOL: ToolDef = {
+  name: "render_regulatory_flipping",
+  description:
+    "Emit the structured flipping regulation record (permit timeline, transfer tax, surtax, historic overlay).",
+  input_schema: {
+    type: "object",
+    properties: {
+      permit_timeline_summary: {
+        type: ["string", "null"],
+        description:
+          "Plain-prose summary of typical permit turnaround for residential renovation.",
+      },
+      gc_license_threshold_summary: {
+        type: ["string", "null"],
+        description:
+          "Whether a GC license is required above a project-value threshold.",
+      },
+      historic_district_risk: {
+        type: ["string", "null"],
+        enum: ["yes", "none", "unclear", null],
+        description:
+          "Whether the city has historic / preservation overlays that constrain exterior changes.",
+      },
+      historic_district_summary: {
+        type: ["string", "null"],
+        description:
+          "One-sentence summary of how historic-district rules typically affect renovation.",
+      },
+      flipper_surtax: {
+        type: ["string", "null"],
+        enum: ["yes", "no", "unclear", null],
+        description:
+          "Whether the jurisdiction levies a 'flip surtax' on short-hold resales.",
+      },
+      flipper_surtax_summary: {
+        type: ["string", "null"],
+        description: "Specifics of the flipper surtax if one applies.",
+      },
+      transfer_tax_at_sale: {
+        type: ["string", "null"],
+        description: "Real estate transfer tax the seller pays at closing.",
+      },
+      disclosure_requirements_summary: {
+        type: ["string", "null"],
+        description:
+          "Material disclosure obligations on the seller (lead, asbestos, prior permits).",
+      },
+      ...SHARED_TOOL_TRAILER,
+    },
+    required: [
+      "permit_timeline_summary",
+      "gc_license_threshold_summary",
+      "historic_district_risk",
+      "historic_district_summary",
+      "flipper_surtax",
+      "flipper_surtax_summary",
+      "transfer_tax_at_sale",
+      "disclosure_requirements_summary",
+      "notable_factors",
+      "summary",
+      "sources",
+    ],
+  },
+};
+
+const TOOL_BY_DIMENSION: Record<RegulatoryThesisDimension, ToolDef> = {
+  str: STR_TOOL,
+  ltr: LTR_TOOL,
+  owner_occupied: OWNER_OCCUPIED_TOOL,
+  house_hacking: HOUSE_HACKING_TOOL,
+  flipping: FLIPPING_TOOL,
+};
+
+const PROMPT_FILE_BY_DIMENSION: Record<RegulatoryThesisDimension, string> = {
+  str: "regulatory-lookup-str.v1.md",
+  ltr: "regulatory-lookup-ltr.v1.md",
+  owner_occupied: "regulatory-lookup-owner-occupied.v1.md",
+  house_hacking: "regulatory-lookup-house-hacking.v1.md",
+  flipping: "regulatory-lookup-flipping.v1.md",
+};
+
+function loadPromptTemplate(dimension: RegulatoryThesisDimension): string {
   const here = dirname(fileURLToPath(import.meta.url));
+  const filename = PROMPT_FILE_BY_DIMENSION[dimension];
   const candidates = [
-    join(process.cwd(), "prompts", "regulatory-lookup.v1.md"),
-    join(here, "..", "..", "..", "..", "prompts", "regulatory-lookup.v1.md"),
-    join(process.cwd(), "..", "..", "prompts", "regulatory-lookup.v1.md"),
+    join(process.cwd(), "prompts", filename),
+    join(here, "..", "..", "..", "..", "prompts", filename),
+    join(process.cwd(), "..", "..", "prompts", filename),
   ];
   let lastErr: unknown;
   for (const p of candidates) {
@@ -131,7 +557,7 @@ function loadPromptTemplate(): string {
     }
   }
   throw new Error(
-    `regulatory-lookup prompt template not found. Tried: ${candidates.join(", ")}. ` +
+    `regulatory-lookup prompt template '${filename}' not found. Tried: ${candidates.join(", ")}. ` +
       `Last error: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
   );
 }
@@ -139,12 +565,14 @@ function loadPromptTemplate(): string {
 function renderPrompt(vars: {
   city: string;
   state: string;
+  dimension: RegulatoryThesisDimension;
 }): { system: string; user: string } {
-  const template = loadPromptTemplate();
+  const template = loadPromptTemplate(vars.dimension);
   const [, afterSystem] = template.split(/^## System\s*$/m);
   if (!afterSystem) throw new Error("prompt missing '## System' heading");
   const [systemText, userText] = afterSystem.split(/^## User\s*$/m);
-  if (!systemText || !userText) throw new Error("prompt missing '## User' heading");
+  if (!systemText || !userText)
+    throw new Error("prompt missing '## User' heading");
 
   const today = new Date().toISOString().slice(0, 10);
   const interpolate = (s: string) =>
@@ -162,6 +590,7 @@ function renderPrompt(vars: {
 export type RegulatoryLookupInput = {
   city: string;
   state: string;
+  thesisDimension: RegulatoryThesisDimension;
   /** Optional override; default 4 per ADR-6. */
   maxWebSearches?: number;
   /** Optional userId. When set, the call logs to ai_usage_events.
@@ -194,19 +623,26 @@ export type RegulatoryLookupFailure = {
 };
 
 /**
- * Run the regulatory lookup. Caller is responsible for caching the
- * output in regulatory_cache.
+ * Run the thesis-aware regulatory lookup. Caller is responsible for
+ * caching the output in regulatory_cache scoped by
+ * (city, state, thesis_dimension).
  */
 export async function lookupRegulatory(
   input: RegulatoryLookupInput,
 ): Promise<RegulatoryLookupSuccess | RegulatoryLookupFailure> {
   const maxSearches = input.maxWebSearches ?? 4;
+  const dimension = input.thesisDimension;
+  const renderTool = TOOL_BY_DIMENSION[dimension];
 
   let client: Anthropic;
   let prompt: { system: string; user: string };
   try {
     client = getAnthropicClient();
-    prompt = renderPrompt(input);
+    prompt = renderPrompt({
+      city: input.city,
+      state: input.state,
+      dimension,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return {
@@ -222,10 +658,6 @@ export async function lookupRegulatory(
   let response: Anthropic.Messages.Message;
   const startedAt = Date.now();
   try {
-    // Stream path to keep the connection alive while Haiku does its
-    // web_search rounds. 120s ceiling — a regulatory lookup should
-    // complete in <60s normally; anything longer is a sign the
-    // search tool is thrashing and we should fail rather than cook.
     const stream = client.messages.stream(
       {
         model: REGULATORY_LOOKUP_MODEL,
@@ -243,14 +675,9 @@ export async function lookupRegulatory(
             type: "web_search_20260209",
             name: "web_search",
             max_uses: maxSearches,
-            // Haiku 4.5 can't nest tool calls, so web_search must be
-            // invoked directly by the model turn rather than from
-            // inside another tool's execution. Anthropic requires
-            // allowed_callers=["direct"] on Haiku models to reflect
-            // that — without it the API returns 400 invalid_request.
             allowed_callers: ["direct"],
           } as Anthropic.Messages.ToolUnion,
-          RENDER_REGULATORY_TOOL,
+          renderTool,
         ],
       },
       {
@@ -271,6 +698,7 @@ export async function lookupRegulatory(
       elapsedMs: Date.now() - startedAt,
       city: input.city,
       state: input.state,
+      thesisDimension: dimension,
     });
     return {
       ok: false,
@@ -294,6 +722,7 @@ export async function lookupRegulatory(
   console.log("[regulatory] call complete", {
     city: input.city,
     state: input.state,
+    thesisDimension: dimension,
     elapsedMs: Date.now() - startedAt,
     inputTokens,
     outputTokens,
@@ -341,20 +770,29 @@ export async function lookupRegulatory(
 
   const renderCall = response.content.find(
     (b): b is Anthropic.Messages.ToolUseBlock =>
-      b.type === "tool_use" && b.name === "render_regulatory",
+      b.type === "tool_use" && b.name === renderTool.name,
   );
 
   if (!renderCall) {
     return {
       ok: false,
       error:
-        "Model did not call render_regulatory. " +
+        `Model did not call ${renderTool.name}. ` +
         `stop_reason=${response.stop_reason}. Regulatory lookup aborted.`,
       observability,
     };
   }
 
-  const parsed = RegulatoryLookupOutputSchema.safeParse(renderCall.input);
+  // The discriminated-union schema needs `thesis_dimension` on the
+  // payload to know which arm to validate against. The model's
+  // tool input doesn't carry that field — we attach it server-side
+  // based on which tool actually fired.
+  const payload = {
+    ...(renderCall.input as Record<string, unknown>),
+    thesis_dimension: dimension,
+  };
+
+  const parsed = RegulatoryLookupOutputSchema.safeParse(payload);
   if (!parsed.success) {
     return {
       ok: false,

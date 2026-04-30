@@ -30,6 +30,7 @@ export type {
   NewDataSourceCacheRow,
   RegulatoryCacheRow,
   NewRegulatoryCacheRow,
+  RegulatoryThesisDimension,
   PlaceSentimentCacheRow,
   NewPlaceSentimentCacheRow,
   DealMilestone,
@@ -96,4 +97,5 @@ export {
   AI_USAGE_TASKS,
   VERDICT_FEEDBACK_RATINGS,
   VERDICT_FEEDBACK_ISSUE_CATEGORIES,
+  REGULATORY_THESIS_DIMENSIONS,
 } from "./schema";
