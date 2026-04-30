@@ -290,3 +290,81 @@ export const SchoolsSignalSchema = z.object({
   sourceUrl: z.string().url(),
 });
 export type SchoolsSignal = z.infer<typeof SchoolsSignalSchema>;
+
+// ----------------------------------------------------------------
+// LTR rental comps (M3.11) — LLM-cached city/configuration-keyed
+// ----------------------------------------------------------------
+
+/**
+ * Long-term rental comp data sourced via Haiku's market knowledge
+ * (Rentometer / Zillow Rentals / local rental knowledge encoded in
+ * training). v1 has no paid Rentometer integration — Haiku's recall
+ * is the primary source. The model is instructed to set
+ * `dataQuality: "unavailable"` rather than fabricate medians for
+ * markets it doesn't have meaningful recall for.
+ *
+ * Cache key bucket: `${state}:${city}:${beds}-${baths}-${sqftBucket}`
+ * where sqftBucket rounds to nearest 250 sqft so 1100sqft and
+ * 1200sqft properties share a row. TTL: 30 days.
+ */
+export const LtrCompsSignalSchema = z.object({
+  city: z.string().min(1).max(120),
+  state: z.string().min(2).max(2),
+  bedrooms: z.number().int().min(0).max(10).optional().nullable(),
+  bathrooms: z.number().min(0).max(10).optional().nullable(),
+  sqftBucket: z.number().int().positive().optional().nullable(),
+  // Median monthly rent in cents. Cents to keep alignment with the
+  // intake fields (ltr_expected_monthly_rent_cents). Cap at $50K/mo
+  // to allow extreme high-end markets without artificially clipping.
+  medianMonthlyRentCents: z.number().int().min(0).max(5_000_000),
+  rentRangeLowCents: z.number().int().min(0).max(5_000_000),
+  rentRangeHighCents: z.number().int().min(0).max(5_000_000),
+  compCountEstimated: z.number().int().min(0).max(50),
+  vacancyEstimate: z.number().min(0).max(0.3),
+  marketSummary: z.string().min(1).max(500),
+  demandIndicators: z.array(z.string().min(1).max(280)).max(5).default([]),
+  dataQuality: z.enum(["rich", "partial", "unavailable"]).default("partial"),
+  summary: z.string().min(1).max(500),
+});
+export type LtrCompsSignal = z.infer<typeof LtrCompsSignalSchema>;
+
+// ----------------------------------------------------------------
+// STR rental comps (M3.11) — LLM-cached city/configuration-keyed
+// ----------------------------------------------------------------
+
+/**
+ * Short-term (vacation) rental comp data sourced via Haiku's market
+ * knowledge of Airbnb / VRBO / AirDNA-style coverage. Replaces the
+ * Apify-based comp scrape as the *primary* STR comp source for v1
+ * — Apify's `tri_angle/airbnb-scraper` returns 0 listings for many
+ * markets (Kings Beach, smaller Lake Tahoe submarkets), so STR
+ * verdicts depended on a brittle path. Apify continues to run as
+ * optional enrichment when it succeeds; the orchestrator no longer
+ * gates on it.
+ *
+ * Cache key bucket: `${state}:${city}:${beds}-${baths}`. TTL: 14
+ * days (STR markets shift faster than LTR — peak-season ADR can
+ * change materially month over month).
+ */
+export const StrCompsSignalSchema = z.object({
+  city: z.string().min(1).max(120),
+  state: z.string().min(2).max(2),
+  bedrooms: z.number().int().min(0).max(10).optional().nullable(),
+  bathrooms: z.number().min(0).max(10).optional().nullable(),
+  // Median nightly rate (Average Daily Rate) in cents. Cap at $5K/
+  // night to allow extreme luxury markets without clipping.
+  medianAdrCents: z.number().int().min(0).max(500_000),
+  adrRangeLowCents: z.number().int().min(0).max(500_000),
+  adrRangeHighCents: z.number().int().min(0).max(500_000),
+  medianOccupancy: z.number().min(0).max(1),
+  occupancyRangeLow: z.number().min(0).max(1),
+  occupancyRangeHigh: z.number().min(0).max(1),
+  estimatedCompCount: z.number().int().min(0).max(100),
+  marketSummary: z.string().min(1).max(500),
+  seasonality: z.enum(["high", "moderate", "low"]),
+  peakSeasonMonths: z.array(z.string().min(1).max(20)).max(6).default([]),
+  demandDrivers: z.array(z.string().min(1).max(280)).max(5).default([]),
+  dataQuality: z.enum(["rich", "partial", "unavailable"]).default("partial"),
+  summary: z.string().min(1).max(500),
+});
+export type StrCompsSignal = z.infer<typeof StrCompsSignalSchema>;

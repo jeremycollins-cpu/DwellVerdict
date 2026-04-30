@@ -120,3 +120,25 @@ export {
   type SchoolsLookupSuccess,
   type SchoolsLookupFailure,
 } from "./tasks/schools-lookup";
+export {
+  lookupLtrComps,
+  LtrCompsLookupOutputSchema,
+  LTR_COMPS_LOOKUP_TASK_TYPE,
+  LTR_COMPS_LOOKUP_PROMPT_VERSION,
+  LTR_COMPS_LOOKUP_MODEL,
+  type LtrCompsLookupInput,
+  type LtrCompsLookupOutput,
+  type LtrCompsLookupSuccess,
+  type LtrCompsLookupFailure,
+} from "./tasks/ltr-comps-lookup";
+export {
+  lookupStrComps,
+  StrCompsLookupOutputSchema,
+  STR_COMPS_LOOKUP_TASK_TYPE,
+  STR_COMPS_LOOKUP_PROMPT_VERSION,
+  STR_COMPS_LOOKUP_MODEL,
+  type StrCompsLookupInput,
+  type StrCompsLookupOutput,
+  type StrCompsLookupSuccess,
+  type StrCompsLookupFailure,
+} from "./tasks/str-comps-lookup";

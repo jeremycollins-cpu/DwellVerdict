@@ -30,7 +30,9 @@ export type SourceName =
   | "airbnb"
   | "zillow"
   | "redfin"
-  | "schools";
+  | "schools"
+  | "ltr-comps"
+  | "str-comps";
 
 export type WithCacheParams<T> = {
   db: DbClient;
@@ -139,6 +141,15 @@ export const TTL = {
   // 90 days is appropriate. First call per city pays Haiku ~$0.001;
   // subsequent calls in that window are free.
   SCHOOLS: 90 * 24 * 60 * 60 * 1000, // 90 days
+  // M3.11 — LTR rent comps shift slowly enough that 30 days
+  // captures most market-rate movement; an annual lease cycle on
+  // most units means month-over-month median rent drift is small.
+  LTR_COMPS: 30 * 24 * 60 * 60 * 1000, // 30 days
+  // M3.11 — STR markets move faster (peak-season ADR swings,
+  // event-driven spikes). 14 days keeps the cache responsive while
+  // still amortizing the Haiku call across many properties in the
+  // same city.
+  STR_COMPS: 14 * 24 * 60 * 60 * 1000, // 14 days
 } as const;
 
 /**

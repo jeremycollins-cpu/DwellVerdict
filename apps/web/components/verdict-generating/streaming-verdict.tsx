@@ -96,7 +96,11 @@ const DOMAINS: DomainSpec[] = [
     key: "comps",
     title: "Comparable Properties",
     pendingDesc: "Recent comps · ADR · occupancy",
-    signals: ["airbnb", "zillow", "redfin"],
+    // M3.11 — ltrComps and strComps fire only for the matching
+    // thesis (others skip silently and never emit signal_complete).
+    // Listing them alongside airbnb/zillow/redfin lets the comps
+    // stripe tick complete on whichever set actually ran.
+    signals: ["airbnb", "zillow", "redfin", "ltrComps", "strComps"],
     Icon: Grid3X3,
   },
   {

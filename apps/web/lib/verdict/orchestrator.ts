@@ -15,6 +15,8 @@ import {
   type AirbnbCompsSignal,
   type PropertyValuation,
   type SchoolsSignal,
+  type LtrCompsSignal,
+  type StrCompsSignal,
   type SignalResult,
 } from "@dwellverdict/data-sources";
 import {
@@ -34,6 +36,12 @@ import {
 } from "@/lib/regulatory/lookup";
 import { getPlaceSentimentSignal } from "@/lib/place-sentiment/lookup";
 import { getSchoolsSignal } from "@/lib/schools/lookup";
+import { getLtrCompsSignal } from "@/lib/ltr-comps/lookup";
+import { getStrCompsSignal } from "@/lib/str-comps/lookup";
+import {
+  computeIntakeVarianceFlag,
+  type VarianceFlag,
+} from "@/lib/verdict/intake-variance";
 
 /**
  * Rules-first verdict orchestrator per ADR-6, M3.6 reframe.
@@ -111,6 +119,8 @@ export type SignalKey =
   | "regulatory"
   | "placeSentiment"
   | "schools"
+  | "ltrComps"
+  | "strComps"
   | "revenue";
 
 export type VerdictProgressEvent =
@@ -185,6 +195,9 @@ export async function orchestrateVerdict(input: {
     | "zip"
     | "lat"
     | "lng"
+    | "bedrooms"
+    | "bathrooms"
+    | "sqft"
   > &
     IntakeFields;
   userId?: string;
@@ -431,6 +444,80 @@ export async function orchestrateVerdict(input: {
         okFlag,
       ),
     },
+    {
+      // M3.11 — LTR rental comps. Fires for thesis='ltr' or
+      // 'house_hacking' (the latter has a rented-portion); skips
+      // otherwise. Skipped fetchers resolve to a synthetic envelope
+      // so the destructure-by-position shape stays stable, and they
+      // never emit `signal_complete` so the UI stripe doesn't tick.
+      key: "ltrComps" as const,
+      promise:
+        property.thesisType === "ltr" || property.thesisType === "house_hacking"
+          ? wrap(
+              "ltrComps",
+              settledSignal(
+                getLtrCompsSignal({
+                  db,
+                  city,
+                  state,
+                  bedrooms: property.bedrooms ?? null,
+                  bathrooms: property.bathrooms
+                    ? Number(property.bathrooms)
+                    : null,
+                  sqft: property.sqft ?? null,
+                  userId,
+                  orgId,
+                  verdictId,
+                }),
+                LLM_CACHED_FETCHER_TIMEOUT_MS,
+                "ltr-comps",
+              ),
+              () => [],
+              okFlag,
+            )
+          : Promise.resolve({
+              ok: false as const,
+              error: "skipped: thesis does not require LTR comps",
+              source: "ltr-comps",
+              skipped: true as const,
+            }),
+    },
+    {
+      // M3.11 — STR rental comps. Fires only for thesis='str'.
+      // Replaces the brittle Apify path as primary STR comp source;
+      // Apify still runs for STR thesis as optional enrichment via
+      // the airbnb fetcher above.
+      key: "strComps" as const,
+      promise:
+        property.thesisType === "str"
+          ? wrap(
+              "strComps",
+              settledSignal(
+                getStrCompsSignal({
+                  db,
+                  city,
+                  state,
+                  bedrooms: property.bedrooms ?? null,
+                  bathrooms: property.bathrooms
+                    ? Number(property.bathrooms)
+                    : null,
+                  userId,
+                  orgId,
+                  verdictId,
+                }),
+                LLM_CACHED_FETCHER_TIMEOUT_MS,
+                "str-comps",
+              ),
+              () => [],
+              okFlag,
+            )
+          : Promise.resolve({
+              ok: false as const,
+              error: "skipped: thesis does not require STR comps",
+              source: "str-comps",
+              skipped: true as const,
+            }),
+    },
   ];
 
   const settled = await Promise.allSettled(fetchers.map((f) => f.promise));
@@ -446,6 +533,8 @@ export async function orchestrateVerdict(input: {
     regulatorySignal,
     placeSentimentSignal,
     schoolsResult,
+    ltrCompsResult,
+    strCompsResult,
   ] = settled.map((s, i) =>
     s.status === "fulfilled"
       ? s.value
@@ -477,6 +566,18 @@ export async function orchestrateVerdict(input: {
       | { ok: false; error: string }
     ),
     SignalResult<SchoolsSignal>,
+    Awaited<ReturnType<typeof getLtrCompsSignal>> | {
+      ok: false;
+      error: string;
+      source: "ltr-comps";
+      skipped?: boolean;
+    },
+    Awaited<ReturnType<typeof getStrCompsSignal>> | {
+      ok: false;
+      error: string;
+      source: "str-comps";
+      skipped?: boolean;
+    },
   ];
 
   emit({ type: "phase_complete", phase: "signals" });
@@ -500,6 +601,12 @@ export async function orchestrateVerdict(input: {
   const schools: SchoolsSignal | null = schoolsResult.ok
     ? schoolsResult.data
     : null;
+  const ltrComps: LtrCompsSignal | null = ltrCompsResult.ok
+    ? ltrCompsResult.data
+    : null;
+  const strComps: StrCompsSignal | null = strCompsResult.ok
+    ? strCompsResult.data
+    : null;
 
   // Single structured log line summarizing fetcher outcomes per
   // verdict. M3.7 will use this to prioritize which broken fetcher
@@ -521,6 +628,19 @@ export async function orchestrateVerdict(input: {
       schools: schoolsResult.ok
         ? `ok:${schoolsResult.data.dataQuality}`
         : "failed",
+      // M3.11 — distinguish "didn't run for this thesis" from "ran
+      // and failed". The third state ('skipped') is the more common
+      // case for both rental-comp fetchers given thesis routing.
+      ltrComps: ltrCompsResult.ok
+        ? `ok:${ltrCompsResult.data.dataQuality}`
+        : "skipped" in ltrCompsResult && ltrCompsResult.skipped
+          ? "skipped"
+          : "failed",
+      strComps: strCompsResult.ok
+        ? `ok:${strCompsResult.data.dataQuality}`
+        : "skipped" in strCompsResult && strCompsResult.skipped
+          ? "skipped"
+          : "failed",
     },
   });
 
@@ -621,6 +741,47 @@ export async function orchestrateVerdict(input: {
     placeSentimentBullets: placeSentiment?.bullets.length ?? 0,
   });
 
+  // ---- M3.11: intake-vs-market variance flags ----
+  // For LTR thesis, compare user's expected monthly rent to market
+  // median; for STR thesis, compare nightly rate AND occupancy.
+  // The narrative model uses these to surface honest concerns when
+  // the user's intake assumptions diverge materially from market.
+  let ltrRentVariance: { ratio: number; flag: VarianceFlag } | null = null;
+  if (
+    ltrComps &&
+    ltrComps.dataQuality !== "unavailable" &&
+    typeof property.ltrExpectedMonthlyRentCents === "number" &&
+    property.ltrExpectedMonthlyRentCents > 0
+  ) {
+    const v = computeIntakeVarianceFlag(
+      property.ltrExpectedMonthlyRentCents,
+      ltrComps.medianMonthlyRentCents,
+    );
+    ltrRentVariance = { ratio: v.varianceRatio, flag: v.flag };
+  }
+
+  let strAdrVariance: { ratio: number; flag: VarianceFlag } | null = null;
+  let strOccupancyVariance: { ratio: number; flag: VarianceFlag } | null = null;
+  if (strComps && strComps.dataQuality !== "unavailable") {
+    if (
+      typeof property.strExpectedNightlyRateCents === "number" &&
+      property.strExpectedNightlyRateCents > 0
+    ) {
+      const v = computeIntakeVarianceFlag(
+        property.strExpectedNightlyRateCents,
+        strComps.medianAdrCents,
+      );
+      strAdrVariance = { ratio: v.varianceRatio, flag: v.flag };
+    }
+    if (property.strExpectedOccupancy) {
+      const userOcc = Number(property.strExpectedOccupancy);
+      if (Number.isFinite(userOcc) && userOcc > 0) {
+        const v = computeIntakeVarianceFlag(userOcc, strComps.medianOccupancy);
+        strOccupancyVariance = { ratio: v.varianceRatio, flag: v.flag };
+      }
+    }
+  }
+
   // ---- Phase 3: narrative ----
   const signals = {
     address: addressFull,
@@ -659,6 +820,49 @@ export async function orchestrateVerdict(input: {
           notableFactors: schools.notableFactors,
           summary: schools.summary,
           sourceUrl: schools.sourceUrl,
+        }
+      : null,
+    // M3.11 — LTR rental comp signal + intake variance flag (only
+    // populated when the comp lookup ran for this thesis and the
+    // user supplied an expected monthly rent).
+    ltrComps: ltrComps
+      ? {
+          city: ltrComps.city,
+          state: ltrComps.state,
+          dataQuality: ltrComps.dataQuality,
+          medianMonthlyRentCents: ltrComps.medianMonthlyRentCents,
+          rentRangeLowCents: ltrComps.rentRangeLowCents,
+          rentRangeHighCents: ltrComps.rentRangeHighCents,
+          compCountEstimated: ltrComps.compCountEstimated,
+          vacancyEstimate: ltrComps.vacancyEstimate,
+          marketSummary: ltrComps.marketSummary,
+          demandIndicators: ltrComps.demandIndicators,
+          summary: ltrComps.summary,
+          intakeVariance: ltrRentVariance,
+        }
+      : null,
+    // M3.11 — STR rental comp signal + intake variance flags
+    // (separate flags for nightly rate and occupancy; either or
+    // both may be populated depending on intake completeness).
+    strComps: strComps
+      ? {
+          city: strComps.city,
+          state: strComps.state,
+          dataQuality: strComps.dataQuality,
+          medianAdrCents: strComps.medianAdrCents,
+          adrRangeLowCents: strComps.adrRangeLowCents,
+          adrRangeHighCents: strComps.adrRangeHighCents,
+          medianOccupancy: strComps.medianOccupancy,
+          occupancyRangeLow: strComps.occupancyRangeLow,
+          occupancyRangeHigh: strComps.occupancyRangeHigh,
+          estimatedCompCount: strComps.estimatedCompCount,
+          seasonality: strComps.seasonality,
+          peakSeasonMonths: strComps.peakSeasonMonths,
+          marketSummary: strComps.marketSummary,
+          demandDrivers: strComps.demandDrivers,
+          summary: strComps.summary,
+          adrVariance: strAdrVariance,
+          occupancyVariance: strOccupancyVariance,
         }
       : null,
   };

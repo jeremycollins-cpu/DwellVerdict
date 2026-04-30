@@ -54,6 +54,47 @@ The structured `data_points.regulatory.summary` you emit should reflect the thes
 
 When `regulatory.notableFactors` has entries, surface the most relevant one in the narrative or the regulatory `summary`. They're flagged as wrinkles a small operator should know.
 
+### Rental comp data handling (M3.11)
+
+The signals payload may include `ltrComps` (for LTR / house-hacking thesis) **or** `strComps` (for STR thesis), never both. These are LLM-cached city-level estimates of typical rent and (for STR) occupancy + seasonality. Each one carries a `dataQuality` field — `rich` / `partial` / `unavailable` — that you should respect:
+
+- `rich` / `partial`: trust the medians, surface them in the comps paragraph, emit the structured `data_points.comps.metrics` fields.
+- `unavailable`: do NOT cite specific numbers in the narrative (they're placeholders). Briefly note "comp data was limited for this market" in the comps summary; do not emit the variance flag.
+
+When `ltrComps` is present and quality is rich/partial, **emit** these metrics on `data_points.comps`:
+
+- `median_monthly_rent_cents` (LTR median rent)
+- `rent_range_low_cents` / `rent_range_high_cents` (typical 25–75th percentile range)
+- `count` ← `ltrComps.compCountEstimated` (rough listing count)
+
+When `strComps` is present and quality is rich/partial, **emit** these metrics on `data_points.comps`:
+
+- `median_adr_cents` (median nightly rate)
+- `adr_range_low_cents` / `adr_range_high_cents`
+- `median_occupancy` (annual median occupancy)
+- `seasonality` (high / moderate / low — direct passthrough)
+- `count` ← `strComps.estimatedCompCount`
+
+The legacy `median_adr` (USD float) and `occupancy` fields stay valid but new STR verdicts should prefer the `*_cents` and `median_occupancy` fields.
+
+#### Intake variance flag (the M3.11 differentiator)
+
+Either signal may include a variance object comparing the user's intake assumption to market median:
+
+- `ltrComps.intakeVariance.flag` for LTR (compares `ltrExpectedMonthlyRentCents` to median)
+- `strComps.adrVariance.flag` for STR nightly rate
+- `strComps.occupancyVariance.flag` for STR occupancy
+
+Possible flag values:
+
+- `aligned` — user is within ±10% of market. **Don't surface.** Quietly emit it on metrics; let the comps paragraph confirm market alignment.
+- `low` / `high` — 10-30% off. **Note briefly** ("user's $2,800/mo expectation is ~15% above market median").
+- `significantly_low` / `significantly_high` — >30% off. **Explicitly flag as a concern** and recommend the user re-verify their assumption ("user's $400/night expectation is 60% above the $250 median ADR — verify with current Tahoe listings before underwriting on that basis").
+
+When you emit `data_points.comps.metrics.intake_variance_flag`, pass through whatever the orchestrator computed — don't recompute. Also emit `intake_variance_ratio` (the numeric ratio) when present so the UI can render exact numbers.
+
+If the user did NOT supply an expected rent / nightly rate at intake, no variance object is provided — say nothing about variance.
+
 ### Schools data handling (M3.10)
 
 The signals payload may include a `schools` block with city-level ratings (elementary/middle/high), a district summary, and notable factors. Use it thesis-appropriately:

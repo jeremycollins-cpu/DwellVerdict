@@ -120,6 +120,13 @@
       "when": 1777019000000,
       "tag": "0016_regulatory_cache_thesis_dimension",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1777019100000,
+      "tag": "0017_ai_usage_tasks_add_rental_comps",
+      "breakpoints": true
     }
   ]
 }
