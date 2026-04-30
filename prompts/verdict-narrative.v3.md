@@ -38,6 +38,22 @@ The user told us in the intake form what they're trying to do. Speak to that the
 
 Speak to the user's `goal_type` too. A "cap rate" investor wants monthly cash flow numbers in the headline; an "appreciation" investor wants market trajectory and 5-year hold reasoning; "lifestyle" wants livability without overstating investment merit; "flip_profit" wants margin math.
 
+### Thesis-aware regulatory data (M3.13)
+
+The `regulatory` signal in the input is **thesis-specific**. Pre-M3.13 it always held STR fields. After M3.13 the shape varies by `regulatory.thesisDimension`, which matches the user's investment thesis (with `other` mapped to `str`):
+
+- **STR thesis (`regulatory.thesisDimension === "str"`)** — fields: `strLegal`, `permitRequired`, `ownerOccupiedOnly`, `capOnNonOwnerOccupied`, `renewalFrequency`, `minimumStayDays`. Emit `regulatory.metrics.str_status` (mapped from `strLegal`) and `regulatory.metrics.registration_required` (from `permitRequired === "yes"`).
+- **LTR thesis (`regulatory.thesisDimension === "ltr"`)** — fields under `regulatory.thesisFields`: `rentControl`, `rentIncreaseCap`, `justCauseEviction`, `securityDepositCap`, `rentalRegistrationRequired`, `sourceOfIncomeProtection`, `evictionFriendliness`. Lead the regulatory paragraph with rent control + just-cause eviction posture. **Do NOT emit `str_status`** — it's not applicable. Optional to emit `regulatory.metrics.registration_required` from `rentalRegistrationRequired === "yes"`.
+- **Owner-occupied thesis (`regulatory.thesisDimension === "owner_occupied"`)** — fields under `regulatory.thesisFields`: `homesteadExemption`, `homesteadExemptionSummary`, `propertyTaxRateSummary`, `transferTax`, `hoaDisclosureRequired`, `hoaApprovalRequired`, `specialAssessmentsCommon`. Lead the regulatory paragraph with property-tax cost + homestead exemption. Tax-strategy mentions carry an implicit "for your CPA to review" framing.
+- **House-hacking thesis (`regulatory.thesisDimension === "house_hacking"`)** — fields under `regulatory.thesisFields`: `aduLegal`, `jaduLegal`, `roomRentalLegal`, `maxUnrelatedOccupants`, `ownerOccupiedStrCarveout`, `ownerOccupiedStrSummary`, `parkingRequirementPerUnit`. Lead with whichever rule binds the user's plan most (ADU rules if they want to add a unit; OO STR carveout if they want to short-term-rent the second unit; room-rental rules if they're renting bedrooms).
+- **Flipping thesis (`regulatory.thesisDimension === "flipping"`)** — fields under `regulatory.thesisFields`: `permitTimelineSummary`, `gcLicenseThresholdSummary`, `historicDistrictRisk`, `historicDistrictSummary`, `flipperSurtax`, `flipperSurtaxSummary`, `transferTaxAtSale`, `disclosureRequirementsSummary`. Lead with whichever rule most affects margin: permit timeline (carrying cost), transfer tax at sale, surtax if applicable, historic-overlay constraints.
+
+Common across all theses: `regulatory.summary` (LLM-generated prose), `regulatory.notableFactors` (array of wrinkles to surface), `regulatory.sourceUrls` (citation URLs), `regulatory.lastVerifiedAt`.
+
+The structured `data_points.regulatory.summary` you emit should reflect the thesis. For STR: "Roseville permits non-owner-occupied STRs with annual renewal." For LTR: "California AB 1482 caps rent increases at 5% + CPI; no local rent control in Lincoln." For owner-occupied: "Effective property tax ~2.0%; Nebraska does not offer a homestead exemption for primary residences."
+
+When `regulatory.notableFactors` has entries, surface the most relevant one in the narrative or the regulatory `summary`. They're flagged as wrinkles a small operator should know.
+
 ### Schools data handling (M3.10)
 
 The signals payload may include a `schools` block with city-level ratings (elementary/middle/high), a district summary, and notable factors. Use it thesis-appropriately:
@@ -106,8 +122,8 @@ Call `render_verdict_narrative` with the following shape. **All `summary` string
 - `comps.metrics.occupancy` → if a typical occupancy is reported in the comps signal, otherwise omit
 - `revenue.metrics.annual_estimate` → `revenue.netAnnualMedian` (USD). Note that for STR/LTR theses with intake fields populated, this number comes from the user's intake (not comps); cite accordingly.
 - `revenue.metrics.cap_rate` → `revenue.netAnnualMedian / referencePrice` if both present (0..1 ratio)
-- `regulatory.metrics.str_status` → maps to `regulatory.strLegal` (yes → "permitted", restricted → "restricted", no → "prohibited", unclear → "unclear")
-- `regulatory.metrics.registration_required` → `regulatory.permitRequired === "yes"` if known
+- `regulatory.metrics.str_status` → **STR thesis only**: maps to `regulatory.strLegal` (yes → "permitted", restricted → "restricted", no → "prohibited", unclear → "unclear"). Omit the metric for non-STR theses.
+- `regulatory.metrics.registration_required` → **STR or LTR**: STR uses `regulatory.permitRequired === "yes"`; LTR uses `regulatory.thesisFields.rentalRegistrationRequired === "yes"`. Omit otherwise.
 - `location.metrics.walk_score` → `walkability.walkScore`
 - `location.metrics.flood_zone` → `flood.zone` (FEMA designation like "X", "AE")
 - `location.metrics.crime_rate_rank` → derived: low/moderate/high based on `crime.violentPer1k` ranges (low: <2, moderate: 2-5, high: >5)
@@ -122,6 +138,7 @@ The `citations` array per domain should contain only URLs that actually appear i
 **Citing user-intake data:** When a quantitative claim relies on the user's own intake form answers (listing price, expected nightly rate, expected monthly rent, insurance estimate, property tax, etc.), set `url` to the literal string `"user-provided"` or `"intake-data"`. The UI renders these as a non-clickable "From your intake" chip rather than a broken link. Use this instead of inventing a URL or omitting the citation.
 
 Examples of GOOD intake citations:
+
 - `{ "url": "user-provided", "label": "Listing price" }`
 - `{ "url": "intake-data", "label": "Expected monthly rent (LTR intake)" }`
 - `{ "url": "user-provided", "label": "Annual insurance estimate" }`

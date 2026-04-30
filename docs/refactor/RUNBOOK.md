@@ -16,8 +16,9 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 ## Recent activity
 
-Last updated: 2026-04-27
+Last updated: 2026-04-30
 
+- ✅ M3.13 shipped — thesis-specific regulatory expansion. `regulatory_cache` widened from one row per (city, state) to one row per (city, state, thesis_dimension); `lookupRegulatory` now accepts a `thesisDimension` and dispatches to one of five prompts (`regulatory-lookup-{str,ltr,owner-occupied,house-hacking,flipping}.v1.md`), each with its own thesis-specific structured fields (rent control + just-cause eviction for LTR; homestead exemption + property tax for owner-occupied; ADU/JADU/room-rental + OO STR carveouts for house-hacking; permit timeline + transfer tax + flipper surtax for flipping). Output is a Zod discriminated union over `thesis_dimension`. STR-typed columns on `regulatory_cache` (`str_legal` etc.) stay populated for STR rows and are NULL for the four new dimensions; non-STR theses persist their structured shape in the new `thesis_specific_fields` jsonb column. New `notable_factors` jsonb column (max 5 strings, ≤280 chars each) surfaces wrinkles a small operator should know — surfaced through the LLM tool input in addition to the prose summary. Orchestrator maps `property.thesisType` → regulatory dimension at call site (with `other` → `str` baseline); scoring receives `null` for non-STR regulatory so the STR-permit penalty doesn't apply outside STR. Narrative prompt v3 adds a "Thesis-aware regulatory data" section instructing the model to read `regulatory.thesisFields` when `thesisDimension !== "str"` and emit `regulatory.metrics.str_status` only for STR. **Schema migration `0016_regulatory_cache_thesis_dimension` requires manual production run** per M0.4 follow-up — adds the new column with `DEFAULT 'str'` so existing STR rows are valid post-migration, drops + recreates the unique index on (city, state, thesis_dimension). 22 regulatory schema regression tests across all five arms; 85 AI tests pass. No env var changes.
 - 🔧 M3.10 fix-forward — schema constraints + citation URL sentinel. Roseville verdict regeneration surfaced two Zod rejections in production: (1) `[schools-lookup] notable_factors[1]: 'String must contain at most 160 character(s)'` — Roseville's STEM-consortium description was 167 chars; the limit was conservative for rich LLM output. (2) `[verdict-narrative] data_points.revenue.citations[0].url: 'Invalid url'` — model emitted `"url": "user-provided"` to cite the user's intake form as a source; the strict `.url()` validator rejected what was an entirely reasonable model behavior. Three changes: (a) schools `notable_factors` element max 160 → 280 + `notes` 200 → 280 + `district_summary` 400 → 500 (matched in both `SchoolsSignalSchema` and the LLM tool's `SchoolsLookupOutputSchema` so both sides stay in sync); (b) narrative `CitationSchema.url` becomes `union(z.string().url(), z.literal("user-provided"), z.literal("intake-data"))` — exported `CITATION_URL_SENTINELS` from `@dwellverdict/ai`; (c) UI evidence-card extracts citation rendering into a `<CitationChip>` helper that renders sentinels as a non-clickable "From your intake" pill instead of a broken `<a>`. v3 prompt updated with intake-citation guidance + concrete examples. **Audit pass** confirmed all other AI-output Zod constraints (place-sentiment bullets, regulatory summary, narrative metric bounds) are realistic for current rich-data outputs; no other speculative changes. 6 new regression tests; 74 AI + 37 data-sources tests pass total. No DB migration.
 - ✅ M3.10 shipped — schools data integration (LTR + Owner-occupied + House-hacking + Flipping). New LLM-cached city-level fetcher: `lookupSchools` (Haiku, no web_search, returns up to 5 schools per level + district summary + notable factors + `data_quality` self-assessment). Wrapped by `apps/web/lib/schools/lookup.ts` with the shared `data_source_cache` (90d TTL, key `${state}:${city}`). Orchestrator adds `schools` to the parallel signal fetch (uses `LLM_CACHED_FETCHER_TIMEOUT_MS = 12s`); fetcher health log distinguishes `ok:rich` / `ok:partial` / `ok:unavailable`. Narrative tool schema gains optional `location.metrics.elementary_school_rating_median` / `middle_school_rating_median` / `high_school_rating_median` / `notable_schools`; v3 prompt adds a thesis-aware "Schools data handling" section that emits metrics for LTR/OO/HH/Flipping and omits for STR. Evidence card UI renders the new metrics whenever the model includes them. **Schema migration `0015_ai_usage_tasks_add_schools_lookup`** required (extends the `ai_usage_events.task` CHECK constraint to include `schools-lookup` so the new LLM call's usage event is allowed at the DB layer). Per M0.4 follow-up, runs via the standard manual `pnpm db:migrate`. Defers paid GreatSchools enrichment to v1.1 per master plan upgrade triggers (5+ paying users); v1 relies on Haiku's recall with explicit `data_quality: "unavailable"` for areas the model doesn't know. Tests: 10 SchoolsSignal schema regressions in data-sources, 3 location-metrics schema regressions in AI; 71 AI + 34 data-sources tests total. Carries the M3.7 fix-forward stack forward (max_tokens=4000, summaries ≤500 chars) — current realistic worst-case output ~2000 tokens with schools, well within the 4000 ceiling.
 - 🔧 M3.7 fix-forward (continuation) — Kings Beach regenerate produced rich narrative output (10.7% cap rate, real Placer County permit specifics, wildfire history, FEMA Zone X confirmed, BUY @ 100% confidence) but still failed Zod schema validation: two `data_points.*.summary` strings exceeded the 300-char ceiling (regulatory ~410 chars; location ~380 chars). The 300-char limit dated from when summaries were sparse-data placeholders ("FEMA data unavailable") — with M3.7 fetchers actually returning data, summaries naturally run longer. Bumped per-domain summary `.max(300)` → `.max(500)` on all four data_points domains in `VerdictNarrativeOutputSchema`. 2 new boundary regression tests pin the new ceiling. UI evidence cards render summaries as plain `<p>` with no clamping → 500-char prose wraps naturally with no layout impact. No DB migration; no env vars.
@@ -44,7 +45,7 @@ Last updated: 2026-04-27
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M3.13 next — thesis-specific regulatory expansion (per v1.9 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 ✅ → M3.10 ✅ → M3.13 → M3.11 → M3.8 → M3.4 → M3.9 → M3.12)
+- ⏳ M3.11 next — per v1.9 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 ✅ → M3.10 ✅ → M3.13 ✅ → **M3.11** → M3.8 → M3.4 → M3.9 → M3.12
 
 ---
 
@@ -54,7 +55,7 @@ Tracked work that's been explicitly deferred past the v1 launch window. Each ent
 
 - **M0.4 — Auto-migration in Vercel build pipeline.** Required before next schema-change milestone. Until shipped, manually run `pnpm --filter @dwellverdict/db db:migrate` against production after schema migrations merge.
 - **M3.3 — Verify regenerate immutability.** The `/api/verdicts/[id]/generate` route inserts a new pending row only when `verdict.status === "ready" && force === true`. Failed-retry and pending-retry paths still UPDATE the same row in place — meaning a prior failed attempt's tokens / error / cost are overwritten on a successful retry, contradicting the M3.3 immutable-run-history goal. Investigate before run-history UI matters in production: either route failed-retries through a new pending row too, or document the in-place semantics as intentional and align M3.3 docs. Surfaced during the M3.6 stale `error_message` diagnosis (verdict 7a72b67f-1a6c-48d4-9a0f-e72e1b0e4e01).
-- **M3.7 — Census fetcher timeout race.** The Census ACS fetcher does two sequential HTTP calls: Geocoder (lat/lng → census tract FIPS) then ACS 5-Year API (tract → demographic variables). Each inner call has its own `AbortSignal.timeout(10_000)`. The outer `settledSignal` wrapper in the orchestrator caps the *combined* fetch at `HTTP_FETCHER_TIMEOUT_MS = 8_000` ms. Under serverless cold-start latency, the Geocoder call alone can take 4–5s, leaving 3–4s before the outer wrapper kills the ACS call mid-flight — yielding a `census: timed out after 8000ms` soft-fail and no cache write. Confirmed in the M3.7 fix-forward diagnostic: Kings Beach has FEMA/USGS/FBI cache rows but Census is missing entirely. Restructuring Census not really possible — ACS genuinely requires the geocoder's tract result first, so it's inherently sequential. Resolution options: (a) bump per-fetcher timeout to 15s (slight latency cost on every verdict — acceptable since verdicts already take 30–60s), (b) keep 8s globally but allow per-fetcher overrides on the slow ones (Census, regulatory LLM, place-sentiment LLM). Recommendation: ship option (a) when M3.10 (schools — another sequential 2-call fetcher) makes the latency-vs-coverage tradeoff worth re-evaluating.
+- **M3.7 — Census fetcher timeout race.** The Census ACS fetcher does two sequential HTTP calls: Geocoder (lat/lng → census tract FIPS) then ACS 5-Year API (tract → demographic variables). Each inner call has its own `AbortSignal.timeout(10_000)`. The outer `settledSignal` wrapper in the orchestrator caps the _combined_ fetch at `HTTP_FETCHER_TIMEOUT_MS = 8_000` ms. Under serverless cold-start latency, the Geocoder call alone can take 4–5s, leaving 3–4s before the outer wrapper kills the ACS call mid-flight — yielding a `census: timed out after 8000ms` soft-fail and no cache write. Confirmed in the M3.7 fix-forward diagnostic: Kings Beach has FEMA/USGS/FBI cache rows but Census is missing entirely. Restructuring Census not really possible — ACS genuinely requires the geocoder's tract result first, so it's inherently sequential. Resolution options: (a) bump per-fetcher timeout to 15s (slight latency cost on every verdict — acceptable since verdicts already take 30–60s), (b) keep 8s globally but allow per-fetcher overrides on the slow ones (Census, regulatory LLM, place-sentiment LLM). Recommendation: ship option (a) when M3.10 (schools — another sequential 2-call fetcher) makes the latency-vs-coverage tradeoff worth re-evaluating.
 
 ---
 
@@ -197,6 +198,7 @@ Open Claude Code in your terminal. You should be in the DwellVerdict repo root.
 Paste the entire milestone prompt I gave you. Don't summarize it. Don't edit it. Paste verbatim.
 
 Claude Code will:
+
 1. Read the prompt
 2. Read the master plan and any other docs referenced
 3. Read the relevant codebase files
@@ -210,6 +212,7 @@ Answer any clarifying questions briefly. If a question feels like it needs strat
 This is the part where you don't intervene unnecessarily.
 
 Claude Code will:
+
 1. Create the branch (`refactor/M{X.Y}-{slug}`)
 2. Make the changes
 3. Open a PR
@@ -222,11 +225,13 @@ Claude Code will:
 This typically takes 15-90 minutes depending on milestone complexity. Check in periodically. Don't hover.
 
 **When you should intervene:**
+
 - Claude Code asks a question that requires your input (rare)
 - Claude Code reports it's blocked on something it can't resolve (rare)
 - More than 90 minutes pass with no progress (very rare — likely Claude Code crashed or hit a token limit)
 
 **When you should NOT intervene:**
+
 - Claude Code is reporting progress, even slowly
 - Claude Code is fixing CI failures (let the 3-attempt policy run)
 - Claude Code is making implementation choices you wouldn't have made (the master plan said "use your judgment for tactical decisions")
@@ -241,6 +246,7 @@ Once Claude Code reports the milestone is done and production is deployed:
 4. If the milestone touched the database, run a quick query to verify schema changes applied
 
 If something broke production, two options:
+
 - **Quick fix:** Tell Claude Code to revert the merge and investigate (use the rollback command from the PR description)
 - **Forward fix:** Ask Claude Code to make a follow-up PR fixing the issue
 
@@ -275,16 +281,19 @@ The milestone prompt template explicitly includes this step. If a PR ships witho
 This is the order. Don't deviate without good reason.
 
 ### Phase 0 — Operational foundation
+
 - [x] **M0.1** — Email infrastructure (Resend) — shipped commit be71fef
 - [x] **M0.2** — CI infrastructure (typecheck, lint, test) — shipped commit b758e22
 - [x] **M0.3** — Sentry error monitoring — shipped commit 480ce7c
 
 ### Phase 1 — Foundation
+
 - [x] **M1.1** — Brand tokens + design system primitives (PROMPT_01 already in your repo) — shipped commit 5004560
 - [x] **M1.2** — Onboarding schema migration (PROMPT_02 already in your repo) — shipped (commit 8b66f4e)
 - [x] **M1.3** — Sidebar shell into authenticated layout — shipped (merge SHA pending)
 
 ### Phase 2 — Public surfaces
+
 - [x] **M2.1** — Landing page — shipped (merge SHA pending)
 - [x] **M2.2** — Pricing page — shipped (merge SHA pending)
 - [x] **M2.3** — Legal + Help pages (Terms, Privacy, Cookies, FAQ) — shipped (merge SHA pending)
@@ -292,6 +301,7 @@ This is the order. Don't deviate without good reason.
 - [x] **M2.5** — Marketing positioning refresh (platform vision) — shipped (merge SHA pending). **Phase 2 complete.**
 
 ### Phase 3 — Verdict surfaces
+
 - [x] **M3.0** — AI cost optimization foundation — shipped (merge SHA pending)
 - [x] **M3.1** — Address input refresh — shipped (merge SHA pending)
 - [x] **M3.2** — Streaming verdict generation + cost optimization — shipped (merge SHA pending)
@@ -300,7 +310,7 @@ This is the order. Don't deviate without good reason.
 - [x] **M3.6** — User-input data architecture for verdict generation — shipped (merge SHA pending)
 - [x] **M3.7** — Free fetcher repair (FEMA + Census + USGS) — shipped (merge SHA pending). Zillow/Redfin/Airbnb deferred to user-input fallback per v1.8 architecture; county records deferred to v1.1.
 - [x] **M3.10** — Schools data integration — shipped (merge SHA pending, requires manual production migration for AI_USAGE_TASKS CHECK constraint extension)
-- [ ] **M3.13** — Thesis-specific regulatory expansion (next per v1.9 sequence)
+- [x] **M3.13** — Thesis-specific regulatory expansion — shipped (merge SHA pending, requires manual production migration `0016_regulatory_cache_thesis_dimension`)
 - [ ] **M3.11** — LTR rental comps
 - [ ] **M3.8** — Thesis-aware scoring + thesis-aware fetcher selection (expanded in v1.9)
 - [ ] **M3.4** — Onboarding intent flow + welcome email (ships after M3.5–M3.7 so user-level data pre-fills the per-property intake form)
@@ -308,12 +318,14 @@ This is the order. Don't deviate without good reason.
 - [ ] **M3.12** — Sales comps + days-on-market
 
 ### Phase 4 — Property surfaces
+
 - [ ] **M4.1** — Dashboard route
 - [ ] **M4.2** — Properties list
 - [ ] **M4.3** — Verdicts cross-property view
 - [ ] **M4.4** — Compare view
 
 ### Phase 5 — Lifecycle stage pages
+
 - [ ] **M5.1** — Buying stage (expanded scope per v1.8)
 - [ ] **M5.2** — Renovating stage (expanded scope per v1.8)
 - [ ] **M5.3** — Managing stage (expanded scope per v1.8)
@@ -322,10 +334,12 @@ This is the order. Don't deviate without good reason.
 - [ ] **M5.6** — Tax strategy: 1031 exchanges
 
 ### Phase 6 — AI surfaces
+
 - [ ] **M6.1** — Scout per-property + cost optimization + feedback capture
 - [ ] **M6.2** — Scout global view
 
 ### Phase 7 — Workspace surfaces
+
 - [ ] **M7.1** — Briefs system schema + base + Batch API
 - [ ] **M7.2** — Briefs UI
 - [ ] **M7.3** — Alerts system schema + rule engine + Batch API
@@ -333,17 +347,20 @@ This is the order. Don't deviate without good reason.
 - [ ] **M7.5** — Portfolio dashboard
 
 ### Phase 8 — Settings surfaces
+
 - [ ] **M8.1** — Settings landing
 - [ ] **M8.2** — Settings · Account
 - [ ] **M8.3** — Settings · Billing & integrations
 - [ ] **M8.4** — Settings · Notifications
 
 ### Phase 9 — Embedded admin console
+
 - [ ] **M9.1** — Admin foundation + Dashboard + Sentry setup
 - [ ] **M9.2** — Admin · Users + Cost analytics
 - [ ] **M9.3** — Admin · Revenue + Usage + AI Quality + Operations
 
 ### Final — Launch readiness
+
 - [ ] Run a complete walkthrough of every surface as a non-admin
 - [ ] Run a complete walkthrough of every surface as an admin
 - [ ] Verify all 22 mockups are matched in production
@@ -489,6 +506,7 @@ That's the bar. Not "feature-complete relative to a roadmap." Working product, r
 **Source of truth:** `docs/refactor/REFACTOR_MASTER_PLAN.md`
 
 **For each milestone:**
+
 1. Ask me for the prompt
 2. Open fresh Claude Code session
 3. Paste prompt verbatim
