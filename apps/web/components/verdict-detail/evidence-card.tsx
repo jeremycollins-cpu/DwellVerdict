@@ -60,6 +60,18 @@ export function EvidenceCard({ domain, evidence }: EvidenceCardProps) {
       ? formatMetrics(domain.key, evidence.metrics)
       : null;
   const citations = isStructured(evidence) ? evidence.citations ?? [] : [];
+  // M3.11 — variance flag is rendered as a colored chip above the
+  // metrics row for the comps card. Only present when the model
+  // emitted `intake_variance_flag` (which only happens when the
+  // orchestrator computed it from intake + market median).
+  const varianceFlag =
+    domain.key === "comps" && isStructured(evidence) && evidence.metrics
+      ? (evidence.metrics["intake_variance_flag"] as string | undefined)
+      : undefined;
+  const varianceRatio =
+    domain.key === "comps" && isStructured(evidence) && evidence.metrics
+      ? (evidence.metrics["intake_variance_ratio"] as number | undefined)
+      : undefined;
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-hairline bg-card-ink p-6">
@@ -71,6 +83,10 @@ export function EvidenceCard({ domain, evidence }: EvidenceCardProps) {
           {domain.title}
         </h3>
       </div>
+
+      {varianceFlag && varianceFlag !== "aligned" ? (
+        <VarianceChip flag={varianceFlag} ratio={varianceRatio} />
+      ) : null}
 
       {metrics && metrics.length > 0 ? (
         <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -102,6 +118,53 @@ export function EvidenceCard({ domain, evidence }: EvidenceCardProps) {
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * M3.11 — Intake-vs-market variance chip rendered above the comps
+ * card metrics. The verdict orchestrator computed the flag by
+ * comparing the user's intake (LTR monthly rent or STR ADR /
+ * occupancy) to the LLM-cached market median; the prompt told the
+ * narrative model to pass the flag through verbatim.
+ *
+ * Visual hierarchy by severity:
+ *   - significantly_low / significantly_high: prominent yellow/amber
+ *     warning urging the user to re-verify
+ *   - low / high: subtle muted-warning chip
+ *   - aligned: chip is hidden by the parent (we never render it)
+ */
+function VarianceChip({
+  flag,
+  ratio,
+}: {
+  flag: string;
+  ratio: number | undefined;
+}) {
+  const isSignificant =
+    flag === "significantly_low" || flag === "significantly_high";
+  const isLow = flag === "low" || flag === "significantly_low";
+  const pct = typeof ratio === "number" ? Math.round(ratio * 100) : null;
+  const direction = isLow ? "below" : "above";
+  const detailFragment = pct != null ? `${pct}% of market median` : null;
+  const message = isSignificant
+    ? `User intake is significantly ${direction} market${pct != null ? ` (${pct}%)` : ""} — re-verify before underwriting.`
+    : `User intake is ${direction} market${detailFragment ? ` (${detailFragment})` : ""}.`;
+
+  return (
+    <div
+      role="note"
+      className={
+        isSignificant
+          ? "rounded-lg border border-amber-500/40 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-[1.45] text-amber-900"
+          : "rounded-lg border border-hairline-strong bg-paper-warm px-3 py-2 text-[12px] leading-[1.45] text-ink-70"
+      }
+    >
+      <span className="font-mono text-[10px] uppercase tracking-[0.14em]">
+        {isSignificant ? "Verify intake" : "Market check"}
+      </span>
+      <span className="ml-2">{message}</span>
     </div>
   );
 }
@@ -153,12 +216,55 @@ function formatMetrics(
   if (domain === "comps") {
     const count = get<number>("count");
     if (typeof count === "number") rows.push({ label: "Comps", value: String(count) });
-    const adr = get<number>("median_adr");
-    if (typeof adr === "number")
-      rows.push({ label: "Median ADR", value: `$${Math.round(adr)}` });
-    const occ = get<number>("occupancy");
-    if (typeof occ === "number")
-      rows.push({ label: "Occupancy", value: `${Math.round(occ * 100)}%` });
+
+    // M3.11 — LTR rental comp metrics (cents). Render alongside
+    // legacy STR metrics; the v3 prompt is thesis-routed so only
+    // one set is populated per verdict.
+    const ltrMedian = get<number>("median_monthly_rent_cents");
+    if (typeof ltrMedian === "number")
+      rows.push({ label: "Median rent", value: `${formatCents(ltrMedian)}/mo` });
+    const ltrLow = get<number>("rent_range_low_cents");
+    const ltrHigh = get<number>("rent_range_high_cents");
+    if (typeof ltrLow === "number" && typeof ltrHigh === "number")
+      rows.push({
+        label: "Rent range",
+        value: `${formatCents(ltrLow)}–${formatCents(ltrHigh)}`,
+      });
+
+    // M3.11 — STR rental comp metrics (cents). New format takes
+    // precedence over the legacy median_adr float when both are
+    // present.
+    const strAdr = get<number>("median_adr_cents");
+    if (typeof strAdr === "number") {
+      rows.push({ label: "Median ADR", value: `${formatCents(strAdr)}/night` });
+    } else {
+      const adrLegacy = get<number>("median_adr");
+      if (typeof adrLegacy === "number")
+        rows.push({ label: "Median ADR", value: `$${Math.round(adrLegacy)}` });
+    }
+    const adrLow = get<number>("adr_range_low_cents");
+    const adrHigh = get<number>("adr_range_high_cents");
+    if (typeof adrLow === "number" && typeof adrHigh === "number")
+      rows.push({
+        label: "ADR range",
+        value: `${formatCents(adrLow)}–${formatCents(adrHigh)}`,
+      });
+
+    const medianOcc = get<number>("median_occupancy");
+    if (typeof medianOcc === "number") {
+      rows.push({ label: "Occupancy", value: `${Math.round(medianOcc * 100)}%` });
+    } else {
+      const occLegacy = get<number>("occupancy");
+      if (typeof occLegacy === "number")
+        rows.push({
+          label: "Occupancy",
+          value: `${Math.round(occLegacy * 100)}%`,
+        });
+    }
+
+    const seas = get<string>("seasonality");
+    if (typeof seas === "string")
+      rows.push({ label: "Seasonality", value: capitalize(seas) });
   }
 
   if (domain === "revenue") {
@@ -232,6 +338,21 @@ function formatMetrics(
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ");
+}
+
+/**
+ * M3.11 — render a cents value as $X,XXX with no decimals. Falls
+ * back to "$0" for non-finite inputs so the cell renders something
+ * rather than "NaN" if the LLM ever emits an unexpected value.
+ */
+function formatCents(cents: number): string {
+  if (!Number.isFinite(cents)) return "$0";
+  const dollars = cents / 100;
+  return dollars.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 }
 
 function hoaLabel(value: string): string {

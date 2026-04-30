@@ -40,6 +40,12 @@ export const AI_USAGE_TASKS = [
   // M3.10 — Haiku-cached city-level school quality lookup.
   // Reads cheap on cache hits; first call per city pays ~$0.001.
   "schools-lookup",
+  // M3.11 — Haiku-cached LTR + STR rental comp lookups. Replaces
+  // the brittle Apify-based STR scrape as the *primary* STR comp
+  // source; introduces LTR comps for the first time. Same cost
+  // profile as schools-lookup (~$0.001 per cache miss).
+  "ltr-comps-lookup",
+  "str-comps-lookup",
 ] as const;
 export type AiUsageTask = (typeof AI_USAGE_TASKS)[number];
 
@@ -113,7 +119,7 @@ export const aiUsageEvents = pgTable(
     ),
     taskCheck: check(
       "ai_usage_events_task_check",
-      sql`${table.task} IN ('regulatory-lookup', 'place-sentiment', 'scout-chat', 'verdict-narrative', 'briefs', 'alerts', 'compare', 'portfolio', 'schools-lookup')`,
+      sql`${table.task} IN ('regulatory-lookup', 'place-sentiment', 'scout-chat', 'verdict-narrative', 'briefs', 'alerts', 'compare', 'portfolio', 'schools-lookup', 'ltr-comps-lookup', 'str-comps-lookup')`,
     ),
   }),
 );

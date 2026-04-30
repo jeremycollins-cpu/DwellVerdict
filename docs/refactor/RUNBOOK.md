@@ -18,6 +18,7 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 Last updated: 2026-04-30
 
+- ✅ M3.11 shipped — rental comps for LTR + STR (LLM-first with Apify fallback). Two new Haiku-cached fetchers — `lookupLtrComps` (30d TTL) and `lookupStrComps` (14d TTL) — replace the brittle Apify Airbnb scraper as the *primary* STR comp source and introduce LTR comps for the first time. Cache scoped to `(state, city, beds-baths[-sqftBucket])`, so two LTR properties of the same configuration in the same city share a Haiku call (~$0.001 per cache miss). Apify continues to run for STR thesis as optional enrichment when it works (rare in many smaller markets). Orchestrator routes by thesis: `ltr` / `house_hacking` → ltr-comps; `str` → str-comps; `owner_occupied` / `flipping` → skipped (resolves to a synthetic envelope so no LLM call fires). New `computeIntakeVarianceFlag` helper at `apps/web/lib/verdict/intake-variance.ts` compares user intake (LTR monthly rent / STR ADR / STR occupancy) to market median and flags `aligned` (±10%), `low`/`high` (10-30% off), or `significantly_low`/`significantly_high` (>30% off); the narrative prompt v3 surfaces significant variance as an explicit "verify intake" concern. Comps evidence card UI gained new metric rows (`Median rent`, `Rent range`, `Median ADR`, `ADR range`, `Median occupancy`, `Seasonality`) and a `<VarianceChip>` that renders amber for significant variance and muted-paper-warm for the milder bands. Tool schema on `data_points.comps.metrics` extended with cents-denominated rental fields + `intake_variance_flag` + `intake_variance_ratio` (all optional, populated only when relevant). **Schema migration `0017_ai_usage_tasks_add_rental_comps`** required (extends the `ai_usage_events.task` CHECK constraint to include `ltr-comps-lookup` + `str-comps-lookup`). Per M0.4 follow-up, runs via the standard manual `pnpm db:migrate`. Tests: 14 ltr schema regressions + 15 str schema regressions in `@dwellverdict/ai`, 12 signal-shape regressions in `@dwellverdict/data-sources`, 15 variance-band unit tests in `apps/web`. 114 AI + 49 data-sources tests pass total.
 - ✅ M3.13 shipped — thesis-specific regulatory expansion. `regulatory_cache` widened from one row per (city, state) to one row per (city, state, thesis_dimension); `lookupRegulatory` now accepts a `thesisDimension` and dispatches to one of five prompts (`regulatory-lookup-{str,ltr,owner-occupied,house-hacking,flipping}.v1.md`), each with its own thesis-specific structured fields (rent control + just-cause eviction for LTR; homestead exemption + property tax for owner-occupied; ADU/JADU/room-rental + OO STR carveouts for house-hacking; permit timeline + transfer tax + flipper surtax for flipping). Output is a Zod discriminated union over `thesis_dimension`. STR-typed columns on `regulatory_cache` (`str_legal` etc.) stay populated for STR rows and are NULL for the four new dimensions; non-STR theses persist their structured shape in the new `thesis_specific_fields` jsonb column. New `notable_factors` jsonb column (max 5 strings, ≤280 chars each) surfaces wrinkles a small operator should know — surfaced through the LLM tool input in addition to the prose summary. Orchestrator maps `property.thesisType` → regulatory dimension at call site (with `other` → `str` baseline); scoring receives `null` for non-STR regulatory so the STR-permit penalty doesn't apply outside STR. Narrative prompt v3 adds a "Thesis-aware regulatory data" section instructing the model to read `regulatory.thesisFields` when `thesisDimension !== "str"` and emit `regulatory.metrics.str_status` only for STR. **Schema migration `0016_regulatory_cache_thesis_dimension` requires manual production run** per M0.4 follow-up — adds the new column with `DEFAULT 'str'` so existing STR rows are valid post-migration, drops + recreates the unique index on (city, state, thesis_dimension). 22 regulatory schema regression tests across all five arms; 85 AI tests pass. No env var changes.
 - 🔧 M3.10 fix-forward — schema constraints + citation URL sentinel. Roseville verdict regeneration surfaced two Zod rejections in production: (1) `[schools-lookup] notable_factors[1]: 'String must contain at most 160 character(s)'` — Roseville's STEM-consortium description was 167 chars; the limit was conservative for rich LLM output. (2) `[verdict-narrative] data_points.revenue.citations[0].url: 'Invalid url'` — model emitted `"url": "user-provided"` to cite the user's intake form as a source; the strict `.url()` validator rejected what was an entirely reasonable model behavior. Three changes: (a) schools `notable_factors` element max 160 → 280 + `notes` 200 → 280 + `district_summary` 400 → 500 (matched in both `SchoolsSignalSchema` and the LLM tool's `SchoolsLookupOutputSchema` so both sides stay in sync); (b) narrative `CitationSchema.url` becomes `union(z.string().url(), z.literal("user-provided"), z.literal("intake-data"))` — exported `CITATION_URL_SENTINELS` from `@dwellverdict/ai`; (c) UI evidence-card extracts citation rendering into a `<CitationChip>` helper that renders sentinels as a non-clickable "From your intake" pill instead of a broken `<a>`. v3 prompt updated with intake-citation guidance + concrete examples. **Audit pass** confirmed all other AI-output Zod constraints (place-sentiment bullets, regulatory summary, narrative metric bounds) are realistic for current rich-data outputs; no other speculative changes. 6 new regression tests; 74 AI + 37 data-sources tests pass total. No DB migration.
 - ✅ M3.10 shipped — schools data integration (LTR + Owner-occupied + House-hacking + Flipping). New LLM-cached city-level fetcher: `lookupSchools` (Haiku, no web_search, returns up to 5 schools per level + district summary + notable factors + `data_quality` self-assessment). Wrapped by `apps/web/lib/schools/lookup.ts` with the shared `data_source_cache` (90d TTL, key `${state}:${city}`). Orchestrator adds `schools` to the parallel signal fetch (uses `LLM_CACHED_FETCHER_TIMEOUT_MS = 12s`); fetcher health log distinguishes `ok:rich` / `ok:partial` / `ok:unavailable`. Narrative tool schema gains optional `location.metrics.elementary_school_rating_median` / `middle_school_rating_median` / `high_school_rating_median` / `notable_schools`; v3 prompt adds a thesis-aware "Schools data handling" section that emits metrics for LTR/OO/HH/Flipping and omits for STR. Evidence card UI renders the new metrics whenever the model includes them. **Schema migration `0015_ai_usage_tasks_add_schools_lookup`** required (extends the `ai_usage_events.task` CHECK constraint to include `schools-lookup` so the new LLM call's usage event is allowed at the DB layer). Per M0.4 follow-up, runs via the standard manual `pnpm db:migrate`. Defers paid GreatSchools enrichment to v1.1 per master plan upgrade triggers (5+ paying users); v1 relies on Haiku's recall with explicit `data_quality: "unavailable"` for areas the model doesn't know. Tests: 10 SchoolsSignal schema regressions in data-sources, 3 location-metrics schema regressions in AI; 71 AI + 34 data-sources tests total. Carries the M3.7 fix-forward stack forward (max_tokens=4000, summaries ≤500 chars) — current realistic worst-case output ~2000 tokens with schools, well within the 4000 ceiling.
@@ -45,7 +46,7 @@ Last updated: 2026-04-30
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M3.11 next — per v1.9 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 ✅ → M3.10 ✅ → M3.13 ✅ → **M3.11** → M3.8 → M3.4 → M3.9 → M3.12
+- ⏳ M3.8 next — per v1.9 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 ✅ → M3.10 ✅ → M3.13 ✅ → M3.11 ✅ → **M3.8** → M3.4 → M3.9 → M3.12
 
 ---
 
@@ -99,6 +100,39 @@ LIMIT 10;
 ```
 
 A healthy entry has at least one school in some level and `data_quality` of `partial` or `rich`. Repeated `unavailable` rows mean Haiku's recall isn't recognizing the cities being queried — surface to the M9.3 admin AI quality dashboard rather than treat as a fetcher failure.
+
+### Rental comps cache health (M3.11)
+
+Verifies the LTR + STR comp fetchers populate with substantive content. Cache key encodes thesis-relevant configuration (beds/baths/sqftBucket for LTR, beds/baths for STR), so multiple rows per city are normal across different unit types.
+
+```sql
+-- LTR comps cache health
+SELECT
+  cache_key,
+  fetched_at,
+  payload->>'dataQuality' AS data_quality,
+  payload->>'medianMonthlyRentCents' AS median_rent_cents,
+  payload->>'compCountEstimated' AS comp_count
+FROM data_source_cache
+WHERE source = 'ltr-comps'
+ORDER BY fetched_at DESC
+LIMIT 10;
+
+-- STR comps cache health
+SELECT
+  cache_key,
+  fetched_at,
+  payload->>'dataQuality' AS data_quality,
+  payload->>'medianAdrCents' AS median_adr_cents,
+  payload->>'medianOccupancy' AS median_occupancy,
+  payload->>'seasonality' AS seasonality
+FROM data_source_cache
+WHERE source = 'str-comps'
+ORDER BY fetched_at DESC
+LIMIT 10;
+```
+
+Healthy entries have `dataQuality` of `partial` or `rich` plus non-zero medians. `unavailable` rows are valid (Haiku didn't have meaningful recall for that market) and the orchestrator skips emitting variance flags for them — the verdict still generates cleanly without rental-comp content.
 
 ### Per-property verdict run history
 
@@ -311,7 +345,7 @@ This is the order. Don't deviate without good reason.
 - [x] **M3.7** — Free fetcher repair (FEMA + Census + USGS) — shipped (merge SHA pending). Zillow/Redfin/Airbnb deferred to user-input fallback per v1.8 architecture; county records deferred to v1.1.
 - [x] **M3.10** — Schools data integration — shipped (merge SHA pending, requires manual production migration for AI_USAGE_TASKS CHECK constraint extension)
 - [x] **M3.13** — Thesis-specific regulatory expansion — shipped (merge SHA pending, requires manual production migration `0016_regulatory_cache_thesis_dimension`)
-- [ ] **M3.11** — LTR rental comps
+- [x] **M3.11** — Rental comps for LTR + STR (LLM-first with Apify fallback) — shipped (merge SHA pending, requires manual production migration `0017_ai_usage_tasks_add_rental_comps`). Scope expanded from v1.9 LTR-only spec to cover both LTR and STR rental comps after M3.10 verification surfaced Apify's persistent 0-listing failure mode.
 - [ ] **M3.8** — Thesis-aware scoring + thesis-aware fetcher selection (expanded in v1.9)
 - [ ] **M3.4** — Onboarding intent flow + welcome email (ships after M3.5–M3.7 so user-level data pre-fills the per-property intake form)
 - [ ] **M3.9** — What-if calculator

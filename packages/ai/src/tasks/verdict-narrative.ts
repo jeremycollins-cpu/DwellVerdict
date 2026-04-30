@@ -77,13 +77,38 @@ const CitationSchema = z.object({
   label: z.string().min(1).max(120),
 });
 
+const VARIANCE_FLAG_VALUES = [
+  "aligned",
+  "low",
+  "high",
+  "significantly_low",
+  "significantly_high",
+] as const;
+
 const CompsEvidenceSchema = z.object({
   summary: z.string().min(1).max(500),
   metrics: z
     .object({
       count: z.number().int().nonnegative().optional(),
+      // Legacy STR fields (USD float) — kept for backwards-compat with
+      // pre-M3.11 verdicts. New STR verdicts prefer the *_cents fields.
       median_adr: z.number().nonnegative().optional(),
       occupancy: z.number().min(0).max(1).optional(),
+      // M3.11 — LTR rental comp metrics (cents to align with intake).
+      median_monthly_rent_cents: z.number().int().nonnegative().optional(),
+      rent_range_low_cents: z.number().int().nonnegative().optional(),
+      rent_range_high_cents: z.number().int().nonnegative().optional(),
+      // M3.11 — STR rental comp metrics (cents).
+      median_adr_cents: z.number().int().nonnegative().optional(),
+      adr_range_low_cents: z.number().int().nonnegative().optional(),
+      adr_range_high_cents: z.number().int().nonnegative().optional(),
+      median_occupancy: z.number().min(0).max(1).optional(),
+      seasonality: z.enum(["high", "moderate", "low"]).optional(),
+      // M3.11 — variance flags. The orchestrator computes these from
+      // user intake vs market median; the model surfaces them in the
+      // narrative when materially off-market.
+      intake_variance_flag: z.enum(VARIANCE_FLAG_VALUES).optional(),
+      intake_variance_ratio: z.number().nonnegative().optional(),
     })
     .optional(),
   citations: z.array(CitationSchema).max(6).optional(),
@@ -195,7 +220,7 @@ const RENDER_VERDICT_NARRATIVE_TOOL: Anthropic.Messages.Tool = {
               metrics: {
                 type: "object",
                 description:
-                  "Structured comp metrics. Omit any fields you don't have data for.",
+                  "Structured comp metrics. Omit any fields you don't have data for. New verdicts prefer *_cents fields; legacy median_adr (USD float) and occupancy (0..1) stay valid for backwards-compat.",
                 properties: {
                   count: {
                     type: "integer",
@@ -204,12 +229,70 @@ const RENDER_VERDICT_NARRATIVE_TOOL: Anthropic.Messages.Tool = {
                   median_adr: {
                     type: "number",
                     description:
-                      "Median Average Daily Rate across the comp set (USD).",
+                      "Legacy: median Average Daily Rate (USD float). Prefer median_adr_cents.",
                   },
                   occupancy: {
                     type: "number",
                     description:
-                      "Median occupancy across comps as a 0..1 ratio (e.g. 0.67 for 67%).",
+                      "Legacy: median occupancy 0..1. Prefer median_occupancy.",
+                  },
+                  median_monthly_rent_cents: {
+                    type: "integer",
+                    description:
+                      "M3.11 LTR: median monthly rent in cents (e.g. 240000 = $2,400). Emit only for LTR/house_hacking thesis when ltr_comps signal present.",
+                  },
+                  rent_range_low_cents: {
+                    type: "integer",
+                    description:
+                      "M3.11 LTR: low end of typical rent range in cents (~25th percentile).",
+                  },
+                  rent_range_high_cents: {
+                    type: "integer",
+                    description:
+                      "M3.11 LTR: high end of typical rent range in cents (~75th percentile).",
+                  },
+                  median_adr_cents: {
+                    type: "integer",
+                    description:
+                      "M3.11 STR: median nightly rate in cents (e.g. 35000 = $350). Emit only for STR thesis when str_comps signal present.",
+                  },
+                  adr_range_low_cents: {
+                    type: "integer",
+                    description:
+                      "M3.11 STR: low end of typical ADR range in cents.",
+                  },
+                  adr_range_high_cents: {
+                    type: "integer",
+                    description:
+                      "M3.11 STR: high end of typical ADR range in cents.",
+                  },
+                  median_occupancy: {
+                    type: "number",
+                    description:
+                      "M3.11 STR: median annual occupancy as 0..1 ratio.",
+                  },
+                  seasonality: {
+                    type: "string",
+                    enum: ["high", "moderate", "low"],
+                    description:
+                      "M3.11 STR: peak/off-peak swing classification from str_comps signal.",
+                  },
+                  intake_variance_flag: {
+                    type: "string",
+                    enum: [
+                      "aligned",
+                      "low",
+                      "high",
+                      "significantly_low",
+                      "significantly_high",
+                    ],
+                    description:
+                      "M3.11: how the user's intake (rent or ADR) compares to market median. Pass through whatever flag the orchestrator computed; surface significant variance in the narrative.",
+                  },
+                  intake_variance_ratio: {
+                    type: "number",
+                    description:
+                      "M3.11: numeric ratio (user value / market median). Useful when surfacing exact variance in narrative.",
                   },
                 },
               },
