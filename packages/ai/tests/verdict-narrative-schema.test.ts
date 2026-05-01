@@ -135,30 +135,34 @@ describe("VerdictNarrativeOutputSchema (v2)", () => {
     expect(bad.success).toBe(false);
   });
 
-  // M3.7 fix-forward: bumped from 300 → 500 chars after Kings Beach
-  // production verdict produced ~410-char regulatory summary (Placer
-  // County permit complexity) and ~380-char location summary (real
-  // walkability + amenities + flood + crime data) and got rejected.
-  // The new ceiling has to comfortably accept those.
-  it("accepts a per-domain summary up to 500 chars", () => {
-    const summary450 = "x".repeat(450);
+  // M3.7 → M3.8 fix-forward: bumped 300 → 500 → 800 chars. Kings
+  // Beach (M3.7 era) produced ~410-char regulatory + ~380-char
+  // location summaries that needed 500. Roseville LTR (post-M3.8)
+  // produced 565-char regulatory (AB 1482 + Chapter 202 + SB 329 +
+  // deposits + eviction) and 580-char location (walk + amenities +
+  // 4 school ratings + notable schools + flood + wildfire) — both
+  // substantively correct, both rejected at 500. The 800 ceiling
+  // gives room for layered M3.7+M3.10+M3.13+M3.11+M3.8 data without
+  // forcing the model to truncate genuinely useful content.
+  it("accepts a per-domain summary up to 800 chars", () => {
+    const summary750 = "x".repeat(750);
     const r = VerdictNarrativeOutputSchema.safeParse({
       ...golden,
       data_points: {
         ...golden.data_points,
-        regulatory: { summary: summary450 },
+        regulatory: { summary: summary750 },
       },
     });
     expect(r.success).toBe(true);
   });
 
-  it("rejects a per-domain summary over 500 chars", () => {
-    const summary501 = "x".repeat(501);
+  it("rejects a per-domain summary over 800 chars", () => {
+    const summary801 = "x".repeat(801);
     const r = VerdictNarrativeOutputSchema.safeParse({
       ...golden,
       data_points: {
         ...golden.data_points,
-        location: { summary: summary501 },
+        location: { summary: summary801 },
       },
     });
     expect(r.success).toBe(false);
