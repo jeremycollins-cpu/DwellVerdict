@@ -34,6 +34,9 @@ function baseInputs(overrides: Partial<VerdictInputs> = {}): VerdictInputs {
     renovationBudgetCents: null,
     userOfferCents: null,
     incomeChange5y: null,
+    salesComps: null,
+    marketVelocityTrend: null,
+    offerPriceVariance: null,
     ...overrides,
   };
 }
@@ -126,7 +129,11 @@ describe("scoreVerdict — thesis-aware rubric selection", () => {
     const arv = r.breakdown.find((b) => b.key === "arv_margin");
     expect(arv).toBeDefined();
     expect(arv?.contribution).toBe(0);
-    expect(arv?.note).toMatch(/M3\.12/);
+    // M3.12: ARV is now wired up. The placeholder text changed
+    // from "M3.12 will provide" to "ARV margin requires both an
+    // ARV estimate and a user offer" — both arvEstimateCents AND
+    // userOfferCents must be present for the rule to fire.
+    expect(arv?.note).toMatch(/ARV margin requires/);
   });
 
   it("House-hacking with adu_legal=no triggers a strong negative regulatory_thesis penalty", () => {

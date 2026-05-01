@@ -39,6 +39,9 @@ function baseInputs(overrides: Partial<VerdictInputs> = {}): VerdictInputs {
     renovationBudgetCents: null,
     userOfferCents: null,
     incomeChange5y: null,
+    salesComps: null,
+    marketVelocityTrend: null,
+    offerPriceVariance: null,
     ...overrides,
   };
 }

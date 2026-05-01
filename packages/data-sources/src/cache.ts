@@ -32,7 +32,9 @@ export type SourceName =
   | "redfin"
   | "schools"
   | "ltr-comps"
-  | "str-comps";
+  | "str-comps"
+  | "sales-comps"
+  | "market-velocity";
 
 export type WithCacheParams<T> = {
   db: DbClient;
@@ -150,6 +152,16 @@ export const TTL = {
   // still amortizing the Haiku call across many properties in the
   // same city.
   STR_COMPS: 14 * 24 * 60 * 60 * 1000, // 14 days
+  // M3.12 — sales comps drift moderately. Same TTL as LTR rents
+  // because comparable-sale recency is a 30-day-meaningful signal
+  // (a comp that was current 30 days ago may be stale for fast-
+  // moving markets but stays useful for stable ones).
+  SALES_COMPS: 30 * 24 * 60 * 60 * 1000, // 30 days
+  // M3.12 — market velocity (DOM trend, list-to-sale ratio)
+  // shifts faster than per-comp data. 14 days mirrors STR_COMPS
+  // and keeps the velocity signal responsive to month-over-month
+  // market changes.
+  MARKET_VELOCITY: 14 * 24 * 60 * 60 * 1000, // 14 days
 } as const;
 
 /**

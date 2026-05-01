@@ -142,6 +142,45 @@ export type VerdictInputs = {
   /** M3.8 demographics signal for appreciation rule. Census 5-year
    *  income change as a percent (positive = growing tract). */
   incomeChange5y: number | null;
+
+  /** M3.12 sales comp signal — populated when the orchestrator's
+   *  sales-comps fetcher returned `rich` or `partial` data. The
+   *  appreciation_potential rule prefers these inputs over the
+   *  schools/walk/income proxies it falls back to when sales comp
+   *  data is missing. */
+  salesComps: {
+    medianCompPriceCents: number;
+    estimatedArvCents: number;
+    arvConfidence: "high" | "moderate" | "low";
+    medianDaysOnMarket: number;
+    marketVelocity: "fast" | "moderate" | "slow";
+    /** 0..1 share of comps from the last 6 months. Higher = more
+     *  recent recall and a stronger basis for appreciation
+     *  inference. */
+    recentCompShare: number;
+    dataQuality: "rich" | "partial" | "unavailable";
+  } | null;
+
+  /** M3.12 market velocity trend. Independent signal from the
+   *  per-property sales comps; pulls from the city-level market-
+   *  velocity fetcher. */
+  marketVelocityTrend:
+    | "accelerating"
+    | "stable"
+    | "decelerating"
+    | null;
+
+  /** M3.12 offer-price variance flag — the orchestrator computes
+   *  this from user's intake offer/listing/estimated price vs the
+   *  comp-derived median. Same band semantics as
+   *  rentalCompVariance (M3.11). */
+  offerPriceVariance:
+    | "aligned"
+    | "low"
+    | "high"
+    | "significantly_low"
+    | "significantly_high"
+    | null;
 };
 
 export type VerdictScore = {
@@ -172,6 +211,9 @@ type RubricWeights = {
   schools_quality: number;
   rental_comp_alignment: number;
   regulatory_thesis: number; // Non-STR thesis-specific regulatory
+  // M3.12 — user-offer-price vs comp-derived median alignment.
+  // Mirrors rental_comp_alignment but for sales comps.
+  offer_price_alignment: number;
 };
 
 /**
@@ -197,6 +239,7 @@ const RUBRIC_WEIGHTS: Record<ThesisType, RubricWeights> = {
     schools_quality: 0, // STR exception (M3.10 correction)
     rental_comp_alignment: 7, // M3.11 STR variance check
     regulatory_thesis: 0, // STR uses regulatory_str above
+    offer_price_alignment: 0, // STR skips sales comps
   },
   ltr: {
     regulatory_str: 0, // STR-specific; not LTR
@@ -212,6 +255,7 @@ const RUBRIC_WEIGHTS: Record<ThesisType, RubricWeights> = {
     schools_quality: 15, // critical for family renters
     rental_comp_alignment: 5,
     regulatory_thesis: 12, // tenant rights / rent control matter
+    offer_price_alignment: 5, // matters but rental cash flow dominates
   },
   owner_occupied: {
     regulatory_str: 0,
@@ -227,6 +271,7 @@ const RUBRIC_WEIGHTS: Record<ThesisType, RubricWeights> = {
     schools_quality: 15, // critical for owner-occupants
     rental_comp_alignment: 0,
     regulatory_thesis: 5, // HOA / property-tax less binary
+    offer_price_alignment: 8, // OO buyers care about overpaying
   },
   house_hacking: {
     regulatory_str: 0,
@@ -242,6 +287,7 @@ const RUBRIC_WEIGHTS: Record<ThesisType, RubricWeights> = {
     schools_quality: 10, // owner family OR LTR family in unit
     rental_comp_alignment: 3,
     regulatory_thesis: 18, // ADU / multi-unit zoning critical
+    offer_price_alignment: 5,
   },
   flipping: {
     regulatory_str: 0,
@@ -257,6 +303,7 @@ const RUBRIC_WEIGHTS: Record<ThesisType, RubricWeights> = {
     schools_quality: 12, // resale value driver (M3.10 correction)
     rental_comp_alignment: 0,
     regulatory_thesis: 12, // permit complexity / surtaxes
+    offer_price_alignment: 10, // overpaying kills flip margin directly
   },
   other: {
     // Default = STR rubric (most "other" descriptions are some
@@ -275,6 +322,7 @@ const RUBRIC_WEIGHTS: Record<ThesisType, RubricWeights> = {
     schools_quality: 0,
     rental_comp_alignment: 7,
     regulatory_thesis: 0,
+    offer_price_alignment: 0,
   },
 };
 
@@ -557,13 +605,70 @@ function ruleLivability(
   };
 }
 
-/** Appreciation potential — schools, walkability, income growth. */
+/**
+ * Appreciation potential. M3.12 prefers sales-comp + market-velocity
+ * data when available; falls back to the M3.8 schools/walk/income
+ * proxies otherwise.
+ *
+ * Sales-comp-driven path centers on:
+ *   - market velocity classification (`fast` / `moderate` / `slow`)
+ *   - market-velocity trend (`accelerating` / `stable` /
+ *     `decelerating` from the city-level fetcher)
+ *   - recent-comp share (>50% of comps from last 6mo = strong
+ *     recency signal, supports confidence)
+ *
+ * The school-rating component is retained as a tertiary input
+ * because schools influence resale demand even when market velocity
+ * dominates the short-term picture.
+ */
 function ruleAppreciation(
   weight: number,
   schools: VerdictInputs["schools"],
   walkScore: number | null,
   incomeChange5y: number | null,
+  salesComps: VerdictInputs["salesComps"],
+  marketVelocityTrend: VerdictInputs["marketVelocityTrend"],
 ): { contribution: number; note: string } | null {
+  // Sales-comp-driven path — primary when rich/partial data is
+  // available.
+  if (salesComps && salesComps.dataQuality !== "unavailable") {
+    const velocityScore =
+      salesComps.marketVelocity === "fast"
+        ? 80
+        : salesComps.marketVelocity === "moderate"
+          ? 50
+          : 25;
+    const trendScore =
+      marketVelocityTrend === "accelerating"
+        ? 80
+        : marketVelocityTrend === "stable"
+          ? 50
+          : marketVelocityTrend === "decelerating"
+            ? 20
+            : 50; // Trend missing → neutral
+    const recencyScore = salesComps.recentCompShare * 100;
+    const high = schools?.medianHighRating ?? null;
+    const schoolScore =
+      high != null && schools?.dataQuality !== "unavailable"
+        ? high * 10
+        : 50;
+    // Weighted blend: market velocity 40%, trend 25%, recency 15%,
+    // schools 20%. Velocity dominates the short-term appreciation
+    // call; schools are the long-tail resale-demand input.
+    const index =
+      velocityScore * 0.4 +
+      trendScore * 0.25 +
+      recencyScore * 0.15 +
+      schoolScore * 0.2;
+    const fraction = (index - 50) / 50;
+    const recentPct = Math.round(salesComps.recentCompShare * 100);
+    return {
+      contribution: Math.round(fraction * weight),
+      note: `Appreciation: market ${salesComps.marketVelocity} (${marketVelocityTrend ?? "trend unknown"}); ${recentPct}% recent comps; schools ${high != null ? `${high.toFixed(1)}/10` : "n/a"}.`,
+    };
+  }
+
+  // Proxy fallback — pre-M3.12 path.
   const parts: Array<{ value: number; weight: number; label: string }> = [];
   const high = schools?.medianHighRating ?? null;
   if (high != null && schools?.dataQuality !== "unavailable") {
@@ -573,7 +678,6 @@ function ruleAppreciation(
     parts.push({ value: walkScore - 50, weight: 0.3, label: `walk ${walkScore}` });
   }
   if (incomeChange5y != null) {
-    // Tract income growth: -10..+30% range; +10% is the inflection.
     parts.push({
       value: Math.max(-50, Math.min(50, (incomeChange5y - 10) * 5)),
       weight: 0.3,
@@ -586,23 +690,27 @@ function ruleAppreciation(
   const fraction = Math.max(-1, Math.min(1, indexCentered / 50));
   return {
     contribution: Math.round(fraction * weight),
-    note: `Appreciation indicators: ${parts.map((p) => p.label).join(", ")}.`,
+    note: `Appreciation indicators (proxy fallback): ${parts.map((p) => p.label).join(", ")}.`,
   };
 }
 
-/** ARV margin (flipping). When ARV signal is unavailable (M3.12 not
- *  yet shipped), emit a placeholder breakdown entry with 0
- *  contribution rather than silently dropping the rule. */
+/**
+ * ARV margin (flipping). M3.12 wires this up with real ARV data
+ * (intake-supplied or comp-derived from sales-comps fetcher). The
+ * "ARV signal pending" placeholder applies only when ARV is null
+ * AND the comp lookup wasn't able to provide one.
+ */
 function ruleArvMargin(
   weight: number,
   arvCents: number | null,
   userOfferCents: number | null,
   renovationBudgetCents: number | null,
+  arvConfidence: "high" | "moderate" | "low" | null,
 ): { contribution: number; note: string } | null {
   if (!arvCents || !userOfferCents || userOfferCents <= 0) {
     return {
       contribution: 0,
-      note: "ARV signal pending — flip margin will land in M3.12.",
+      note: "ARV margin requires both an ARV estimate and a user offer / reference price.",
     };
   }
   const reno = renovationBudgetCents ?? 0;
@@ -610,9 +718,10 @@ function ruleArvMargin(
   const margin = (arvCents - userOfferCents - reno - holding) / userOfferCents;
   // 20% margin = full weight; 0% = neutral; -10% = full negative.
   const fraction = Math.max(-1, Math.min(1, margin / 0.2));
+  const confidenceLabel = arvConfidence ? ` (${arvConfidence} ARV confidence)` : "";
   return {
     contribution: Math.round(fraction * weight),
-    note: `Estimated flip margin ${(margin * 100).toFixed(1)}% (ARV $${formatThousands(arvCents / 100)}).`,
+    note: `Estimated flip margin ${(margin * 100).toFixed(1)}% (ARV $${formatThousands(arvCents / 100)}${confidenceLabel}).`,
   };
 }
 
@@ -644,6 +753,50 @@ function ruleRentalCompAlignment(
       return {
         contribution: -weight,
         note: "Intake significantly above market — likely overestimate; re-verify.",
+      };
+  }
+}
+
+/**
+ * M3.12 — offer-price alignment vs comp-derived median.
+ *
+ * Mirrors `ruleRentalCompAlignment` (M3.11) but for the sales-side
+ * variance: penalize when the user's offer is materially above
+ * comp median (overpaying), reward when significantly below
+ * (acquisition discount). The orchestrator computes the variance
+ * flag from `userOfferPriceCents ?? listingPriceCents ??
+ * estimatedValueCents` against `salesComps.medianCompPriceCents`.
+ */
+function ruleOfferPriceAlignment(
+  weight: number,
+  flag: VerdictInputs["offerPriceVariance"],
+): { contribution: number; note: string } | null {
+  if (!flag) return null;
+  switch (flag) {
+    case "aligned":
+      return {
+        contribution: Math.round(weight * 0.5),
+        note: "Offer aligns with comp-derived median sale price.",
+      };
+    case "low":
+      return {
+        contribution: Math.round(weight * 0.7),
+        note: "Offer slightly below market — modest acquisition discount.",
+      };
+    case "high":
+      return {
+        contribution: -Math.round(weight * 0.4),
+        note: "Offer above market — verify the premium is justified.",
+      };
+    case "significantly_low":
+      return {
+        contribution: weight,
+        note: "Offer significantly below market — strong acquisition price (verify property condition).",
+      };
+    case "significantly_high":
+      return {
+        contribution: -weight,
+        note: "Offer significantly above market — likely overpaying; re-verify against comps.",
       };
   }
 }
@@ -847,7 +1000,7 @@ export function scoreVerdict(input: VerdictInputs): VerdictScore {
     ruleCrime(effective.crime, input.crime),
   );
 
-  // --- Market (appreciation, ARV) ---
+  // --- Market (appreciation, ARV, offer-price alignment) ---
   apply(
     "appreciation_potential",
     "market",
@@ -858,6 +1011,8 @@ export function scoreVerdict(input: VerdictInputs): VerdictScore {
       input.schools,
       input.walkScore,
       input.incomeChange5y,
+      input.salesComps,
+      input.marketVelocityTrend,
     ),
   );
   apply(
@@ -870,6 +1025,21 @@ export function scoreVerdict(input: VerdictInputs): VerdictScore {
       input.arvEstimateCents,
       input.userOfferCents,
       input.renovationBudgetCents,
+      input.salesComps?.arvConfidence ?? null,
+    ),
+  );
+  // M3.12 — offer-price alignment. Penalty when user's offer is
+  // significantly above market median (overpaying), reward when
+  // significantly below (good acquisition price). Reuses the
+  // rental_comp_alignment band semantics.
+  apply(
+    "offer_price_alignment",
+    "rental_fundamentals",
+    effective.offer_price_alignment,
+    null,
+    ruleOfferPriceAlignment(
+      effective.offer_price_alignment,
+      input.offerPriceVariance,
     ),
   );
 

@@ -127,6 +127,13 @@
       "when": 1777019100000,
       "tag": "0017_ai_usage_tasks_add_rental_comps",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1777019200000,
+      "tag": "0018_ai_usage_tasks_add_sales_market",
+      "breakpoints": true
     }
   ]
 }
