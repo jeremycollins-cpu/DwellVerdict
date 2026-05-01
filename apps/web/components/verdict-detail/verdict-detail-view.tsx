@@ -115,8 +115,24 @@ export function VerdictDetailView({
         key: string;
         contribution: number;
         note: string;
+        // M3.8 fields — present on new verdicts only.
+        category?:
+          | "rental_fundamentals"
+          | "location"
+          | "regulatory"
+          | "market"
+          | "risk";
+        weight?: number;
+        multiplier?: number | null;
       }>)
     : null;
+  // M3.8: detect legacy (pre-thesis-aware) verdicts by absence of
+  // `category` on every entry. Legacy verdicts get a "regenerate
+  // for thesis-aware analysis" banner; we don't auto-regenerate.
+  const isLegacyBreakdown =
+    breakdown != null &&
+    breakdown.length > 0 &&
+    breakdown.every((b) => b.category == null);
 
   return (
     <div className="flex flex-1 flex-col bg-paper">
@@ -263,30 +279,25 @@ export function VerdictDetailView({
                 <h2 className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-ink-muted">
                   What moved the verdict
                 </h2>
-                <ul className="overflow-hidden rounded-xl border border-hairline bg-card-ink">
-                  {breakdown.map((row, i) => (
-                    <li
-                      key={`${row.key}-${i}`}
-                      className={`flex items-baseline gap-4 px-5 py-3 ${
-                        i < breakdown.length - 1 ? "border-b border-hairline" : ""
-                      }`}
-                    >
-                      <span
-                        className={`font-mono text-[14px] font-medium tabular-nums ${
-                          row.contribution > 0
-                            ? "text-buy"
-                            : row.contribution < 0
-                              ? "text-pass"
-                              : "text-ink-muted"
-                        }`}
-                      >
-                        {row.contribution > 0 ? "+" : ""}
-                        {row.contribution}
-                      </span>
-                      <span className="text-[14px] text-ink-70">{row.note}</span>
-                    </li>
-                  ))}
-                </ul>
+                {isLegacyBreakdown ? (
+                  <div
+                    role="note"
+                    className="mb-4 rounded-lg border border-hairline-strong bg-paper-warm px-4 py-3 text-[13px] leading-[1.45] text-ink-70"
+                  >
+                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-muted">
+                      Legacy verdict
+                    </span>
+                    <span className="ml-2">
+                      Generated before thesis-aware scoring. Regenerate to see
+                      a breakdown calibrated to your investment thesis.
+                    </span>
+                  </div>
+                ) : null}
+                {isLegacyBreakdown ? (
+                  <LegacyBreakdownList breakdown={breakdown} />
+                ) : (
+                  <ThesisAwareBreakdown breakdown={breakdown} />
+                )}
               </section>
             ) : null}
 
@@ -393,6 +404,138 @@ export function VerdictDetailView({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// M3.8 score breakdown rendering
+// ============================================================
+
+type BreakdownRow = {
+  key: string;
+  contribution: number;
+  note: string;
+  category?:
+    | "rental_fundamentals"
+    | "location"
+    | "regulatory"
+    | "market"
+    | "risk";
+  weight?: number;
+  multiplier?: number | null;
+};
+
+const CATEGORY_LABEL: Record<NonNullable<BreakdownRow["category"]>, string> = {
+  rental_fundamentals: "Rental fundamentals",
+  location: "Location",
+  regulatory: "Regulatory",
+  market: "Market",
+  risk: "Risk",
+};
+const CATEGORY_ORDER: Array<NonNullable<BreakdownRow["category"]>> = [
+  "rental_fundamentals",
+  "location",
+  "regulatory",
+  "market",
+  "risk",
+];
+
+function ContributionPill({ value }: { value: number }) {
+  return (
+    <span
+      className={`font-mono text-[14px] font-medium tabular-nums ${
+        value > 0
+          ? "text-buy"
+          : value < 0
+            ? "text-pass"
+            : "text-ink-muted"
+      }`}
+    >
+      {value > 0 ? "+" : ""}
+      {value}
+    </span>
+  );
+}
+
+function LegacyBreakdownList({ breakdown }: { breakdown: BreakdownRow[] }) {
+  return (
+    <ul className="overflow-hidden rounded-xl border border-hairline bg-card-ink">
+      {breakdown.map((row, i) => (
+        <li
+          key={`${row.key}-${i}`}
+          className={`flex items-baseline gap-4 px-5 py-3 ${
+            i < breakdown.length - 1 ? "border-b border-hairline" : ""
+          }`}
+        >
+          <ContributionPill value={row.contribution} />
+          <span className="text-[14px] text-ink-70">{row.note}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ThesisAwareBreakdown({ breakdown }: { breakdown: BreakdownRow[] }) {
+  // Group by category, preserving CATEGORY_ORDER. Rules without a
+  // category (shouldn't happen post-M3.8) fall into a fallback
+  // "Other" bucket so the UI never silently drops rows.
+  const grouped = new Map<string, BreakdownRow[]>();
+  for (const row of breakdown) {
+    const cat = row.category ?? "other";
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat)!.push(row);
+  }
+
+  const orderedCategories: string[] = [
+    ...CATEGORY_ORDER.filter((c) => grouped.has(c)),
+    ...(grouped.has("other") ? ["other"] : []),
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {orderedCategories.map((cat) => {
+        const rows = grouped.get(cat)!;
+        const label =
+          cat in CATEGORY_LABEL
+            ? CATEGORY_LABEL[cat as keyof typeof CATEGORY_LABEL]
+            : "Other";
+        return (
+          <div
+            key={cat}
+            className="overflow-hidden rounded-xl border border-hairline bg-card-ink"
+          >
+            <div className="border-b border-hairline bg-paper-warm px-5 py-2">
+              <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-muted">
+                {label}
+              </span>
+            </div>
+            <ul>
+              {rows.map((row, i) => (
+                <li
+                  key={`${row.key}-${i}`}
+                  className={`flex items-baseline gap-4 px-5 py-3 ${
+                    i < rows.length - 1 ? "border-b border-hairline" : ""
+                  }`}
+                >
+                  <ContributionPill value={row.contribution} />
+                  <span className="flex-1 text-[14px] text-ink-70">
+                    {row.note}
+                  </span>
+                  {typeof row.weight === "number" ? (
+                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-muted">
+                      Weight {row.weight}
+                      {typeof row.multiplier === "number"
+                        ? ` · ×${row.multiplier.toFixed(1)}`
+                        : ""}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }

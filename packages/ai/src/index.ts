@@ -108,7 +108,16 @@ export {
   type VerdictNarrativePropertyContext,
   type CitationUrlSentinel,
 } from "./tasks/verdict-narrative";
-export { scoreVerdict, type VerdictInputs, type VerdictScore } from "./scoring";
+export {
+  scoreVerdict,
+  getRegionalRiskOverride,
+  type VerdictInputs,
+  type VerdictScore,
+  type BreakdownEntry,
+  type RuleCategory,
+  type ThesisType,
+  type GoalType,
+} from "./scoring";
 export {
   lookupSchools,
   SchoolsLookupOutputSchema,
