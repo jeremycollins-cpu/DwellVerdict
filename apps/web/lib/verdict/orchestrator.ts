@@ -26,6 +26,9 @@ import {
   type VerdictScore,
   type VerdictNarrativeOutput,
   type VerdictNarrativePropertyContext,
+  type ThesisType,
+  type GoalType,
+  type VerdictInputs,
 } from "@dwellverdict/ai";
 import type { Property } from "@dwellverdict/db";
 
@@ -552,7 +555,11 @@ export async function orchestrateVerdict(input: {
       propertyPer1k: number;
       sourceUrl: string;
     }>,
-    SignalResult<{ medianHouseholdIncome: number | null; sourceUrl: string }>,
+    SignalResult<{
+      medianHouseholdIncome: number | null;
+      incomeChange5y: number | null;
+      sourceUrl: string;
+    }>,
     SignalResult<{ walkScore: number; sourceUrl: string }>,
     SignalResult<AirbnbCompsSignal>,
     SignalResult<PropertyValuation>,
@@ -716,36 +723,10 @@ export async function orchestrateVerdict(input: {
     redfin?.currentEstimate ??
     null;
 
-  const score = scoreVerdict({
-    // M3.13: scoring's regulatory input is STR-specific (str_legal
-    // gates BUY for STR thesis). For non-STR theses we have no
-    // strLegal field, and the regulatory penalty doesn't apply —
-    // scoring receives null and falls back to thesis-agnostic
-    // weighting on the other signals.
-    regulatory:
-      regulatory && regulatory.thesisDimension === "str"
-        ? { strLegal: regulatory.strLegal ?? null }
-        : null,
-    flood: fema ? { sfha: fema.sfha } : null,
-    wildfire: usgs ? { nearbyFireCount: usgs.nearbyFireCount } : null,
-    crime: fbi
-      ? { violentPer1k: fbi.violentPer1k, propertyPer1k: fbi.propertyPer1k }
-      : null,
-    walkScore: overpass?.walkScore ?? null,
-    comps: {
-      count: airbnb?.comps.length ?? 0,
-      medianNightlyRate: airbnb?.medianNightlyRate ?? null,
-    },
-    revenue: revenue ? { netAnnualMedian: revenue.netAnnualMedian } : null,
-    referencePrice,
-    placeSentimentBullets: placeSentiment?.bullets.length ?? 0,
-  });
-
   // ---- M3.11: intake-vs-market variance flags ----
-  // For LTR thesis, compare user's expected monthly rent to market
-  // median; for STR thesis, compare nightly rate AND occupancy.
-  // The narrative model uses these to surface honest concerns when
-  // the user's intake assumptions diverge materially from market.
+  // Computed before scoring so the rental_comp_alignment rule can
+  // consume the LTR/STR primary variance flag (LTR uses the rent
+  // variance; STR uses the ADR variance).
   let ltrRentVariance: { ratio: number; flag: VarianceFlag } | null = null;
   if (
     ltrComps &&
@@ -781,6 +762,72 @@ export async function orchestrateVerdict(input: {
       }
     }
   }
+
+  // ---- M3.8 scoring inputs ----
+  // schools median ratings — computed here so the scoring layer
+  // doesn't need to reach into SchoolEntry arrays.
+  const schoolsForScoring = schools
+    ? {
+        medianElementaryRating: medianRating(
+          schools.elementarySchools.map((s) => s.rating ?? null),
+        ),
+        medianMiddleRating: medianRating(
+          schools.middleSchools.map((s) => s.rating ?? null),
+        ),
+        medianHighRating: medianRating(
+          schools.highSchools.map((s) => s.rating ?? null),
+        ),
+        dataQuality: schools.dataQuality,
+      }
+    : null;
+
+  // Project the M3.13 thesis-aware regulatory signal into the
+  // narrow shape scoring consumes for the regulatory_thesis rule.
+  const regulatoryThesisInput = projectRegulatoryThesisForScoring(regulatory);
+
+  // Primary rental-comp variance for the active thesis:
+  //   LTR / HH → ltr rent variance; STR → str ADR variance; else null.
+  const rentalCompVarianceFlag: VarianceFlag | null =
+    property.thesisType === "ltr" || property.thesisType === "house_hacking"
+      ? ltrRentVariance?.flag ?? null
+      : property.thesisType === "str"
+        ? strAdrVariance?.flag ?? null
+        : null;
+
+  const score = scoreVerdict({
+    thesisType: (property.thesisType as ThesisType | null) ?? null,
+    goalType: (property.goalType as GoalType | null) ?? null,
+    state,
+    // M3.13: STR-typed regulatory still feeds the legacy STR rule;
+    // non-STR thesis-specific regulatory feeds the regulatory_thesis
+    // rule (set below).
+    regulatory:
+      regulatory && regulatory.thesisDimension === "str"
+        ? { strLegal: regulatory.strLegal ?? null }
+        : null,
+    flood: fema ? { sfha: fema.sfha } : null,
+    wildfire: usgs ? { nearbyFireCount: usgs.nearbyFireCount } : null,
+    crime: fbi
+      ? { violentPer1k: fbi.violentPer1k, propertyPer1k: fbi.propertyPer1k }
+      : null,
+    walkScore: overpass?.walkScore ?? null,
+    comps: {
+      count: airbnb?.comps.length ?? 0,
+      medianNightlyRate: airbnb?.medianNightlyRate ?? null,
+    },
+    revenue: revenue ? { netAnnualMedian: revenue.netAnnualMedian } : null,
+    referencePrice,
+    placeSentimentBullets: placeSentiment?.bullets.length ?? 0,
+    schools: schoolsForScoring,
+    regulatoryThesis: regulatoryThesisInput,
+    rentalCompVariance: rentalCompVarianceFlag,
+    // M3.12 will populate ARV; v1 leaves null so the flipping rule
+    // emits an "ARV signal pending" placeholder in the breakdown.
+    arvEstimateCents: property.flippingArvEstimateCents ?? null,
+    renovationBudgetCents: property.renovationBudgetCents ?? null,
+    userOfferCents: property.userOfferPriceCents ?? null,
+    incomeChange5y: census?.incomeChange5y ?? null,
+  });
 
   // ---- Phase 3: narrative ----
   const signals = {
@@ -1079,6 +1126,62 @@ function regulatorySignalForNarrative(
           transferTaxAtSale: reg.transferTaxAtSale,
           disclosureRequirementsSummary: reg.disclosureRequirementsSummary,
         },
+      };
+  }
+}
+
+/**
+ * M3.8 — median of school ratings from a SchoolEntry array. Returns
+ * null when no rating values are present or all are undefined. The
+ * SchoolEntry shape stores rating as optional (LLM may know a school
+ * by name but not have a confident rating).
+ */
+function medianRating(ratings: ReadonlyArray<number | null | undefined>): number | null {
+  const xs = ratings.filter((r): r is number => typeof r === "number");
+  if (xs.length === 0) return null;
+  const sorted = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1]! + sorted[mid]!) / 2
+    : sorted[mid]!;
+}
+
+/**
+ * M3.8 — project the orchestrator's RegulatorySignalOk (which carries
+ * different fields per thesis dimension) into the narrow shape the
+ * scoring layer's regulatory_thesis rule consumes. Returns null for
+ * STR (handled by the legacy regulatory rule) and for failed lookups.
+ */
+function projectRegulatoryThesisForScoring(
+  reg: Awaited<ReturnType<typeof getRegulatorySignal>> | null,
+): VerdictInputs["regulatoryThesis"] {
+  if (!reg || !reg.ok) return null;
+  switch (reg.thesisDimension) {
+    case "str":
+      return null;
+    case "ltr":
+      return {
+        thesisDimension: "ltr",
+        rentControl: reg.rentControl ?? null,
+        evictionFriendliness: reg.evictionFriendliness ?? null,
+      };
+    case "owner_occupied":
+      return {
+        thesisDimension: "owner_occupied",
+        homesteadExemption: reg.homesteadExemption ?? null,
+        specialAssessmentsCommon: reg.specialAssessmentsCommon ?? null,
+      };
+    case "house_hacking":
+      return {
+        thesisDimension: "house_hacking",
+        aduLegal: reg.aduLegal ?? null,
+        ownerOccupiedStrCarveout: reg.ownerOccupiedStrCarveout ?? null,
+      };
+    case "flipping":
+      return {
+        thesisDimension: "flipping",
+        flipperSurtax: reg.flipperSurtax ?? null,
+        historicDistrictRisk: reg.historicDistrictRisk ?? null,
       };
   }
 }

@@ -16,6 +16,13 @@ import { scoreVerdict, type VerdictInputs } from "../src/scoring";
  */
 function baseInputs(overrides: Partial<VerdictInputs> = {}): VerdictInputs {
   return {
+    // M3.8: existing legacy fixture defaulted to STR thesis (no
+    // explicit thesis was set; scoring assumed STR everywhere).
+    // The scoring layer maps null thesis to STR for compat — we
+    // pass it explicitly here so the new tests are self-documenting.
+    thesisType: "str",
+    goalType: null,
+    state: null,
     regulatory: { strLegal: "yes" },
     flood: { sfha: false },
     wildfire: { nearbyFireCount: 0 },
@@ -25,6 +32,13 @@ function baseInputs(overrides: Partial<VerdictInputs> = {}): VerdictInputs {
     revenue: { netAnnualMedian: 20_000 },
     referencePrice: 500_000,
     placeSentimentBullets: 3,
+    schools: null,
+    regulatoryThesis: null,
+    rentalCompVariance: null,
+    arvEstimateCents: null,
+    renovationBudgetCents: null,
+    userOfferCents: null,
+    incomeChange5y: null,
     ...overrides,
   };
 }
@@ -102,34 +116,38 @@ describe("scoreVerdict", () => {
   });
 
   it("docks confidence for each missing major signal", () => {
-    const sparse = scoreVerdict({
-      regulatory: null,
-      flood: null,
-      wildfire: null,
-      crime: null,
-      walkScore: null,
-      comps: { count: 0, medianNightlyRate: null },
-      revenue: null,
-      referencePrice: null,
-      placeSentimentBullets: 0,
-    });
+    const sparse = scoreVerdict(
+      baseInputs({
+        regulatory: null,
+        flood: null,
+        wildfire: null,
+        crime: null,
+        walkScore: null,
+        comps: { count: 0, medianNightlyRate: null },
+        revenue: null,
+        referencePrice: null,
+        placeSentimentBullets: 0,
+      }),
+    );
     expect(sparse.confidence).toBeLessThanOrEqual(40);
     expect(sparse.confidence).toBeGreaterThanOrEqual(30);
   });
 
   it("clamps final score to [0, 100]", () => {
     // Construct worst-case: all penalties, no rewards.
-    const result = scoreVerdict({
-      regulatory: { strLegal: "no" },
-      flood: { sfha: true },
-      wildfire: { nearbyFireCount: 50 },
-      crime: { violentPer1k: 20, propertyPer1k: 60 },
-      walkScore: 0,
-      comps: { count: 0, medianNightlyRate: null },
-      revenue: null,
-      referencePrice: null,
-      placeSentimentBullets: 0,
-    });
+    const result = scoreVerdict(
+      baseInputs({
+        regulatory: { strLegal: "no" },
+        flood: { sfha: true },
+        wildfire: { nearbyFireCount: 50 },
+        crime: { violentPer1k: 20, propertyPer1k: 60 },
+        walkScore: 0,
+        comps: { count: 0, medianNightlyRate: null },
+        revenue: null,
+        referencePrice: null,
+        placeSentimentBullets: 0,
+      }),
+    );
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(100);
   });
