@@ -18,6 +18,7 @@ If you ever feel lost or unsure what to do next, this document has the answer.
 
 Last updated: 2026-05-01
 
+- ✅ M3.12 shipped — sales comps + days-on-market velocity. Two new Haiku-cached fetchers — `lookupSalesComps` (30d TTL, scoped per `(state, city, beds-baths-sqftBucket-yearBucket)`) and `lookupMarketVelocity` (14d TTL, scoped per `(state, city)`) — wire up the M3.8 `appreciation_potential` and `arv_margin` rules that previously had degraded inputs (M3.8 designed them but M3.12 hadn't shipped yet, so appreciation fell back to schools/walk/income proxies and arv_margin emitted a "M3.12 pending" placeholder). Now: appreciation_potential prefers sales-comp + market-velocity inputs when `dataQuality !== "unavailable"`, falls back to proxies otherwise; arv_margin computes real margin math `(ARV − purchase − reno − holding) / purchase` with ARV resolved as `intake.flippingArvEstimateCents ?? salesComps.estimatedArvCents`. New `offer_price_alignment` rule penalizes/rewards the user's offer-price variance vs comp-derived median — mirrors M3.11 rental_comp_alignment but for sales-side. Orchestrator routes both fetchers by thesis: LTR / owner_occupied / house_hacking / flipping / other → fire; STR → skipped (vacation-rental investors rarely care about appreciation/resale, the math is different). Apify continues to run for STR thesis as optional enrichment. Comps evidence card UI gained new metric rows (Median comp, Comp range, ARV estimate w/ confidence, Median DOM, Market velocity, Market trend, Flip margin) and a second `<VarianceChip>` rendering for offer-price variance — terracotta-tinted "acquisition price" treatment for `significantly_low` (good news), amber-warning for `significantly_high` (overpaying). Narrative tool schema extends `comps.metrics` with sales-comp fields (no new domain — the existing 4-card grid already covers "Comparable Properties" semantically and now does double duty for rental + sales comps; deviation from prompt's recommended A+B hybrid in favor of single render path per CLAUDE.md "don't add abstractions beyond what task requires"). v3 prompt adds a "Sales comp + ARV data handling" section instructing the model to lead with flip math for Flipping, lead with comp median + ARV-vs-offer for OO, and surface as appreciation context for LTR. **Schema migration `0018_ai_usage_tasks_add_sales_market`** required (extends `ai_usage_events.task` CHECK to include `sales-comps-lookup` + `market-velocity-lookup`); per M0.4 follow-up, runs via the standard manual `pnpm db:migrate`. Tests: 14 sales-comps schema regressions + 14 market-velocity schema regressions in `@dwellverdict/ai`, 14 signal-shape regressions in `@dwellverdict/data-sources`, 14 sales-comp scoring wiring regressions, plus a 4th realism canary (Sacramento flipping fixture with full ARV math). 177 AI + 63 data-sources tests pass total. No env var changes.
 - 🔧 M3.8 fix-forward — `data_points.*.summary` char limit 500 → 800. Roseville LTR regeneration after M3.8 produced two summaries that legitimately exceeded the 500-char ceiling: regulatory at 565 chars (AB 1482 + Roseville Chapter 202 + SB 329 + security deposits + just-cause eviction) and location at 580 chars (walk + amenities + 4 school ratings + notable schools + flood + wildfire history). Both were substantively correct content — the 500 limit dated from M3.7 era when summaries were sparse-data placeholders, and didn't account for the layered M3.7 (FEMA/USGS/Census) + M3.10 (schools) + M3.13 (thesis-aware regulatory) + M3.11 (rental comps) + M3.8 (thesis-aware scoring) data now flowing into v3 narrative simultaneously. Bumped `.max(500)` → `.max(800)` on all four `data_points.*.summary` fields (comps, revenue, regulatory, location). Also bumped the inline `max_tokens` budget comment 1800 → 2000 token estimate. Existing schema regression tests updated 500→800 boundary; new `verdict-narrative-realism.test.ts` canary encodes Roseville LTR / Kings Beach STR / Lincoln OO realistic post-M3.8 fixtures and locks them as the tripwire for future milestone schema regressions — when M3.12 (sales comps) or M3.9 (what-if calculator) adds more data and a thesis canary fails, schema needs another bump (or content trimming) before merge. 134 AI tests pass total. No DB migration; no env vars.
 - ✅ M3.8 shipped — thesis-aware scoring + thesis-aware fetcher routing. Scoring rubric refactored from a single STR-implicit table to a 2D weight table keyed on `thesis_type` × rule. Each thesis (str / ltr / owner_occupied / house_hacking / flipping / other) has its own per-rule weights summing to ~100; rules with weight 0 for the active thesis are skipped entirely (no breakdown entry). Five new rules introduced — `livability_score` (OO/HH composite of walk + crime + schools), `appreciation_potential` (schools + walkability + Census income growth), `arv_margin` (flipping; ARV signal placeholder until M3.12), `schools_quality` (independent of livability for LTR/HH/flipping resale), `rental_comp_alignment` (consumes M3.11 variance flag). Thesis-specific regulatory rule (`regulatory_thesis`) reacts to the M3.13 typed fields per dimension — LTR rent control + tenant rights, OO homestead + special assessments, HH ADU illegality (strong dealbreaker for HH thesis), flipping surtax + historic overlay. Goal-driven nudges layered on top (cap_rate goal +3 to cap rate weight; appreciation +4 to appreciation weight; lifestyle +4 to livability; flip_profit +5 to arv_margin). **Regional risk overrides** apply state-level multipliers — CA wildfire 1.5×, FL flood 1.5×, Gulf Coast (TX/LA/AL/MS) flood 1.3×, Mountain West (CO/UT/MT/ID) wildfire 1.2×, PNW (WA/OR) wildfire 1.1×. Each `BreakdownEntry` now carries `category` (rental_fundamentals / location / regulatory / market / risk), `weight` (effective post-multiplier), and `multiplier` (when regional override fired) so the verdict-detail UI can group rows by category and surface "weight 25 · ×1.5" badges. Verdict-detail view detects pre-M3.8 verdicts by absence of `category` on every row and renders a "Legacy verdict — regenerate for thesis-aware analysis" banner with the legacy flat list. Confidence calculation now docks per *thesis-relevant* missing signal rather than universal STR-shaped signals (OO confidence no longer over-penalized for missing rental comp data). Pre-M3.8 STR PASS-override (`strLegal === "no"` forces PASS regardless of score) preserved as the only auto-PASS dealbreaker. Scoring's regulatory input continues to gate STR (per M3.13 plumbing); non-STR theses use thesis-specific regulatory fields via `regulatoryThesis` discriminated union. Orchestrator-side fetcher routing was already in place after M3.11 (`ltrComps`/`strComps` skipped for irrelevant theses) and M3.13 (regulatory dispatched per dimension); M3.8 didn't add new routing. CensusAcsSignal type widened to include `incomeChange5y` so the appreciation rule has a real input. Tests: 17 thesis-aware regressions in `scoring-thesis.test.ts` covering per-thesis rubric selection, new rule behavior (schools/livability/appreciation/ARV/rental comp variance), regional overrides, breakdown shape, and PASS-override preservation. Existing 11 legacy scoring tests still pass with no calibration drift on STR baseline. 131 AI tests pass total. No DB migration; no env var changes. **Production verification post-merge** — regenerate Roseville LTR (expect schools + crime prominent, no STR regulatory entry), Lincoln OO (expect cap_rate suppressed, livability + schools + crime dominant, no rental comp variance entry), Kings Beach STR (expect wildfire showing CA 1.5× multiplier, regulatory_str at full weight, schools suppressed, ADR variance flag).
 - ✅ M3.11 shipped — rental comps for LTR + STR (LLM-first with Apify fallback). Two new Haiku-cached fetchers — `lookupLtrComps` (30d TTL) and `lookupStrComps` (14d TTL) — replace the brittle Apify Airbnb scraper as the *primary* STR comp source and introduce LTR comps for the first time. Cache scoped to `(state, city, beds-baths[-sqftBucket])`, so two LTR properties of the same configuration in the same city share a Haiku call (~$0.001 per cache miss). Apify continues to run for STR thesis as optional enrichment when it works (rare in many smaller markets). Orchestrator routes by thesis: `ltr` / `house_hacking` → ltr-comps; `str` → str-comps; `owner_occupied` / `flipping` → skipped (resolves to a synthetic envelope so no LLM call fires). New `computeIntakeVarianceFlag` helper at `apps/web/lib/verdict/intake-variance.ts` compares user intake (LTR monthly rent / STR ADR / STR occupancy) to market median and flags `aligned` (±10%), `low`/`high` (10-30% off), or `significantly_low`/`significantly_high` (>30% off); the narrative prompt v3 surfaces significant variance as an explicit "verify intake" concern. Comps evidence card UI gained new metric rows (`Median rent`, `Rent range`, `Median ADR`, `ADR range`, `Median occupancy`, `Seasonality`) and a `<VarianceChip>` that renders amber for significant variance and muted-paper-warm for the milder bands. Tool schema on `data_points.comps.metrics` extended with cents-denominated rental fields + `intake_variance_flag` + `intake_variance_ratio` (all optional, populated only when relevant). **Schema migration `0017_ai_usage_tasks_add_rental_comps`** required (extends the `ai_usage_events.task` CHECK constraint to include `ltr-comps-lookup` + `str-comps-lookup`). Per M0.4 follow-up, runs via the standard manual `pnpm db:migrate`. Tests: 14 ltr schema regressions + 15 str schema regressions in `@dwellverdict/ai`, 12 signal-shape regressions in `@dwellverdict/data-sources`, 15 variance-band unit tests in `apps/web`. 114 AI + 49 data-sources tests pass total.
@@ -48,7 +49,7 @@ Last updated: 2026-05-01
 - ✅ M0.2 shipped (commit b758e22) — CI infrastructure
 - ✅ M0.3 shipped (commit 480ce7c) — Sentry error monitoring
 - ✅ M0.1 shipped (commit be71fef) — Email infrastructure
-- ⏳ M3.4 next — per v1.9 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 ✅ → M3.10 ✅ → M3.13 ✅ → M3.11 ✅ → M3.8 ✅ → **M3.4** → M3.9 → M3.12
+- ⏳ M3.4 next — per v1.10 sequence: M3.5 ✅ → M3.6 ✅ → M3.7 ✅ → M3.10 ✅ → M3.13 ✅ → M3.11 ✅ → M3.8 ✅ → M3.12 ✅ → **M3.4** → M3.14 → M3.9
 
 ---
 
@@ -135,6 +136,44 @@ LIMIT 10;
 ```
 
 Healthy entries have `dataQuality` of `partial` or `rich` plus non-zero medians. `unavailable` rows are valid (Haiku didn't have meaningful recall for that market) and the orchestrator skips emitting variance flags for them — the verdict still generates cleanly without rental-comp content.
+
+### Sales comps + market velocity cache health (M3.12)
+
+Verifies the M3.12 sales-comp + market-velocity fetchers populate with substantive content. Sales comps cache key encodes property configuration (`(state, city, beds-baths-sqftBucket-yearBucket)`); multiple rows per city are normal across different unit types. Market velocity is one row per city.
+
+```sql
+-- Sales comps cache health
+SELECT
+  cache_key,
+  fetched_at,
+  payload->>'dataQuality' AS data_quality,
+  jsonb_array_length(payload->'comps') AS comp_count,
+  payload->>'estimatedArvCents' AS arv_cents,
+  payload->>'arvConfidence' AS arv_confidence,
+  payload->>'medianCompPriceCents' AS median_cents,
+  payload->>'marketVelocity' AS velocity
+FROM data_source_cache
+WHERE source = 'sales-comps'
+ORDER BY fetched_at DESC
+LIMIT 10;
+
+-- Market velocity cache health
+SELECT
+  cache_key,
+  fetched_at,
+  payload->>'dataQuality' AS data_quality,
+  payload->>'medianDaysOnMarketCurrent' AS current_dom,
+  payload->>'medianDaysOnMarketYearAgo' AS year_ago_dom,
+  payload->>'trend' AS trend,
+  payload->>'listToSaleRatio' AS list_to_sale,
+  payload->>'inventoryMonths' AS inventory_months
+FROM data_source_cache
+WHERE source = 'market-velocity'
+ORDER BY fetched_at DESC
+LIMIT 10;
+```
+
+Healthy entries have `dataQuality` of `partial` or `rich` plus non-zero comp counts and realistic ARV / DOM values. STR-thesis verdicts skip both fetchers entirely (no row written for the property's city under STR thesis routing). `unavailable` rows are valid (Haiku didn't have meaningful recall for that market) and the orchestrator nulls the signal at the boundary so `appreciation_potential` falls back to schools/walk/income proxies.
 
 ### Score breakdowns by thesis (M3.8)
 
@@ -372,9 +411,10 @@ This is the order. Don't deviate without good reason.
 - [x] **M3.13** — Thesis-specific regulatory expansion — shipped (merge SHA pending, requires manual production migration `0016_regulatory_cache_thesis_dimension`)
 - [x] **M3.11** — Rental comps for LTR + STR (LLM-first with Apify fallback) — shipped (merge SHA pending, requires manual production migration `0017_ai_usage_tasks_add_rental_comps`). Scope expanded from v1.9 LTR-only spec to cover both LTR and STR rental comps after M3.10 verification surfaced Apify's persistent 0-listing failure mode.
 - [x] **M3.8** — Thesis-aware scoring + regional risk overrides — shipped (merge SHA pending, no DB migration). 2D rubric weight table per thesis; new rules (livability/appreciation/ARV margin/schools_quality/rental_comp_alignment); CA/FL/Gulf/Mountain-West/PNW regional multipliers; score breakdown UI groups rows by category with weight + multiplier badges; legacy banner on pre-M3.8 verdicts.
-- [ ] **M3.4** — Onboarding intent flow + welcome email (ships after M3.5–M3.7 so user-level data pre-fills the per-property intake form)
+- [x] **M3.12** — Sales comps + days-on-market velocity — shipped (merge SHA pending, requires manual production migration `0018_ai_usage_tasks_add_sales_market`). Wires up M3.8 appreciation_potential + arv_margin rules with real sales-comp + market-velocity inputs. Adds offer_price_alignment rule.
+- [ ] **M3.4** — Onboarding intent flow + welcome email (ships after M3.5–M3.7 so user-level data pre-fills the per-property intake form; promoted to next-up after M3.12)
+- [ ] **M3.14** — Property premium features (NEW in v1.10 — extends M3.5 intake with view/golf/custom-build/etc. + scoring adjustments)
 - [ ] **M3.9** — What-if calculator
-- [ ] **M3.12** — Sales comps + days-on-market
 
 ### Phase 4 — Property surfaces
 

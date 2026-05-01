@@ -60,17 +60,27 @@ export function EvidenceCard({ domain, evidence }: EvidenceCardProps) {
       ? formatMetrics(domain.key, evidence.metrics)
       : null;
   const citations = isStructured(evidence) ? evidence.citations ?? [] : [];
-  // M3.11 — variance flag is rendered as a colored chip above the
-  // metrics row for the comps card. Only present when the model
-  // emitted `intake_variance_flag` (which only happens when the
-  // orchestrator computed it from intake + market median).
-  const varianceFlag =
+  // M3.11 + M3.12 — variance flags rendered as colored chips above
+  // the metrics row for the comps card. Two distinct flags can fire
+  // for the same verdict: rental-comp variance (rent/ADR vs market
+  // median, M3.11) and offer-price variance (user offer vs comp
+  // median sale price, M3.12). Both surface side-by-side when the
+  // model emits them; aligned bands stay hidden.
+  const rentalVarianceFlag =
     domain.key === "comps" && isStructured(evidence) && evidence.metrics
       ? (evidence.metrics["intake_variance_flag"] as string | undefined)
       : undefined;
-  const varianceRatio =
+  const rentalVarianceRatio =
     domain.key === "comps" && isStructured(evidence) && evidence.metrics
       ? (evidence.metrics["intake_variance_ratio"] as number | undefined)
+      : undefined;
+  const offerVarianceFlag =
+    domain.key === "comps" && isStructured(evidence) && evidence.metrics
+      ? (evidence.metrics["offer_price_variance_flag"] as string | undefined)
+      : undefined;
+  const offerVarianceRatio =
+    domain.key === "comps" && isStructured(evidence) && evidence.metrics
+      ? (evidence.metrics["offer_price_variance_ratio"] as number | undefined)
       : undefined;
 
   return (
@@ -84,8 +94,19 @@ export function EvidenceCard({ domain, evidence }: EvidenceCardProps) {
         </h3>
       </div>
 
-      {varianceFlag && varianceFlag !== "aligned" ? (
-        <VarianceChip flag={varianceFlag} ratio={varianceRatio} />
+      {rentalVarianceFlag && rentalVarianceFlag !== "aligned" ? (
+        <VarianceChip
+          flag={rentalVarianceFlag}
+          ratio={rentalVarianceRatio}
+          kind="rental"
+        />
+      ) : null}
+      {offerVarianceFlag && offerVarianceFlag !== "aligned" ? (
+        <VarianceChip
+          flag={offerVarianceFlag}
+          ratio={offerVarianceRatio}
+          kind="offer"
+        />
       ) : null}
 
       {metrics && metrics.length > 0 ? (
@@ -138,9 +159,15 @@ export function EvidenceCard({ domain, evidence }: EvidenceCardProps) {
 function VarianceChip({
   flag,
   ratio,
+  kind,
 }: {
   flag: string;
   ratio: number | undefined;
+  /** M3.12 — `rental` is the M3.11 rent/ADR variance vs market
+   *  median; `offer` is the new sales-side variance (user offer
+   *  vs comp median sale price). Phrasing differs to match the
+   *  decision the user is being asked to verify. */
+  kind: "rental" | "offer";
 }) {
   const isSignificant =
     flag === "significantly_low" || flag === "significantly_high";
@@ -148,21 +175,44 @@ function VarianceChip({
   const pct = typeof ratio === "number" ? Math.round(ratio * 100) : null;
   const direction = isLow ? "below" : "above";
   const detailFragment = pct != null ? `${pct}% of market median` : null;
-  const message = isSignificant
-    ? `User intake is significantly ${direction} market${pct != null ? ` (${pct}%)` : ""} — re-verify before underwriting.`
-    : `User intake is ${direction} market${detailFragment ? ` (${detailFragment})` : ""}.`;
+
+  let labelChip: string;
+  let message: string;
+  if (kind === "rental") {
+    labelChip = isSignificant ? "Verify intake" : "Market check";
+    message = isSignificant
+      ? `User intake is significantly ${direction} market${pct != null ? ` (${pct}%)` : ""} — re-verify before underwriting.`
+      : `User intake is ${direction} market${detailFragment ? ` (${detailFragment})` : ""}.`;
+  } else {
+    // offer
+    labelChip = isSignificant
+      ? isLow
+        ? "Acquisition price"
+        : "Verify offer"
+      : "Offer check";
+    if (isSignificant) {
+      message = isLow
+        ? `Offer is significantly below comp median${pct != null ? ` (${pct}%)` : ""} — possible acquisition opportunity; verify property condition isn't the reason.`
+        : `Offer is significantly above comp median${pct != null ? ` (${pct}%)` : ""} — verify the premium is justified before underwriting.`;
+    } else {
+      message = `Offer is ${direction} comp median${detailFragment ? ` (${detailFragment})` : ""}.`;
+    }
+  }
+
+  // Acquisition-price (significantly_low offer) is good news, render
+  // as terracotta-tinted rather than amber-warning.
+  const isAcquisitionWin =
+    kind === "offer" && flag === "significantly_low";
+  const containerClass = isAcquisitionWin
+    ? "rounded-lg border border-terracotta-border bg-terracotta-soft px-3 py-2 text-[12px] font-medium leading-[1.45] text-terracotta"
+    : isSignificant
+      ? "rounded-lg border border-amber-500/40 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-[1.45] text-amber-900"
+      : "rounded-lg border border-hairline-strong bg-paper-warm px-3 py-2 text-[12px] leading-[1.45] text-ink-70";
 
   return (
-    <div
-      role="note"
-      className={
-        isSignificant
-          ? "rounded-lg border border-amber-500/40 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-[1.45] text-amber-900"
-          : "rounded-lg border border-hairline-strong bg-paper-warm px-3 py-2 text-[12px] leading-[1.45] text-ink-70"
-      }
-    >
+    <div role="note" className={containerClass}>
       <span className="font-mono text-[10px] uppercase tracking-[0.14em]">
-        {isSignificant ? "Verify intake" : "Market check"}
+        {labelChip}
       </span>
       <span className="ml-2">{message}</span>
     </div>
@@ -265,6 +315,50 @@ function formatMetrics(
     const seas = get<string>("seasonality");
     if (typeof seas === "string")
       rows.push({ label: "Seasonality", value: capitalize(seas) });
+
+    // M3.12 — sales comp + ARV metrics. Surface for OO / LTR-with-
+    // appreciation / HH / Flipping verdicts; STR verdicts skip the
+    // sales-comps fetcher entirely so these stay absent.
+    const salesMedian = get<number>("median_comp_price_cents");
+    if (typeof salesMedian === "number")
+      rows.push({
+        label: "Median comp",
+        value: formatCents(salesMedian),
+      });
+    const salesLow = get<number>("comp_price_range_low_cents");
+    const salesHigh = get<number>("comp_price_range_high_cents");
+    if (typeof salesLow === "number" && typeof salesHigh === "number")
+      rows.push({
+        label: "Comp range",
+        value: `${formatCents(salesLow)}–${formatCents(salesHigh)}`,
+      });
+    const arv = get<number>("estimated_arv_cents");
+    const arvConfidence = get<string>("arv_confidence");
+    if (typeof arv === "number") {
+      const confidenceSuffix =
+        typeof arvConfidence === "string"
+          ? ` (${arvConfidence} confidence)`
+          : "";
+      rows.push({
+        label: "ARV estimate",
+        value: `${formatCents(arv)}${confidenceSuffix}`,
+      });
+    }
+    const dom = get<number>("median_days_on_market");
+    if (typeof dom === "number")
+      rows.push({ label: "Median DOM", value: `${dom}d` });
+    const velocity = get<string>("market_velocity");
+    if (typeof velocity === "string")
+      rows.push({ label: "Market velocity", value: capitalize(velocity) });
+    const trend = get<string>("market_trend");
+    if (typeof trend === "string")
+      rows.push({ label: "Market trend", value: capitalize(trend) });
+    const flipMargin = get<number>("flip_margin_percent");
+    if (typeof flipMargin === "number")
+      rows.push({
+        label: "Flip margin",
+        value: `${(flipMargin * 100).toFixed(1)}%`,
+      });
   }
 
   if (domain === "revenue") {

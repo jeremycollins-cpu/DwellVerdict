@@ -116,6 +116,28 @@ const CompsEvidenceSchema = z.object({
       // narrative when materially off-market.
       intake_variance_flag: z.enum(VARIANCE_FLAG_VALUES).optional(),
       intake_variance_ratio: z.number().nonnegative().optional(),
+      // M3.12 — sales-side comp metrics. Shipped on the same Comps
+      // card as rental comps because "Comparable Properties"
+      // semantically covers both. New verdicts on OO/LTR-with-
+      // appreciation/HH/Flipping populate these; STR verdicts skip
+      // them entirely (sales comps fetcher is thesis-skipped).
+      median_comp_price_cents: z.number().int().nonnegative().optional(),
+      comp_price_range_low_cents: z.number().int().nonnegative().optional(),
+      comp_price_range_high_cents: z.number().int().nonnegative().optional(),
+      estimated_arv_cents: z.number().int().nonnegative().optional(),
+      arv_confidence: z.enum(["high", "moderate", "low"]).optional(),
+      median_days_on_market: z.number().int().nonnegative().optional(),
+      market_velocity: z.enum(["fast", "moderate", "slow"]).optional(),
+      market_trend: z
+        .enum(["accelerating", "stable", "decelerating"])
+        .optional(),
+      // Comp-side variance flag (user offer vs comp median).
+      // Distinct from rental_comp variance above.
+      offer_price_variance_flag: z.enum(VARIANCE_FLAG_VALUES).optional(),
+      offer_price_variance_ratio: z.number().nonnegative().optional(),
+      // Flipping-only: pre-computed margin so the UI can render
+      // the math directly.
+      flip_margin_percent: z.number().optional(),
     })
     .optional(),
   citations: z.array(CitationSchema).max(6).optional(),
@@ -307,13 +329,78 @@ const RENDER_VERDICT_NARRATIVE_TOOL: Anthropic.Messages.Tool = {
                     description:
                       "M3.11: numeric ratio (user value / market median). Useful when surfacing exact variance in narrative.",
                   },
+                  median_comp_price_cents: {
+                    type: "integer",
+                    description:
+                      "M3.12: median recent-sale comp price in cents. Emit for OO/LTR-with-appreciation/HH/Flipping when sales_comps signal present. Omit for STR.",
+                  },
+                  comp_price_range_low_cents: {
+                    type: "integer",
+                    description:
+                      "M3.12: 25th percentile of comp prices in cents.",
+                  },
+                  comp_price_range_high_cents: {
+                    type: "integer",
+                    description:
+                      "M3.12: 75th percentile of comp prices in cents.",
+                  },
+                  estimated_arv_cents: {
+                    type: "integer",
+                    description:
+                      "M3.12: After-Repair-Value estimate in cents (or current-value estimate when no renovation). Central to flipping arv_margin rule.",
+                  },
+                  arv_confidence: {
+                    type: "string",
+                    enum: ["high", "moderate", "low"],
+                    description:
+                      "M3.12: confidence band on the ARV estimate. Surface in narrative when low.",
+                  },
+                  median_days_on_market: {
+                    type: "integer",
+                    description:
+                      "M3.12: median DOM across the comp set.",
+                  },
+                  market_velocity: {
+                    type: "string",
+                    enum: ["fast", "moderate", "slow"],
+                    description:
+                      "M3.12: velocity classification from the sales-comps signal.",
+                  },
+                  market_trend: {
+                    type: "string",
+                    enum: ["accelerating", "stable", "decelerating"],
+                    description:
+                      "M3.12: city-level DOM trend from the market-velocity signal.",
+                  },
+                  offer_price_variance_flag: {
+                    type: "string",
+                    enum: [
+                      "aligned",
+                      "low",
+                      "high",
+                      "significantly_low",
+                      "significantly_high",
+                    ],
+                    description:
+                      "M3.12: how user's offer (or listing/estimate) compares to comp median. Surface significant variance as 'verify the premium' / 'strong acquisition price' framing.",
+                  },
+                  offer_price_variance_ratio: {
+                    type: "number",
+                    description:
+                      "M3.12: ratio (user offer / comp median).",
+                  },
+                  flip_margin_percent: {
+                    type: "number",
+                    description:
+                      "M3.12 flipping-only: pre-computed margin (ARV − costs) / purchase, as a decimal (0.18 = 18%).",
+                  },
                 },
               },
               citations: {
                 type: "array",
                 items: CITATION_SCHEMA,
                 description:
-                  "0-6 citations specific to comp data (Airbnb, AirDNA, etc.).",
+                  "0-6 citations specific to comp data (Airbnb, AirDNA, recent sales, etc.).",
               },
             },
             required: ["summary"],

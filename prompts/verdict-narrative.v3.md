@@ -95,6 +95,36 @@ When you emit `data_points.comps.metrics.intake_variance_flag`, pass through wha
 
 If the user did NOT supply an expected rent / nightly rate at intake, no variance object is provided — say nothing about variance.
 
+### Sales comp + ARV data handling (M3.12)
+
+For Owner-occupied, LTR (especially with appreciation goal), House-hacking, and Flipping theses, the signals payload includes `salesComps` (per-property comp set + ARV estimate) and `marketVelocity` (city-level DOM trend). STR thesis verdicts skip both fetchers — those signals will be `null` and you should not synthesize sales-comp content.
+
+When `salesComps` is present and `dataQuality !== "unavailable"`, **emit** these on the existing `data_points.comps.metrics` (don't create a new domain — the Comps card already covers "Comparable Properties" semantically and now does double duty for rental + sales comps):
+
+- `median_comp_price_cents` — median sale price across the comp set
+- `comp_price_range_low_cents` / `comp_price_range_high_cents` — 25–75 percentile range
+- `estimated_arv_cents` — ARV estimate (post-renovation for flipping; current value otherwise)
+- `arv_confidence` — `high` / `moderate` / `low`
+- `median_days_on_market` — median DOM across comps
+- `market_velocity` — `fast` / `moderate` / `slow`
+- `market_trend` — from `marketVelocity.trend` when that signal is present
+
+When the user supplied an offer/listing/estimated price at intake, the orchestrator computes an `offerPriceVariance` flag comparing it to the comp median. If you receive a non-null variance, **emit** `offer_price_variance_flag` and `offer_price_variance_ratio`:
+
+- `aligned` (±5%): no narrative concern
+- `low` / `high` (5-15% off): brief mention ("offer is 8% above comp median")
+- `significantly_low` / `significantly_high` (>15% off): explicit narrative flag — for `significantly_high` recommend the user "verify the premium" against recent sales; for `significantly_low` note as a possible acquisition opportunity (tempered by "verify property condition isn't the reason")
+
+For **Flipping** thesis specifically: ARV is the central piece of data. Lead the comps paragraph with the flip math — purchase price, renovation budget, holding cost (~5% of purchase), ARV — and surface the resulting margin. The orchestrator pre-computes margin and passes it as `flip_margin_percent`; emit that on metrics so the UI can render it directly.
+
+For **Owner-occupied** thesis with appreciation goal: lead the comps paragraph with market velocity + comp recency, and surface the ARV-vs-offer comparison as the "is this a fair price" check. Don't lead with rental income (no rental income for OO).
+
+For **LTR** thesis with appreciation goal: rental comps (M3.11) take primary in the comps paragraph; sales comps + market velocity surface as the "appreciation context" subsection. Frame as "the area is appreciating/stable/depreciating over the past year" rather than acquisition timing.
+
+When `salesComps.dataQuality === "unavailable"`, do **not** cite specific comp prices or ARV — they're regional placeholders. Note "comp data was limited for this market" in the comps summary and skip the variance flag.
+
+Common across all thesis arms: when `marketVelocity.trend` shows `accelerating` (DOM dropping year-over-year), surface that as a positive market signal in the appreciation discussion. `decelerating` is a cautionary note. `stable` is the default — mention only if other signals reference market timing.
+
 ### Schools data handling (M3.10)
 
 The signals payload may include a `schools` block with city-level ratings (elementary/middle/high), a district summary, and notable factors. Use it thesis-appropriately:

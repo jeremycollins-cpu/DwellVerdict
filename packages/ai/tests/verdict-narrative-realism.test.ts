@@ -228,10 +228,25 @@ describe("verdict-narrative schema realism canary (post-M3.8)", () => {
       data_points: {
         comps: {
           summary:
-            "Owner-occupied thesis — rental comp data was not fetched (skipped per thesis " +
-            "routing). Resale comp signal will be added in M3.12 when sales-comp + days-" +
-            "on-market fetchers ship; for v1 the appreciation_potential rule consumes " +
-            "schools + walk + Census income growth as proxy.",
+            "Owner-occupied — no rental comp data (skipped per thesis routing). Recent " +
+            "sales coverage from M3.12: 6 comparable Lincoln 4BR/3BA sales clustered " +
+            "$680K-$760K; median comp $720K, ARV $725K (moderate confidence). Median DOM " +
+            "20 days — moderate market velocity. Lincoln's residential market trend is " +
+            "stable year-over-year with steady demand from Sacramento commute corridor; " +
+            "user's offer at $700K is ~3% below comp median (modest acquisition discount).",
+          metrics: {
+            count: 6,
+            median_comp_price_cents: 72_000_000,
+            comp_price_range_low_cents: 68_000_000,
+            comp_price_range_high_cents: 76_000_000,
+            estimated_arv_cents: 72_500_000,
+            arv_confidence: "moderate" as const,
+            median_days_on_market: 20,
+            market_velocity: "moderate" as const,
+            market_trend: "stable" as const,
+            offer_price_variance_flag: "low" as const,
+            offer_price_variance_ratio: 0.97,
+          },
         },
         revenue: {
           summary:
@@ -272,6 +287,95 @@ describe("verdict-narrative schema realism canary (post-M3.8)", () => {
     if (!result.success) {
       console.error(
         "[realism-canary OO] failed:",
+        JSON.stringify(result.error.format(), null, 2),
+      );
+    }
+    expect(result.success).toBe(true);
+  });
+
+  it("accommodates a fully-populated flipping verdict (post-M3.12 ARV math)", () => {
+    // Flipping shape: ARV math is central. Sales comps + market
+    // velocity dominate the comps card; arv_margin rule produces a
+    // meaningful contribution.
+    const fixture = {
+      narrative:
+        "Sacramento flipping at 1234 Restoration Lane. Post-renovation comps cluster " +
+        "$420K-$485K for 3BR/2BA inventory in the Tahoe Park submarket. ARV estimate " +
+        "$455K (high confidence) reflects 8 recent comparable renovated sales. " +
+        "Purchase $300K + renovation $80K + holding $15K = total cost $395K → flip " +
+        "margin 15.6%, on the lighter side of typical flipping economics but workable.\n\n" +
+        "Market velocity is moderate at 24-day median DOM and accelerating year-over-" +
+        "year (was 35d a year ago). Permit complexity in Sacramento residential is " +
+        "moderate — typical residential addition + kitchen / bath remodel scope clears " +
+        "in 6-8 weeks per current Sacramento Building Department turnaround.\n\n" +
+        "What would change the verdict: ARV above $475K (margin >20%) or renovation " +
+        "scope expanding beyond initial $80K budget. Until then, WATCH.",
+      summary:
+        "Sacramento flipping with moderate ARV margin (15.6%) and accelerating market velocity.",
+      data_points: {
+        comps: {
+          summary:
+            "8 recent comparable renovated sales in Tahoe Park submarket; median comp " +
+            "$455K (range $420K-$485K). Median DOM 24 days, accelerating year-over-" +
+            "year (35d → 24d). ARV $455K (high confidence) → flip margin 15.6% on " +
+            "$300K offer + $80K renovation + $15K holding cost. Margin is workable " +
+            "but on the lighter side of typical flipping economics — buffer for cost " +
+            "overruns is thin.",
+          metrics: {
+            count: 8,
+            median_comp_price_cents: 45_500_000,
+            comp_price_range_low_cents: 42_000_000,
+            comp_price_range_high_cents: 48_500_000,
+            estimated_arv_cents: 45_500_000,
+            arv_confidence: "high" as const,
+            median_days_on_market: 24,
+            market_velocity: "moderate" as const,
+            market_trend: "accelerating" as const,
+            offer_price_variance_flag: "low" as const,
+            offer_price_variance_ratio: 0.66,
+            flip_margin_percent: 0.156,
+          },
+        },
+        revenue: {
+          summary:
+            "Flipping — no rental income. Total project cost $395K (purchase $300K + " +
+            "renovation $80K + holding $15K @ 5% of purchase, 6mo carry); ARV $455K → " +
+            "gross profit $60K, margin 15.6%. Targeting standard FHA-203(k) loan or " +
+            "DSCR loan with 6-month renovation timeline.",
+        },
+        regulatory: {
+          summary:
+            "Sacramento residential permitting: moderate complexity. Standard permits " +
+            "(electrical, plumbing, HVAC) clear over-the-counter same-day; structural " +
+            "additions or kitchen relocations require plan check (typical 4-6 week " +
+            "turnaround). California GC license required for projects over $500. No " +
+            "flipper-specific surtax in Sacramento (unlike LA's Measure ULA above $5M). " +
+            "Standard CA seller disclosures apply at resale (TDS, lead paint pre-1978, " +
+            "natural hazard disclosure for fire/flood/seismic zones).",
+        },
+        location: {
+          summary:
+            "Walk score 64 (suburban with neighborhood retail). Tahoe Park submarket " +
+            "is part of Sacramento City Unified School District; median elementary " +
+            "rating 7/10, high 6.5/10 — middle-of-pack but adequate for resale " +
+            "demographic. FEMA Zone X (no SFHA). USGS 0 wildfires within 5mi " +
+            "historically. Crime moderate (FBI 2023 violent ~5/1k, slightly above " +
+            "state median).",
+          metrics: {
+            walk_score: 64,
+            flood_zone: "X",
+            crime_rate_rank: "moderate" as const,
+            elementary_school_rating_median: 7.0,
+            high_school_rating_median: 6.5,
+          },
+        },
+      },
+    };
+
+    const result = VerdictNarrativeOutputSchema.safeParse(fixture);
+    if (!result.success) {
+      console.error(
+        "[realism-canary Flipping] failed:",
         JSON.stringify(result.error.format(), null, 2),
       );
     }

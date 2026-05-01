@@ -17,6 +17,8 @@ import {
   type SchoolsSignal,
   type LtrCompsSignal,
   type StrCompsSignal,
+  type SalesCompsSignal,
+  type MarketVelocitySignal,
   type SignalResult,
 } from "@dwellverdict/data-sources";
 import {
@@ -41,6 +43,8 @@ import { getPlaceSentimentSignal } from "@/lib/place-sentiment/lookup";
 import { getSchoolsSignal } from "@/lib/schools/lookup";
 import { getLtrCompsSignal } from "@/lib/ltr-comps/lookup";
 import { getStrCompsSignal } from "@/lib/str-comps/lookup";
+import { getSalesCompsSignal } from "@/lib/sales-comps/lookup";
+import { getMarketVelocitySignal } from "@/lib/market-velocity/lookup";
 import {
   computeIntakeVarianceFlag,
   type VarianceFlag,
@@ -124,6 +128,8 @@ export type SignalKey =
   | "schools"
   | "ltrComps"
   | "strComps"
+  | "salesComps"
+  | "marketVelocity"
   | "revenue";
 
 export type VerdictProgressEvent =
@@ -201,6 +207,7 @@ export async function orchestrateVerdict(input: {
     | "bedrooms"
     | "bathrooms"
     | "sqft"
+    | "yearBuilt"
   > &
     IntakeFields;
   userId?: string;
@@ -521,6 +528,83 @@ export async function orchestrateVerdict(input: {
               skipped: true as const,
             }),
     },
+    {
+      // M3.12 — sales comps + ARV. Fires for non-STR theses (LTR /
+      // owner_occupied / house_hacking / flipping / other). STR
+      // skips because vacation-rental investors rarely care about
+      // appreciation/resale value (it's a different math). Wires
+      // up the M3.8 `appreciation_potential` and `arv_margin` rules
+      // which previously had degraded inputs.
+      key: "salesComps" as const,
+      promise:
+        property.thesisType !== "str"
+          ? wrap(
+              "salesComps",
+              settledSignal(
+                getSalesCompsSignal({
+                  db,
+                  city,
+                  state,
+                  bedrooms: property.bedrooms ?? null,
+                  bathrooms: property.bathrooms
+                    ? Number(property.bathrooms)
+                    : null,
+                  sqft: property.sqft ?? null,
+                  yearBuilt: property.yearBuilt ?? null,
+                  userOfferPriceCents: property.userOfferPriceCents ?? null,
+                  userEstimatedValueCents:
+                    property.estimatedValueCents ?? null,
+                  userRenovationBudgetCents:
+                    property.renovationBudgetCents ?? null,
+                  userId,
+                  orgId,
+                  verdictId,
+                }),
+                LLM_CACHED_FETCHER_TIMEOUT_MS,
+                "sales-comps",
+              ),
+              () => [],
+              okFlag,
+            )
+          : Promise.resolve({
+              ok: false as const,
+              error: "skipped: STR thesis does not use sales comps",
+              source: "sales-comps",
+              skipped: true as const,
+            }),
+    },
+    {
+      // M3.12 — aggregate market velocity. Same thesis routing as
+      // sales comps (skips for STR). Cheaper LLM call than sales-
+      // comps so it fires alongside even when only the appreciation
+      // rule needs it.
+      key: "marketVelocity" as const,
+      promise:
+        property.thesisType !== "str"
+          ? wrap(
+              "marketVelocity",
+              settledSignal(
+                getMarketVelocitySignal({
+                  db,
+                  city,
+                  state,
+                  userId,
+                  orgId,
+                  verdictId,
+                }),
+                LLM_CACHED_FETCHER_TIMEOUT_MS,
+                "market-velocity",
+              ),
+              () => [],
+              okFlag,
+            )
+          : Promise.resolve({
+              ok: false as const,
+              error: "skipped: STR thesis does not use market velocity",
+              source: "market-velocity",
+              skipped: true as const,
+            }),
+    },
   ];
 
   const settled = await Promise.allSettled(fetchers.map((f) => f.promise));
@@ -538,6 +622,8 @@ export async function orchestrateVerdict(input: {
     schoolsResult,
     ltrCompsResult,
     strCompsResult,
+    salesCompsResult,
+    marketVelocityResult,
   ] = settled.map((s, i) =>
     s.status === "fulfilled"
       ? s.value
@@ -585,6 +671,18 @@ export async function orchestrateVerdict(input: {
       source: "str-comps";
       skipped?: boolean;
     },
+    Awaited<ReturnType<typeof getSalesCompsSignal>> | {
+      ok: false;
+      error: string;
+      source: "sales-comps";
+      skipped?: boolean;
+    },
+    Awaited<ReturnType<typeof getMarketVelocitySignal>> | {
+      ok: false;
+      error: string;
+      source: "market-velocity";
+      skipped?: boolean;
+    },
   ];
 
   emit({ type: "phase_complete", phase: "signals" });
@@ -613,6 +711,12 @@ export async function orchestrateVerdict(input: {
     : null;
   const strComps: StrCompsSignal | null = strCompsResult.ok
     ? strCompsResult.data
+    : null;
+  const salesComps: SalesCompsSignal | null = salesCompsResult.ok
+    ? salesCompsResult.data
+    : null;
+  const marketVelocity: MarketVelocitySignal | null = marketVelocityResult.ok
+    ? marketVelocityResult.data
     : null;
 
   // Single structured log line summarizing fetcher outcomes per
@@ -646,6 +750,18 @@ export async function orchestrateVerdict(input: {
       strComps: strCompsResult.ok
         ? `ok:${strCompsResult.data.dataQuality}`
         : "skipped" in strCompsResult && strCompsResult.skipped
+          ? "skipped"
+          : "failed",
+      // M3.12 — sales comps + market velocity. Same skipped/failed
+      // distinction as M3.11 rental comps.
+      salesComps: salesCompsResult.ok
+        ? `ok:${salesCompsResult.data.dataQuality}`
+        : "skipped" in salesCompsResult && salesCompsResult.skipped
+          ? "skipped"
+          : "failed",
+      marketVelocity: marketVelocityResult.ok
+        ? `ok:${marketVelocityResult.data.dataQuality}`
+        : "skipped" in marketVelocityResult && marketVelocityResult.skipped
           ? "skipped"
           : "failed",
     },
@@ -794,6 +910,41 @@ export async function orchestrateVerdict(input: {
         ? strAdrVariance?.flag ?? null
         : null;
 
+  // ---- M3.12 offer-price variance ----
+  // Compares user's offer (or estimated value as a fallback) against
+  // the comp-derived median sale price. Only meaningful for non-STR
+  // theses (STR thesis doesn't fetch sales comps).
+  let offerPriceVariance: { ratio: number; flag: VarianceFlag } | null = null;
+  if (
+    salesComps &&
+    salesComps.dataQuality !== "unavailable" &&
+    salesComps.medianCompPriceCents > 0
+  ) {
+    const userPrice =
+      property.userOfferPriceCents ??
+      property.listingPriceCents ??
+      property.estimatedValueCents ??
+      null;
+    if (typeof userPrice === "number" && userPrice > 0) {
+      const v = computeIntakeVarianceFlag(
+        userPrice,
+        salesComps.medianCompPriceCents,
+      );
+      offerPriceVariance = { ratio: v.varianceRatio, flag: v.flag };
+    }
+  }
+
+  // ---- M3.12 ARV resolution ----
+  // For flipping, prefer the user's intake estimate when supplied;
+  // otherwise fall back to the comp-derived ARV from sales comps.
+  // For non-flipping theses, comp-derived ARV serves as the
+  // current-value reference for the appreciation_potential rule.
+  const arvCentsForScoring =
+    property.flippingArvEstimateCents ??
+    (salesComps && salesComps.dataQuality !== "unavailable"
+      ? salesComps.estimatedArvCents
+      : null);
+
   const score = scoreVerdict({
     thesisType: (property.thesisType as ThesisType | null) ?? null,
     goalType: (property.goalType as GoalType | null) ?? null,
@@ -821,12 +972,35 @@ export async function orchestrateVerdict(input: {
     schools: schoolsForScoring,
     regulatoryThesis: regulatoryThesisInput,
     rentalCompVariance: rentalCompVarianceFlag,
-    // M3.12 will populate ARV; v1 leaves null so the flipping rule
-    // emits an "ARV signal pending" placeholder in the breakdown.
-    arvEstimateCents: property.flippingArvEstimateCents ?? null,
+    // M3.12 — ARV is now real. Prefer user intake; fall back to
+    // comp-derived from sales comps. Null only when STR (skipped)
+    // or sales-comps lookup unavailable.
+    arvEstimateCents: arvCentsForScoring,
     renovationBudgetCents: property.renovationBudgetCents ?? null,
     userOfferCents: property.userOfferPriceCents ?? null,
     incomeChange5y: census?.incomeChange5y ?? null,
+    // M3.12 — sales comp + market velocity feed the
+    // appreciation_potential rule. arv_margin already consumes the
+    // arvEstimateCents above; appreciation now also gets velocity
+    // trend and recent-comp share to lift it above schools/walk
+    // proxies when sales-comp data is rich.
+    salesComps:
+      salesComps && salesComps.dataQuality !== "unavailable"
+        ? {
+            medianCompPriceCents: salesComps.medianCompPriceCents,
+            estimatedArvCents: salesComps.estimatedArvCents,
+            arvConfidence: salesComps.arvConfidence,
+            medianDaysOnMarket: salesComps.medianDaysOnMarket,
+            marketVelocity: salesComps.marketVelocity,
+            recentCompShare: recentCompShare(salesComps),
+            dataQuality: salesComps.dataQuality,
+          }
+        : null,
+    marketVelocityTrend:
+      marketVelocity && marketVelocity.dataQuality !== "unavailable"
+        ? marketVelocity.trend
+        : null,
+    offerPriceVariance: offerPriceVariance?.flag ?? null,
   });
 
   // ---- Phase 3: narrative ----
@@ -910,6 +1084,51 @@ export async function orchestrateVerdict(input: {
           summary: strComps.summary,
           adrVariance: strAdrVariance,
           occupancyVariance: strOccupancyVariance,
+        }
+      : null,
+    // M3.12 — sales comp + ARV signal. Per-property comp set
+    // surfaced for OO/LTR-with-appreciation/HH/Flipping. Includes
+    // pre-computed flip margin when applicable.
+    salesComps: salesComps
+      ? {
+          city: salesComps.city,
+          state: salesComps.state,
+          dataQuality: salesComps.dataQuality,
+          comps: salesComps.comps,
+          medianCompPriceCents: salesComps.medianCompPriceCents,
+          compPriceRangeLowCents: salesComps.compPriceRangeLowCents,
+          compPriceRangeHighCents: salesComps.compPriceRangeHighCents,
+          estimatedArvCents: salesComps.estimatedArvCents,
+          arvConfidence: salesComps.arvConfidence,
+          arvRationale: salesComps.arvRationale,
+          medianDaysOnMarket: salesComps.medianDaysOnMarket,
+          marketVelocity: salesComps.marketVelocity,
+          marketSummary: salesComps.marketSummary,
+          compCount: salesComps.compCount,
+          summary: salesComps.summary,
+          // Variance + flip margin pre-computed at orchestrator
+          // boundary so the model doesn't have to re-derive.
+          offerPriceVariance,
+          flipMargin: computeFlipMarginForNarrative(
+            arvCentsForScoring,
+            property.userOfferPriceCents ?? null,
+            property.renovationBudgetCents ?? null,
+          ),
+        }
+      : null,
+    // M3.12 — city-level market velocity. Coarser than per-comp
+    // DOM but captures the trend over time.
+    marketVelocity: marketVelocity
+      ? {
+          dataQuality: marketVelocity.dataQuality,
+          medianDaysOnMarketCurrent: marketVelocity.medianDaysOnMarketCurrent,
+          medianDaysOnMarketYearAgo: marketVelocity.medianDaysOnMarketYearAgo,
+          trend: marketVelocity.trend,
+          listToSaleRatio: marketVelocity.listToSaleRatio,
+          inventoryMonths: marketVelocity.inventoryMonths,
+          demandSummary: marketVelocity.demandSummary,
+          seasonalityNote: marketVelocity.seasonalityNote ?? null,
+          summary: marketVelocity.summary,
         }
       : null,
   };
@@ -1136,6 +1355,57 @@ function regulatorySignalForNarrative(
  * SchoolEntry shape stores rating as optional (LLM may know a school
  * by name but not have a confident rating).
  */
+/**
+ * M3.12 — pre-compute the flip margin for narrative consumption.
+ * Mirrors the math in scoring.ts ruleArvMargin: margin = (ARV −
+ * userOffer − renovation − holding) / userOffer where holding
+ * costs are ~5% of purchase price (rough 6mo carry estimate).
+ * Returns null when either ARV or user offer is missing — the
+ * narrative model treats null as "don't show flip math."
+ */
+function computeFlipMarginForNarrative(
+  arvCents: number | null,
+  userOfferCents: number | null | undefined,
+  renovationBudgetCents: number | null | undefined,
+): { marginPercent: number; arvCents: number; offerCents: number; renovationCents: number; holdingCents: number } | null {
+  if (
+    !arvCents ||
+    typeof userOfferCents !== "number" ||
+    userOfferCents <= 0
+  ) {
+    return null;
+  }
+  const reno = renovationBudgetCents ?? 0;
+  const holding = Math.round(userOfferCents * 0.05);
+  const margin = (arvCents - userOfferCents - reno - holding) / userOfferCents;
+  return {
+    marginPercent: margin,
+    arvCents,
+    offerCents: userOfferCents,
+    renovationCents: reno,
+    holdingCents: holding,
+  };
+}
+
+/**
+ * M3.12 — share of comps from the last 6 months. Higher recency
+ * means the appreciation_potential rule has a stronger basis for
+ * inference; lower recency means we're partly leaning on older
+ * sales that may not reflect current pricing.
+ */
+function recentCompShare(salesComps: SalesCompsSignal): number {
+  if (salesComps.comps.length === 0) return 0;
+  const now = new Date();
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+  const recent = salesComps.comps.filter((c) => {
+    const [year, month] = c.saleDateMonth.split("-").map(Number);
+    if (!year || !month) return false;
+    const saleDate = new Date(year, month - 1, 1);
+    return saleDate >= cutoff;
+  });
+  return recent.length / salesComps.comps.length;
+}
+
 function medianRating(ratings: ReadonlyArray<number | null | undefined>): number | null {
   const xs = ratings.filter((r): r is number => typeof r === "number");
   if (xs.length === 0) return null;

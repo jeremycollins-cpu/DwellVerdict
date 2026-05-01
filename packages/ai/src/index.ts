@@ -151,3 +151,25 @@ export {
   type StrCompsLookupSuccess,
   type StrCompsLookupFailure,
 } from "./tasks/str-comps-lookup";
+export {
+  lookupSalesComps,
+  SalesCompsLookupOutputSchema,
+  SALES_COMPS_LOOKUP_TASK_TYPE,
+  SALES_COMPS_LOOKUP_PROMPT_VERSION,
+  SALES_COMPS_LOOKUP_MODEL,
+  type SalesCompsLookupInput,
+  type SalesCompsLookupOutput,
+  type SalesCompsLookupSuccess,
+  type SalesCompsLookupFailure,
+} from "./tasks/sales-comps-lookup";
+export {
+  lookupMarketVelocity,
+  MarketVelocityLookupOutputSchema,
+  MARKET_VELOCITY_LOOKUP_TASK_TYPE,
+  MARKET_VELOCITY_LOOKUP_PROMPT_VERSION,
+  MARKET_VELOCITY_LOOKUP_MODEL,
+  type MarketVelocityLookupInput,
+  type MarketVelocityLookupOutput,
+  type MarketVelocityLookupSuccess,
+  type MarketVelocityLookupFailure,
+} from "./tasks/market-velocity-lookup";

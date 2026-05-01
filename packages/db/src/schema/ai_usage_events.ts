@@ -46,6 +46,12 @@ export const AI_USAGE_TASKS = [
   // profile as schools-lookup (~$0.001 per cache miss).
   "ltr-comps-lookup",
   "str-comps-lookup",
+  // M3.12 — Haiku-cached sales comp + ARV lookup and aggregate
+  // market velocity lookup. Wires up the `appreciation_potential`
+  // and `arv_margin` rules in the M3.8 scoring rubric, which
+  // previously had degraded inputs.
+  "sales-comps-lookup",
+  "market-velocity-lookup",
 ] as const;
 export type AiUsageTask = (typeof AI_USAGE_TASKS)[number];
 
@@ -119,7 +125,7 @@ export const aiUsageEvents = pgTable(
     ),
     taskCheck: check(
       "ai_usage_events_task_check",
-      sql`${table.task} IN ('regulatory-lookup', 'place-sentiment', 'scout-chat', 'verdict-narrative', 'briefs', 'alerts', 'compare', 'portfolio', 'schools-lookup', 'ltr-comps-lookup', 'str-comps-lookup')`,
+      sql`${table.task} IN ('regulatory-lookup', 'place-sentiment', 'scout-chat', 'verdict-narrative', 'briefs', 'alerts', 'compare', 'portfolio', 'schools-lookup', 'ltr-comps-lookup', 'str-comps-lookup', 'sales-comps-lookup', 'market-velocity-lookup')`,
     ),
   }),
 );

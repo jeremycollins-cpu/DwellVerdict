@@ -368,3 +368,99 @@ export const StrCompsSignalSchema = z.object({
   summary: z.string().min(1).max(500),
 });
 export type StrCompsSignal = z.infer<typeof StrCompsSignalSchema>;
+
+// ----------------------------------------------------------------
+// Sales comps + ARV (M3.12) — LLM-cached, configuration-keyed
+// ----------------------------------------------------------------
+
+/**
+ * Single recently-sold comparable. Fields are aligned with what
+ * Haiku can reasonably recall from Zillow/Redfin sold-listings
+ * coverage in its training data; address is intentionally
+ * block-level only (not exact street number) since (a) Haiku
+ * tends to hallucinate exact addresses, (b) the verdict UI doesn't
+ * expose individual street numbers anyway, (c) public-facing
+ * verdict copy avoids implying we have MLS-level granularity we
+ * don't actually have.
+ */
+export const SalesCompEntrySchema = z.object({
+  addressApproximate: z.string().min(1).max(200),
+  salePriceCents: z.number().int().positive().max(50_000_000_00),
+  saleDateMonth: z.string().regex(/^\d{4}-\d{2}$/),
+  beds: z.number().int().min(0).max(20),
+  baths: z.number().min(0).max(20),
+  sqft: z.number().int().min(100).max(50_000),
+  yearBuilt: z.number().int().min(1700).max(2030),
+  daysOnMarket: z.number().int().min(0).max(365),
+  saleType: z.enum(["standard", "distressed", "off_market", "auction"]),
+  adjustmentsSummary: z.string().min(1).max(280),
+});
+export type SalesCompEntry = z.infer<typeof SalesCompEntrySchema>;
+
+/**
+ * Sales comp + ARV signal for thesis-aware verdict generation
+ * (LTR appreciation, Owner-occupied appreciation, House-hacking,
+ * Flipping). Replaces the M3.8 placeholder where appreciation_potential
+ * relied solely on schools/walkability proxies and arv_margin was
+ * an empty placeholder rule.
+ *
+ * Cache key bucket: `${state}:${city}:${beds}-${baths}-
+ * ${sqftBucket}-${yearBucket}` where sqftBucket rounds to nearest
+ * 250 sqft and yearBucket is the decade (1970, 1980, 1990, 2000,
+ * 2010, 2020). TTL: 30 days.
+ */
+export const SalesCompsSignalSchema = z.object({
+  city: z.string().min(1).max(120),
+  state: z.string().min(2).max(2),
+  bedrooms: z.number().int().min(0).max(20).optional().nullable(),
+  bathrooms: z.number().min(0).max(20).optional().nullable(),
+  sqftBucket: z.number().int().positive().optional().nullable(),
+  yearBucket: z.number().int().min(1700).max(2030).optional().nullable(),
+  comps: z.array(SalesCompEntrySchema).max(10).default([]),
+  estimatedArvCents: z.number().int().positive().max(50_000_000_00),
+  arvConfidence: z.enum(["high", "moderate", "low"]),
+  arvRationale: z.string().min(1).max(800),
+  medianCompPriceCents: z.number().int().positive().max(50_000_000_00),
+  compPriceRangeLowCents: z.number().int().positive().max(50_000_000_00),
+  compPriceRangeHighCents: z.number().int().positive().max(50_000_000_00),
+  medianDaysOnMarket: z.number().int().min(0).max(365),
+  marketVelocity: z.enum(["fast", "moderate", "slow"]),
+  marketSummary: z.string().min(1).max(800),
+  compCount: z.number().int().min(0).max(20),
+  dataQuality: z.enum(["rich", "partial", "unavailable"]).default("partial"),
+  summary: z.string().min(1).max(800),
+});
+export type SalesCompsSignal = z.infer<typeof SalesCompsSignalSchema>;
+
+// ----------------------------------------------------------------
+// Market velocity (M3.12) — LLM-cached, city-keyed
+// ----------------------------------------------------------------
+
+/**
+ * Aggregate market velocity signal — broader than per-comp DOM,
+ * captures whether the *market* is accelerating or decelerating.
+ * Used by the appreciation_potential rule (M3.8) and surfaced as
+ * narrative context for OO/LTR-appreciation/HH/flipping verdicts.
+ *
+ * Cache key: `${state}:${city}`. TTL: 14 days (velocity shifts
+ * faster than per-property comps).
+ */
+export const MarketVelocitySignalSchema = z.object({
+  city: z.string().min(1).max(120),
+  state: z.string().min(2).max(2),
+  medianDaysOnMarketCurrent: z.number().int().min(0).max(365),
+  medianDaysOnMarketYearAgo: z.number().int().min(0).max(365),
+  trend: z.enum(["accelerating", "stable", "decelerating"]),
+  // List-to-sale: 1.0 = at list; 0.97 = 3% under list; 1.02 = 2%
+  // over list (bidding war). Realistic range: 0.7 (deep discount
+  // markets) to 1.3 (aggressive bidding).
+  listToSaleRatio: z.number().min(0.7).max(1.3),
+  // Inventory months of supply: <2 sellers' market, 2-4 balanced,
+  // 4-6 buyers' market, >6 deep buyers' market.
+  inventoryMonths: z.number().min(0).max(24),
+  demandSummary: z.string().min(1).max(500),
+  seasonalityNote: z.string().max(280).optional().nullable(),
+  dataQuality: z.enum(["rich", "partial", "unavailable"]).default("partial"),
+  summary: z.string().min(1).max(500),
+});
+export type MarketVelocitySignal = z.infer<typeof MarketVelocitySignalSchema>;
