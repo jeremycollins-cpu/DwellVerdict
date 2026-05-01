@@ -86,7 +86,14 @@ const VARIANCE_FLAG_VALUES = [
 ] as const;
 
 const CompsEvidenceSchema = z.object({
-  summary: z.string().min(1).max(500),
+  // M3.8 fix-forward: bumped 500 → 800 chars after Roseville LTR
+  // verdict regeneration produced summaries that legitimately
+  // needed more room. With M3.7 (FEMA/USGS/Census) + M3.10 (schools)
+  // + M3.13 (thesis-aware regulatory) + M3.11 (rental comps) all
+  // flowing into v3 narrative simultaneously, summaries on real
+  // verdicts genuinely run 600-800 chars. The 500 ceiling was
+  // calibrated when summaries were sparse-data placeholders.
+  summary: z.string().min(1).max(800),
   metrics: z
     .object({
       count: z.number().int().nonnegative().optional(),
@@ -115,7 +122,8 @@ const CompsEvidenceSchema = z.object({
 });
 
 const RevenueEvidenceSchema = z.object({
-  summary: z.string().min(1).max(500),
+  // M3.8 fix-forward: 500 → 800 (see CompsEvidenceSchema comment).
+  summary: z.string().min(1).max(800),
   metrics: z
     .object({
       annual_estimate: z.number().nonnegative().optional(),
@@ -127,7 +135,9 @@ const RevenueEvidenceSchema = z.object({
 });
 
 const RegulatoryEvidenceSchema = z.object({
-  summary: z.string().min(1).max(500),
+  // M3.8 fix-forward: 500 → 800. Roseville LTR rejected at 565
+  // chars (AB 1482 + Chapter 202 + SB 329 + deposits + eviction).
+  summary: z.string().min(1).max(800),
   metrics: z
     .object({
       str_status: z
@@ -143,7 +153,10 @@ const RegulatoryEvidenceSchema = z.object({
 });
 
 const LocationEvidenceSchema = z.object({
-  summary: z.string().min(1).max(500),
+  // M3.8 fix-forward: 500 → 800. Roseville LTR rejected at 580
+  // chars (walk + amenities + 4 school ratings + notable schools +
+  // flood zone + wildfire history all flowing in post-M3.10).
+  summary: z.string().min(1).max(800),
   metrics: z
     .object({
       walk_score: z.number().int().min(0).max(100).optional(),
@@ -659,10 +672,11 @@ export async function writeVerdictNarrative(
     response = await client.messages.create(
       {
         model: routing.model,
-        // Realistic worst-case output is ~1800 tokens: narrative
+        // Realistic worst-case output is ~2000 tokens: narrative
         // ≤2000 chars + summary ≤400 chars + 4 × data_points
-        // summary ≤500 chars each + optional metrics + ≤6
-        // citations × 4 domains + JSON envelope overhead. The
+        // summary ≤800 chars each (M3.8 fix-forward) + optional
+        // metrics + ≤6 citations × 4 domains + JSON envelope
+        // overhead. The
         // pre-fix 1000 cap saturated as inputs grew (post-M3.5
         // intake context + M3.6 fix-forward CRITICAL paragraph
         // + M3.7 fetchers actually returning data) — Haiku was
